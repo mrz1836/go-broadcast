@@ -4,8 +4,14 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
+	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -17,6 +23,82 @@ import (
 
 	versionpkg "github.com/mrz1836/go-broadcast/internal/version"
 )
+
+// Sentinel errors used by the upgrade tests to drive deterministic seam failures
+// without making real network/command calls.
+var (
+	errTestInstall = errors.New("simulated command failure")
+	errTestRelease = errors.New("simulated release fetch failure")
+	errTestLocate  = errors.New("simulated binary location failure")
+)
+
+// swapRunCommand overrides the runCommand seam for the duration of the test.
+// Tests using the upgrade seams must NOT call t.Parallel(), since the seams are
+// package-level globals shared across the package.
+func swapRunCommand(t *testing.T, fn func(ctx context.Context, name string, args ...string) error) {
+	t.Helper()
+	prev := runCommand
+	runCommand = fn
+	t.Cleanup(func() { runCommand = prev })
+}
+
+// swapGetLatestRelease overrides the getLatestRelease seam for the test duration.
+func swapGetLatestRelease(t *testing.T, fn func(ctx context.Context, owner, repo string) (*versionpkg.GitHubRelease, error)) {
+	t.Helper()
+	prev := getLatestRelease
+	getLatestRelease = fn
+	t.Cleanup(func() { getLatestRelease = prev })
+}
+
+// swapLocateBinary overrides the locateBinary seam for the test duration.
+func swapLocateBinary(t *testing.T, fn func() (string, error)) {
+	t.Helper()
+	prev := locateBinary
+	locateBinary = fn
+	t.Cleanup(func() { locateBinary = prev })
+}
+
+// swapDownloadServer points the binary-download seams at a local httptest server
+// for the test duration, ensuring no real github.com request is made.
+func swapDownloadServer(t *testing.T, handler http.HandlerFunc) {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	prevURL, prevClient := githubDownloadBaseURL, upgradeHTTPClient
+	githubDownloadBaseURL = srv.URL
+	upgradeHTTPClient = srv.Client()
+	t.Cleanup(func() {
+		srv.Close()
+		githubDownloadBaseURL = prevURL
+		upgradeHTTPClient = prevClient
+	})
+}
+
+// swapCurrentVersion sets the reported current version for the test duration.
+func swapCurrentVersion(t *testing.T, v string) {
+	t.Helper()
+	prev := getVersionRaw()
+	setVersion(v)
+	t.Cleanup(func() { setVersion(prev) })
+}
+
+// makeTarGz builds an in-memory tar.gz archive containing a single file.
+func makeTarGz(t *testing.T, name, content string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gw)
+	require.NoError(t, tw.WriteHeader(&tar.Header{
+		Name:     name,
+		Mode:     0o755,
+		Size:     int64(len(content)),
+		Typeflag: tar.TypeReg,
+	}))
+	_, err := tw.Write([]byte(content))
+	require.NoError(t, err)
+	require.NoError(t, tw.Close())
+	require.NoError(t, gw.Close())
+	return buf.Bytes()
+}
 
 func TestNewUpgradeCmd(t *testing.T) {
 	t.Parallel()
@@ -805,338 +887,199 @@ func TestNewUpgradeCmdFlagParsing(t *testing.T) {
 	require.True(t, useBinary)
 }
 
-// TestUpgradeGoInstall tests the upgradeGoInstall function with mocked execution
+// TestUpgradeGoInstall verifies the go install command is constructed correctly
+// and that command failures are wrapped, using the runCommand seam so no real
+// "go install" (and thus no module-proxy network call) is performed.
 func TestUpgradeGoInstall(t *testing.T) {
-	t.Parallel()
+	var gotArgs []string
+	swapRunCommand(t, func(_ context.Context, name string, args ...string) error {
+		gotArgs = append([]string{name}, args...)
+		return nil
+	})
 
-	// Test version formatting for go install command
-	testVersion := "1.2.3"
-	expectedCmd := "github.com/mrz1836/go-broadcast/cmd/go-broadcast@v1.2.3"
+	require.NoError(t, upgradeGoInstall("1.2.3"))
+	assert.Equal(t, []string{"go", "install", "github.com/mrz1836/go-broadcast/cmd/go-broadcast@v1.2.3"}, gotArgs)
 
-	// We can't easily mock exec.CommandContext without major refactoring
-	// But we can test that the function exists and has the right signature
-	err := upgradeGoInstall(testVersion)
-	if err != nil {
-		// Expected in test environment without network access
-		assert.Contains(t, err.Error(), "go install failed")
-	}
+	// Empty version still produces a (malformed) command; callers validate upstream.
+	require.NoError(t, upgradeGoInstall(""))
+	assert.Equal(t, []string{"go", "install", "github.com/mrz1836/go-broadcast/cmd/go-broadcast@v"}, gotArgs)
 
-	// Test with empty version
-	err = upgradeGoInstall("")
-	if err != nil {
-		assert.Contains(t, err.Error(), "go install failed")
-	}
-
-	// Verify command construction (indirect test)
-	_ = expectedCmd // Command format is tested implicitly
-}
-
-// TestUpgradeBinary tests the upgradeBinary function
-func TestUpgradeBinary(t *testing.T) {
-	t.Parallel()
-
-	// Test with invalid version (should fail to download)
-	testVersion := "999.999.999"
-	err := upgradeBinary(testVersion)
+	// Command failures are wrapped with a helpful message.
+	swapRunCommand(t, func(_ context.Context, _ string, _ ...string) error {
+		return errTestInstall
+	})
+	err := upgradeGoInstall("1.2.3")
 	require.Error(t, err)
-	// Could fail at binary location detection OR download step
-	assert.True(t,
-		strings.Contains(err.Error(), "could not determine current binary location") ||
-			strings.Contains(err.Error(), "failed to download binary"),
-		"Expected error about binary location or download failure, got: %s", err.Error())
+	assert.Contains(t, err.Error(), "go install failed")
 }
 
-// TestUpgradeBinaryErrorPaths tests various error scenarios in upgradeBinary
-func TestUpgradeBinaryErrorPaths(t *testing.T) {
-	t.Parallel()
+// TestUpgradeBinary exercises upgradeBinary against a local httptest server and a
+// stubbed binary locator, so no real github.com download is ever attempted.
+func TestUpgradeBinary(t *testing.T) {
+	t.Run("download HTTP 404", func(t *testing.T) {
+		swapLocateBinary(t, func() (string, error) {
+			return filepath.Join(t.TempDir(), "go-broadcast"), nil
+		})
+		swapDownloadServer(t, func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		})
 
-	// Test case 1: Invalid version that will fail download
-	t.Run("invalid version download failure", func(t *testing.T) {
-		// Use a version that doesn't exist
-		invalidVersion := "0.0.1-nonexistent"
-		err := upgradeBinary(invalidVersion)
+		err := upgradeBinary("999.999.999")
 		require.Error(t, err)
-		// Should fail either at binary location or download
-		assert.True(t,
-			strings.Contains(err.Error(), "could not determine current binary location") ||
-				strings.Contains(err.Error(), "failed to download binary"),
-			"Expected binary location or download error, got: %s", err.Error())
+		require.ErrorIs(t, err, ErrDownloadFailed)
 	})
 
-	// Test case 2: Version with special characters that might cause URL issues
-	t.Run("malformed version", func(t *testing.T) {
-		// Version with characters that could cause URL problems
-		malformedVersion := "1.0.0+build.123"
-		err := upgradeBinary(malformedVersion)
+	t.Run("binary location failure", func(t *testing.T) {
+		swapLocateBinary(t, func() (string, error) {
+			return "", errTestLocate
+		})
+
+		err := upgradeBinary("1.2.3")
 		require.Error(t, err)
-		// Should fail at some point in the process
-		assert.NotEmpty(t, err.Error())
+		assert.Contains(t, err.Error(), "could not determine current binary location")
 	})
 
-	// Test case 3: Empty version string
-	t.Run("empty version", func(t *testing.T) {
-		emptyVersion := ""
-		err := upgradeBinary(emptyVersion)
-		require.Error(t, err)
-		// Should fail at binary location or download
-		assert.True(t,
-			strings.Contains(err.Error(), "could not determine current binary location") ||
-				strings.Contains(err.Error(), "failed to download binary"),
-			"Expected binary location or download error, got: %s", err.Error())
+	t.Run("successful upgrade replaces binary", func(t *testing.T) {
+		binPath := filepath.Join(t.TempDir(), "go-broadcast")
+		require.NoError(t, os.WriteFile(binPath, []byte("old binary"), 0o600))
+		swapLocateBinary(t, func() (string, error) { return binPath, nil })
+
+		archive := makeTarGz(t, "go-broadcast", "new binary content")
+		swapDownloadServer(t, func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write(archive)
+		})
+
+		require.NoError(t, upgradeBinary("1.2.3"))
+
+		got, err := os.ReadFile(binPath) //nolint:gosec // binPath is a test-controlled temp file
+		require.NoError(t, err)
+		assert.Equal(t, "new binary content", string(got))
 	})
 
-	// Test case 4: Version that constructs invalid download URL
-	t.Run("version causing invalid URL", func(t *testing.T) {
-		// This will create a URL that doesn't exist on GitHub
-		nonExistentVersion := "999.888.777"
-		err := upgradeBinary(nonExistentVersion)
+	t.Run("archive missing binary", func(t *testing.T) {
+		binPath := filepath.Join(t.TempDir(), "go-broadcast")
+		require.NoError(t, os.WriteFile(binPath, []byte("old binary"), 0o600))
+		swapLocateBinary(t, func() (string, error) { return binPath, nil })
+
+		archive := makeTarGz(t, "README.md", "no binary here")
+		swapDownloadServer(t, func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write(archive)
+		})
+
+		err := upgradeBinary("1.2.3")
 		require.Error(t, err)
-		// Should fail at download step with HTTP error
-		assert.True(t,
-			strings.Contains(err.Error(), "could not determine current binary location") ||
-				strings.Contains(err.Error(), "failed to download binary"),
-			"Expected binary location or download error, got: %s", err.Error())
-	})
-}
-
-// TestUpgradeBinaryNetworkErrorPaths tests network-related error scenarios
-func TestUpgradeBinaryNetworkErrorPaths(t *testing.T) {
-	t.Parallel()
-
-	// Test with a version that will result in HTTP 404
-	t.Run("HTTP 404 error", func(t *testing.T) {
-		// Use a realistic but non-existent version
-		nonExistentVersion := "99.99.99"
-		err := upgradeBinary(nonExistentVersion)
-		require.Error(t, err)
-		// Should fail with download error or binary location error
-		assert.NotEmpty(t, err.Error())
-	})
-
-	// Test various version formats that might cause issues
-	t.Run("various version formats", func(t *testing.T) {
-		testVersions := []string{
-			"1.0.0-alpha",
-			"2.0.0-beta.1",
-			"3.0.0-rc.1",
-			"invalid-version",
-		}
-
-		for _, testVersion := range testVersions {
-			t.Run(fmt.Sprintf("version_%s", testVersion), func(t *testing.T) {
-				err := upgradeBinary(testVersion)
-				// All of these should fail since they don't exist
-				require.Error(t, err)
-				assert.NotEmpty(t, err.Error())
-			})
-		}
+		require.ErrorIs(t, err, ErrBinaryNotFoundInArchive)
 	})
 }
 
-// TestUpgradeBinaryIntegrationPaths tests integration scenarios
-func TestUpgradeBinaryIntegrationPaths(t *testing.T) {
-	t.Parallel()
-
-	// Test the complete flow with a version that will definitely fail
-	t.Run("complete flow failure", func(t *testing.T) {
-		// This tests the entire upgradeBinary function flow
-		// It will fail at some point, exercising error handling
-		testVersion := "0.1.0-test-nonexistent"
-		err := upgradeBinary(testVersion)
-		require.Error(t, err)
-
-		// Verify we get a meaningful error message
-		errorMsg := err.Error()
-		assert.NotEmpty(t, errorMsg)
-
-		// Should be one of the expected error types
-		expectedErrors := []string{
-			"could not determine current binary location",
-			"failed to download binary",
-			"could not create temporary directory",
-			"could not extract binary",
-			"could not backup current binary",
-			"could not replace binary",
-		}
-
-		hasExpectedError := false
-		for _, expectedError := range expectedErrors {
-			if strings.Contains(errorMsg, expectedError) {
-				hasExpectedError = true
-				break
-			}
-		}
-
-		assert.True(t, hasExpectedError,
-			"Expected one of the expected error types, got: %s", errorMsg)
-	})
-}
-
-// TestRunUpgradeWithConfigErrorPaths tests error scenarios in runUpgradeWithConfig
+// TestRunUpgradeWithConfigErrorPaths exercises runUpgradeWithConfig's branches
+// using the release/command/download seams, so every scenario is deterministic
+// and no real GitHub API, module proxy, or download request is made.
 func TestRunUpgradeWithConfigErrorPaths(t *testing.T) {
-	t.Parallel()
-
-	// Test case 1: GitHub API failure
-	t.Run("github API failure", func(t *testing.T) {
-		// Create a mock command for testing
+	newCmd := func() *cobra.Command {
 		cmd := &cobra.Command{}
 		cmd.Flags().Bool("verbose", false, "")
+		return cmd
+	}
 
-		// Test with a configuration that will trigger GitHub API call
-		config := UpgradeConfig{
-			Force:     false,
-			CheckOnly: false,
-			UseBinary: false,
-		}
+	// Release lookup failure surfaces as "failed to check for updates".
+	t.Run("release fetch failure", func(t *testing.T) {
+		swapCurrentVersion(t, "0.5.0")
+		swapGetLatestRelease(t, func(context.Context, string, string) (*versionpkg.GitHubRelease, error) {
+			return nil, errTestRelease
+		})
 
-		// This will actually try to call GitHub API and likely fail in test environment
-		// or succeed but then fail at upgrade steps
-		err := runUpgradeWithConfig(cmd, config)
-		// Either way, we're testing the function's ability to handle various error conditions
-		if err != nil {
-			// Check that we get a meaningful error
-			assert.NotEmpty(t, err.Error())
-			// Could be GitHub API error, upgrade error, or dev version error
-			assert.True(t,
-				strings.Contains(err.Error(), "failed to check for updates") ||
-					strings.Contains(err.Error(), "upgrade methods failed") ||
-					strings.Contains(err.Error(), "development build"),
-				"Unexpected error: %s", err.Error())
-		}
+		err := runUpgradeWithConfig(newCmd(), UpgradeConfig{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to check for updates")
 	})
 
-	// Test case 2: Development version without force
+	// A development version without --force is rejected before any network call.
 	t.Run("dev version without force", func(t *testing.T) {
-		// Testing with actual current version since GetCurrentVersion uses globals
+		swapCurrentVersion(t, devVersionString)
+		swapGetLatestRelease(t, func(context.Context, string, string) (*versionpkg.GitHubRelease, error) {
+			t.Fatal("release lookup should not happen for dev version without --force")
+			return nil, errTestRelease
+		})
 
-		cmd := &cobra.Command{}
-		cmd.Flags().Bool("verbose", false, "")
-
-		config := UpgradeConfig{
-			Force:     false,
-			CheckOnly: false,
-			UseBinary: false,
-		}
-
-		// Test will either succeed (if current version is not dev) or fail appropriately
-		err := runUpgradeWithConfig(cmd, config)
-		// If error occurs, it should be meaningful
-		if err != nil {
-			errorMsg := err.Error()
-			assert.NotEmpty(t, errorMsg)
-			// Should be one of the expected errors
-			expectedErrors := []string{
-				"development build",
-				"failed to check for updates",
-				"upgrade methods failed",
-			}
-			hasExpectedError := false
-			for _, expectedError := range expectedErrors {
-				if strings.Contains(errorMsg, expectedError) {
-					hasExpectedError = true
-					break
-				}
-			}
-			assert.True(t, hasExpectedError, "Expected known error, got: %s", errorMsg)
-		}
+		err := runUpgradeWithConfig(newCmd(), UpgradeConfig{})
+		require.ErrorIs(t, err, ErrDevVersionNoForce)
 	})
 
-	// Test case 3: Check-only mode with different scenarios
-	t.Run("check only mode", func(t *testing.T) {
-		cmd := &cobra.Command{}
-		cmd.Flags().Bool("verbose", false, "")
+	// Check-only mode reports availability without attempting an upgrade.
+	t.Run("check only reports newer version", func(t *testing.T) {
+		swapCurrentVersion(t, "0.5.0")
+		swapGetLatestRelease(t, func(context.Context, string, string) (*versionpkg.GitHubRelease, error) {
+			return &versionpkg.GitHubRelease{TagName: "v1.0.0"}, nil
+		})
+		swapRunCommand(t, func(context.Context, string, ...string) error {
+			t.Fatal("check-only mode must not run any upgrade command")
+			return nil
+		})
 
-		config := UpgradeConfig{
-			Force:     false,
-			CheckOnly: true, // This should prevent actual upgrade attempts
-			UseBinary: false,
-		}
-
-		// Check-only should either succeed or fail at GitHub API step
-		err := runUpgradeWithConfig(cmd, config)
-		if err != nil {
-			// Should be GitHub API error in check-only mode
-			assert.True(t,
-				strings.Contains(err.Error(), "failed to check for updates") ||
-					strings.Contains(err.Error(), "development build"),
-				"Expected GitHub API or dev version error in check-only mode, got: %s", err.Error())
-		}
+		require.NoError(t, runUpgradeWithConfig(newCmd(), UpgradeConfig{CheckOnly: true}))
 	})
 
-	// Test case 4: Force mode with binary upgrade
-	t.Run("force mode with binary upgrade", func(t *testing.T) {
-		cmd := &cobra.Command{}
-		cmd.Flags().Bool("verbose", false, "")
+	// Force go install path: when both methods fail, the combined error is returned.
+	t.Run("force install with both methods failing", func(t *testing.T) {
+		swapCurrentVersion(t, "1.0.0")
+		swapGetLatestRelease(t, func(context.Context, string, string) (*versionpkg.GitHubRelease, error) {
+			return &versionpkg.GitHubRelease{TagName: "v1.0.0"}, nil
+		})
+		swapRunCommand(t, func(context.Context, string, ...string) error {
+			return errTestInstall // go install fails
+		})
+		swapLocateBinary(t, func() (string, error) {
+			return "", errTestLocate // binary fallback fails too
+		})
 
-		config := UpgradeConfig{
-			Force:     true, // Force should bypass version checks
-			CheckOnly: false,
-			UseBinary: true, // Use binary upgrade path
-		}
-
-		// This will attempt upgrade and likely fail at some point
-		err := runUpgradeWithConfig(cmd, config)
-		if err != nil {
-			errorMsg := err.Error()
-			assert.NotEmpty(t, errorMsg)
-			// Should be GitHub API error or upgrade failure
-			assert.True(t,
-				strings.Contains(errorMsg, "failed to check for updates") ||
-					strings.Contains(errorMsg, "upgrade methods failed"),
-				"Expected GitHub API or upgrade error, got: %s", errorMsg)
-		}
+		err := runUpgradeWithConfig(newCmd(), UpgradeConfig{Force: true})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "upgrade methods failed")
 	})
 
-	// Test case 5: Force mode with go install
-	t.Run("force mode with go install", func(t *testing.T) {
-		cmd := &cobra.Command{}
-		cmd.Flags().Bool("verbose", false, "")
+	// Force go install path: success.
+	t.Run("force install succeeds", func(t *testing.T) {
+		swapCurrentVersion(t, "1.0.0")
+		swapGetLatestRelease(t, func(context.Context, string, string) (*versionpkg.GitHubRelease, error) {
+			return &versionpkg.GitHubRelease{TagName: "v1.0.0"}, nil
+		})
+		swapRunCommand(t, func(context.Context, string, ...string) error { return nil })
 
-		config := UpgradeConfig{
-			Force:     true,
-			CheckOnly: false,
-			UseBinary: false, // Use go install path
-		}
+		require.NoError(t, runUpgradeWithConfig(newCmd(), UpgradeConfig{Force: true}))
+	})
 
-		// This will attempt upgrade and likely fail at some point
-		err := runUpgradeWithConfig(cmd, config)
-		if err != nil {
-			errorMsg := err.Error()
-			assert.NotEmpty(t, errorMsg)
-			// Should be GitHub API error or upgrade failure
-			assert.True(t,
-				strings.Contains(errorMsg, "failed to check for updates") ||
-					strings.Contains(errorMsg, "upgrade methods failed"),
-				"Expected GitHub API or upgrade error, got: %s", errorMsg)
-		}
+	// Force binary path: success via local download server.
+	t.Run("force binary upgrade succeeds", func(t *testing.T) {
+		swapCurrentVersion(t, "1.0.0")
+		swapGetLatestRelease(t, func(context.Context, string, string) (*versionpkg.GitHubRelease, error) {
+			return &versionpkg.GitHubRelease{TagName: "v1.0.0"}, nil
+		})
+		binPath := filepath.Join(t.TempDir(), "go-broadcast")
+		require.NoError(t, os.WriteFile(binPath, []byte("old binary"), 0o600))
+		swapLocateBinary(t, func() (string, error) { return binPath, nil })
+		archive := makeTarGz(t, "go-broadcast", "new binary content")
+		swapDownloadServer(t, func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write(archive)
+		})
+
+		require.NoError(t, runUpgradeWithConfig(newCmd(), UpgradeConfig{Force: true, UseBinary: true}))
 	})
 }
 
-// TestRunUpgradeWithConfigVerboseMode tests verbose output scenarios
+// TestRunUpgradeWithConfigVerboseMode verifies the verbose flag path is handled
+// without panics, using the release seam so no real network call occurs.
 func TestRunUpgradeWithConfigVerboseMode(t *testing.T) {
-	t.Parallel()
-
-	// Test verbose flag handling
-	t.Run("verbose flag handling", func(t *testing.T) {
-		cmd := &cobra.Command{}
-		cmd.Flags().Bool("verbose", true, "") // Enable verbose mode
-
-		config := UpgradeConfig{
-			Force:     false,
-			CheckOnly: true, // Use check-only to avoid actual upgrade
-			UseBinary: false,
-		}
-
-		// Test that the function can handle verbose flag retrieval
-		err := runUpgradeWithConfig(cmd, config)
-		// Focus on testing that verbose flag doesn't cause panics
-		// Error is expected due to network calls in test environment
-		if err != nil {
-			assert.NotEmpty(t, err.Error())
-			// Should be meaningful error, not panic from flag handling
-			assert.NotContains(t, err.Error(), "panic")
-		}
+	swapCurrentVersion(t, "0.5.0")
+	swapGetLatestRelease(t, func(context.Context, string, string) (*versionpkg.GitHubRelease, error) {
+		return &versionpkg.GitHubRelease{TagName: "v1.0.0", Body: "Release notes line"}, nil
 	})
+
+	cmd := &cobra.Command{}
+	cmd.Flags().Bool("verbose", true, "") // Enable verbose mode
+
+	// Check-only mode avoids an actual upgrade while still exercising verbose handling.
+	require.NoError(t, runUpgradeWithConfig(cmd, UpgradeConfig{CheckOnly: true}))
 }
 
 // TestExtractBinaryFromArchive tests archive extraction

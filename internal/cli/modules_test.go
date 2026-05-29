@@ -470,6 +470,27 @@ func TestFetchGitTags(t *testing.T) {
 	}
 }
 
+// TestFetchGitTags_ParsesOutput exercises the tag-parsing success path with a
+// stubbed git command, so no real `git ls-remote` network call is made. This test
+// must not call t.Parallel() because it overrides the package-level seam.
+func TestFetchGitTags_ParsesOutput(t *testing.T) {
+	prev := gitLsRemoteTags
+	gitLsRemoteTags = func(context.Context, string) ([]byte, error) {
+		return []byte(
+			"abc123\trefs/tags/v1.0.0\n" +
+				"def456\trefs/tags/v1.1.0\n" +
+				"def456\trefs/tags/v1.1.0^{}\n" + // annotated tag marker, must be skipped
+				"ghi789\trefs/tags/v2.0.0\n" +
+				"\n", // blank line, must be skipped
+		), nil
+	}
+	t.Cleanup(func() { gitLsRemoteTags = prev })
+
+	versions, err := fetchGitTags(context.Background(), "org/repo")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"v1.0.0", "v1.1.0", "v2.0.0"}, versions)
+}
+
 // TestFetchGitTags_SecurityValidation tests command injection prevention
 func TestFetchGitTags_SecurityValidation(t *testing.T) {
 	t.Parallel()

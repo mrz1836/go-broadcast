@@ -12,18 +12,11 @@ import (
 
 // TestAutomergeEnvironmentVariableParsing tests the parsing of automerge labels from environment variable
 func TestAutomergeEnvironmentVariableParsing(t *testing.T) {
-	// Save original environment and restore after test
-	originalEnv := os.Getenv("GO_BROADCAST_AUTOMERGE_LABELS")
-	defer func() {
-		if originalEnv != "" {
-			_ = os.Setenv("GO_BROADCAST_AUTOMERGE_LABELS", originalEnv)
-		} else {
-			_ = os.Unsetenv("GO_BROADCAST_AUTOMERGE_LABELS")
-		}
-	}()
+	// Each subtest scopes the env var with t.Setenv so it is automatically
+	// restored and never leaks process-wide into other (e.g. review-pr) tests.
 
 	t.Run("parses comma-separated labels", func(t *testing.T) {
-		_ = os.Setenv("GO_BROADCAST_AUTOMERGE_LABELS", "automerge,ready-to-merge,auto-merge")
+		t.Setenv("GO_BROADCAST_AUTOMERGE_LABELS", "automerge,ready-to-merge,auto-merge")
 
 		// Simulate the environment variable parsing logic from sync.go
 		flags := &Flags{Automerge: true}
@@ -45,7 +38,7 @@ func TestAutomergeEnvironmentVariableParsing(t *testing.T) {
 	})
 
 	t.Run("trims whitespace around labels", func(t *testing.T) {
-		_ = os.Setenv("GO_BROADCAST_AUTOMERGE_LABELS", " automerge , ready-to-merge ,  auto-merge  ")
+		t.Setenv("GO_BROADCAST_AUTOMERGE_LABELS", " automerge , ready-to-merge ,  auto-merge  ")
 
 		flags := &Flags{Automerge: true}
 		var automergeLabels []string
@@ -65,7 +58,7 @@ func TestAutomergeEnvironmentVariableParsing(t *testing.T) {
 	})
 
 	t.Run("ignores empty labels", func(t *testing.T) {
-		_ = os.Setenv("GO_BROADCAST_AUTOMERGE_LABELS", "automerge,,ready-to-merge, ,auto-merge")
+		t.Setenv("GO_BROADCAST_AUTOMERGE_LABELS", "automerge,,ready-to-merge, ,auto-merge")
 
 		flags := &Flags{Automerge: true}
 		var automergeLabels []string
@@ -85,7 +78,7 @@ func TestAutomergeEnvironmentVariableParsing(t *testing.T) {
 	})
 
 	t.Run("returns empty when env var is empty", func(t *testing.T) {
-		_ = os.Setenv("GO_BROADCAST_AUTOMERGE_LABELS", "")
+		t.Setenv("GO_BROADCAST_AUTOMERGE_LABELS", "")
 
 		flags := &Flags{Automerge: true}
 		var automergeLabels []string
@@ -104,7 +97,7 @@ func TestAutomergeEnvironmentVariableParsing(t *testing.T) {
 	})
 
 	t.Run("returns empty when env var is not set", func(t *testing.T) {
-		_ = os.Unsetenv("GO_BROADCAST_AUTOMERGE_LABELS")
+		t.Setenv("GO_BROADCAST_AUTOMERGE_LABELS", "")
 
 		flags := &Flags{Automerge: true}
 		var automergeLabels []string
@@ -123,7 +116,7 @@ func TestAutomergeEnvironmentVariableParsing(t *testing.T) {
 	})
 
 	t.Run("returns empty when automerge is disabled", func(t *testing.T) {
-		_ = os.Setenv("GO_BROADCAST_AUTOMERGE_LABELS", "automerge,ready-to-merge")
+		t.Setenv("GO_BROADCAST_AUTOMERGE_LABELS", "automerge,ready-to-merge")
 
 		flags := &Flags{Automerge: false} // Automerge disabled
 		var automergeLabels []string
@@ -144,18 +137,11 @@ func TestAutomergeEnvironmentVariableParsing(t *testing.T) {
 
 // TestSyncEngineAutomergeOptions tests that automerge options are properly set in sync engine
 func TestSyncEngineAutomergeOptions(t *testing.T) {
-	// Save original environment and restore after test
-	originalEnv := os.Getenv("GO_BROADCAST_AUTOMERGE_LABELS")
-	defer func() {
-		if originalEnv != "" {
-			_ = os.Setenv("GO_BROADCAST_AUTOMERGE_LABELS", originalEnv)
-		} else {
-			_ = os.Unsetenv("GO_BROADCAST_AUTOMERGE_LABELS")
-		}
-	}()
+	// Each subtest scopes the env var with t.Setenv so it is automatically
+	// restored and never leaks process-wide into other tests.
 
 	t.Run("sync options include automerge settings when enabled", func(t *testing.T) {
-		_ = os.Setenv("GO_BROADCAST_AUTOMERGE_LABELS", "automerge,ready-to-merge")
+		t.Setenv("GO_BROADCAST_AUTOMERGE_LABELS", "automerge,ready-to-merge")
 
 		flags := &Flags{
 			Automerge: true,
@@ -188,7 +174,7 @@ func TestSyncEngineAutomergeOptions(t *testing.T) {
 	})
 
 	t.Run("sync options exclude automerge when disabled", func(t *testing.T) {
-		_ = os.Setenv("GO_BROADCAST_AUTOMERGE_LABELS", "automerge,ready-to-merge")
+		t.Setenv("GO_BROADCAST_AUTOMERGE_LABELS", "automerge,ready-to-merge")
 
 		flags := &Flags{
 			Automerge: false, // Disabled

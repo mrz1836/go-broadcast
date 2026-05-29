@@ -270,6 +270,25 @@ func TestShowRecentRuns(t *testing.T) {
 		err := showRecentRuns(context.Background(), syncRepo, "7d", true)
 		require.NoError(t, err)
 	})
+
+	t.Run("WithRuns", func(t *testing.T) {
+		t.Parallel()
+
+		gormDB := db.TestDB(t)
+		syncRepo := db.NewBroadcastSyncRepo(gormDB)
+		ctx := context.Background()
+
+		require.NoError(t, syncRepo.CreateSyncRun(ctx, &db.BroadcastSyncRun{
+			ExternalID:        "SR-recent-1",
+			StartedAt:         time.Now().Add(-2 * time.Hour),
+			Status:            db.BroadcastSyncRunStatusSuccess,
+			TotalTargets:      3,
+			SuccessfulTargets: 3,
+			DurationMs:        4200,
+		}))
+
+		require.NoError(t, showRecentRuns(ctx, syncRepo, "7d", false))
+	})
 }
 
 // TestShowRunDetails tests the showRunDetails function
@@ -284,5 +303,103 @@ func TestShowRunDetails(t *testing.T) {
 
 		err := showRunDetails(context.Background(), syncRepo, "SR-nonexistent", false)
 		require.Error(t, err)
+	})
+
+	t.Run("FoundWithResults", func(t *testing.T) {
+		t.Parallel()
+
+		gormDB := db.TestDB(t)
+		syncRepo := db.NewBroadcastSyncRepo(gormDB)
+		ctx := context.Background()
+
+		ended := time.Now()
+		prNum := 42
+		run := &db.BroadcastSyncRun{
+			ExternalID:        "SR-detail-1",
+			StartedAt:         time.Now().Add(-time.Hour),
+			EndedAt:           &ended,
+			DurationMs:        5000,
+			Status:            db.BroadcastSyncRunStatusPartial,
+			Trigger:           db.BroadcastSyncRunTriggerManual,
+			TotalTargets:      2,
+			SuccessfulTargets: 1,
+			FailedTargets:     1,
+			TotalFilesChanged: 3,
+			TotalLinesAdded:   10,
+			TotalLinesRemoved: 2,
+			ErrorSummary:      "one target failed",
+		}
+		require.NoError(t, syncRepo.CreateSyncRun(ctx, run))
+
+		require.NoError(t, syncRepo.CreateTargetResult(ctx, &db.BroadcastSyncTargetResult{
+			BroadcastSyncRunID: run.ID,
+			TargetID:           1,
+			RepoID:             1,
+			StartedAt:          time.Now(),
+			Status:             db.BroadcastSyncTargetStatusSuccess,
+			FilesChanged:       3,
+			PRNumber:           &prNum,
+		}))
+		require.NoError(t, syncRepo.CreateTargetResult(ctx, &db.BroadcastSyncTargetResult{
+			BroadcastSyncRunID: run.ID,
+			TargetID:           2,
+			RepoID:             2,
+			StartedAt:          time.Now(),
+			Status:             db.BroadcastSyncTargetStatusFailed,
+			ErrorMessage:       "boom",
+		}))
+
+		require.NoError(t, showRunDetails(ctx, syncRepo, "SR-detail-1", false))
+		require.NoError(t, showRunDetails(ctx, syncRepo, "SR-detail-1", true))
+	})
+}
+
+// TestShowRepoHistory tests showRepoHistory beyond the invalid-format case.
+func TestShowRepoHistory(t *testing.T) {
+	t.Parallel()
+
+	t.Run("NumericIDNoRuns", func(t *testing.T) {
+		t.Parallel()
+
+		gormDB := db.TestDB(t)
+		syncRepo := db.NewBroadcastSyncRepo(gormDB)
+
+		require.NoError(t, showRepoHistory(context.Background(), syncRepo, gormDB, "999", false))
+	})
+
+	t.Run("NumericIDWithRuns", func(t *testing.T) {
+		t.Parallel()
+
+		gormDB := db.TestDB(t)
+		syncRepo := db.NewBroadcastSyncRepo(gormDB)
+		ctx := context.Background()
+
+		run := &db.BroadcastSyncRun{
+			ExternalID: "SR-hist-1",
+			StartedAt:  time.Now(),
+			Status:     db.BroadcastSyncRunStatusSuccess,
+		}
+		require.NoError(t, syncRepo.CreateSyncRun(ctx, run))
+		require.NoError(t, syncRepo.CreateTargetResult(ctx, &db.BroadcastSyncTargetResult{
+			BroadcastSyncRunID: run.ID,
+			TargetID:           1,
+			RepoID:             7,
+			StartedAt:          time.Now(),
+			Status:             db.BroadcastSyncTargetStatusSuccess,
+		}))
+
+		require.NoError(t, showRepoHistory(ctx, syncRepo, gormDB, "7", false))
+		require.NoError(t, showRepoHistory(ctx, syncRepo, gormDB, "7", true))
+	})
+
+	t.Run("OwnerNameNotFound", func(t *testing.T) {
+		t.Parallel()
+
+		gormDB := db.TestDB(t)
+		syncRepo := db.NewBroadcastSyncRepo(gormDB)
+
+		err := showRepoHistory(context.Background(), syncRepo, gormDB, "missing/repo", false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not found in database")
 	})
 }
