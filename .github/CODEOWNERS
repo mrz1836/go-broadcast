@@ -10,8 +10,6 @@
 .github/scripts/* @mrz1836
 .github/workflows/* @mrz1836
 .github/env/* @mrz1836
-.github/.env.base @mrz1836
-.github/.env.custom @mrz1836
 
 # MAGE-X
 .mage.yaml @mrz1836
