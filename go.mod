@@ -87,7 +87,7 @@ require (
 replace github.com/golang-jwt/jwt/v5 => github.com/golang-jwt/jwt/v5 v5.3.1
 
 // Fix CVE-2025-67818: Path Traversal vulnerability in backup modules
-replace github.com/weaviate/weaviate => github.com/weaviate/weaviate v1.37.2
+replace github.com/weaviate/weaviate => github.com/weaviate/weaviate v1.37.6
 
 // Pin to v0.13.0: v0.14.0 switched Properties from wk8/go-ordered-map to pb33f/ordered-map,
 // breaking dotprompt (github.com/google/dotprompt/go) which still imports wk8.
