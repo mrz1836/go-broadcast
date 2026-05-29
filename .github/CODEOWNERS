@@ -43,7 +43,7 @@ codecov.yml @mrz1836
 
 # Security and configuration files
 .github/SECURITY.md @mrz1836
-.github/.gitleaks.toml @mrz1836
+.gitleaksignore @mrz1836
 
 # Repository configuration
 .github/labels.yml @mrz1836

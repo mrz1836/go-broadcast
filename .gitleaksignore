@@ -1,0 +1,81 @@
+# .gitleaksignore
+#
+# Suppresses known false-positive secret findings so gitleaks runs clean
+# against the default ruleset (this repo no longer ships a custom
+# .gitleaks.toml). Every entry below is a fake/example credential living in
+# test fixtures, benchmarks, docs, or planning notes -- not a real secret.
+#
+# Each line is a gitleaks "fingerprint". Two formats appear because gitleaks
+# emits different fingerprints depending on scan mode, and we want the ignore
+# list to work for all of them:
+#   * git-history scans (CI gitleaks-action, go-pre-commit git mode):
+#       <commit>:<file>:<rule>:<line>
+#   * directory scans (gitleaks detect --no-git --source .):
+#       <file>:<rule>:<line>
+#
+# Maintenance notes:
+#   * A NEW fake secret added in a future commit produces a NEW fingerprint
+#     (new commit SHA / line number) and must be added here explicitly --
+#     there is no path-glob allowlisting without a .gitleaks.toml.
+#   * To regenerate after intentional changes, run a gitleaks scan with
+#     --report-format json and copy the "Fingerprint" values:
+#       gitleaks detect --source . --report-path leaks.json --report-format json
+#       gitleaks detect --no-git --source . --report-path leaks-nogit.json --report-format json
+
+# --- git-history scan fingerprints (commit:file:rule:line) ---
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:docs/logging.md:github-pat:256
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:internal/cli/logger_test.go:generic-api-key:331
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:internal/git/git_test.go:generic-api-key:1122
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:internal/git/git_test.go:generic-api-key:1282
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:internal/logging/benchmark_test.go:generic-api-key:111
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:internal/logging/benchmark_test.go:generic-api-key:187
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:internal/logging/benchmark_test.go:generic-api-key:192
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:internal/logging/benchmark_test.go:generic-api-key:20
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:internal/logging/benchmark_test.go:generic-api-key:269
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:internal/logging/benchmark_test.go:generic-api-key:51
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:internal/logging/benchmark_test.go:jwt:50
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:internal/logging/benchmark_test.go:stripe-access-token:113
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:internal/logging/redact.go:generic-api-key:27
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:internal/logging/redact_race_test.go:generic-api-key:38
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:internal/logging/redact_test.go:curl-auth-header:136
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:internal/logging/redact_test.go:generic-api-key:131
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:internal/logging/redact_test.go:generic-api-key:195
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:internal/logging/redact_test.go:generic-api-key:577
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:internal/logging/redact_test.go:private-key:126
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:test/helpers/auth_test.go:generic-api-key:253
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:test/helpers/auth_test.go:generic-api-key:266
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:test/helpers/auth_test.go:generic-api-key:272
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:test/helpers/auth_test.go:github-pat:253
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:test/helpers/auth_test.go:github-pat:255
+904f0e0fea9cf819632cb69e9b00923dcdf3e6da:test/integration/logging_test.go:github-pat:383
+
+# --- directory scan fingerprints (file:rule:line); covers gitignored
+#     paths like .plans/ that git-history scans never see ---
+.plans/done/plan-04.md:github-pat:1730
+.plans/done/plan-04.md:github-pat:2504
+.plans/done/plan-04.md:github-pat:2596
+docs/logging.md:github-pat:256
+internal/cli/logger_test.go:generic-api-key:331
+internal/git/git_test.go:generic-api-key:1122
+internal/git/git_test.go:generic-api-key:1282
+internal/logging/benchmark_test.go:generic-api-key:111
+internal/logging/benchmark_test.go:generic-api-key:187
+internal/logging/benchmark_test.go:generic-api-key:192
+internal/logging/benchmark_test.go:generic-api-key:20
+internal/logging/benchmark_test.go:generic-api-key:269
+internal/logging/benchmark_test.go:generic-api-key:51
+internal/logging/benchmark_test.go:jwt:50
+internal/logging/benchmark_test.go:stripe-access-token:113
+internal/logging/redact.go:generic-api-key:27
+internal/logging/redact_race_test.go:generic-api-key:38
+internal/logging/redact_test.go:curl-auth-header:136
+internal/logging/redact_test.go:generic-api-key:131
+internal/logging/redact_test.go:generic-api-key:195
+internal/logging/redact_test.go:generic-api-key:577
+internal/logging/redact_test.go:private-key:126
+test/helpers/auth_test.go:generic-api-key:253
+test/helpers/auth_test.go:generic-api-key:266
+test/helpers/auth_test.go:generic-api-key:272
+test/helpers/auth_test.go:github-pat:253
+test/helpers/auth_test.go:github-pat:255
+test/integration/logging_test.go:github-pat:383
