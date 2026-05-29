@@ -397,9 +397,64 @@ func (c *Converter) importGroups(tx *gorm.DB, configID uint, groups []config.Gro
 	return nil
 }
 
-// deleteGroupAssociations deletes all associations for a group (for update scenario)
+// deleteGroupAssociations deletes all associations for a group (for update scenario).
+//
+// A target's children come in two flavors and neither is removed automatically by
+// deleting the target:
+//   - Real foreign-key refs (TargetFileListRef/TargetDirectoryListRef) have an
+//     ON-DELETE-RESTRICT FK to Target, so they must be deleted FIRST or SQLite
+//     rejects the parent delete with "FOREIGN KEY constraint failed".
+//   - Polymorphic children (FileMapping, DirectoryMapping, Transform via owner_type/
+//     owner_id) have no DB-level FK, so they would simply be orphaned.
+//
+// We therefore explicitly remove all of a target's children before deleting the
+// targets themselves. File/directory mappings owned by file_list/directory_list
+// (the reusable config-level lists) are intentionally left untouched.
 func (c *Converter) deleteGroupAssociations(tx *gorm.DB, groupID uint) error {
-	// Delete targets (cascade will handle file/dir mappings, transforms, refs)
+	// Collect the target IDs for this group so we can clean up their children.
+	var targetIDs []uint
+	if err := tx.Model(&Target{}).Where("group_id = ?", groupID).Pluck("id", &targetIDs).Error; err != nil {
+		return fmt.Errorf("failed to load targets: %w", err)
+	}
+
+	if len(targetIDs) > 0 {
+		// Transforms owned by a target's directory mappings must go before the
+		// directory mappings (and the targets) are removed.
+		var dirMappingIDs []uint
+		if err := tx.Model(&DirectoryMapping{}).
+			Where("owner_type = ? AND owner_id IN ?", "target", targetIDs).
+			Pluck("id", &dirMappingIDs).Error; err != nil {
+			return fmt.Errorf("failed to load target directory mappings: %w", err)
+		}
+		if len(dirMappingIDs) > 0 {
+			if err := tx.Unscoped().
+				Where("owner_type = ? AND owner_id IN ?", "directory_mapping", dirMappingIDs).
+				Delete(&Transform{}).Error; err != nil {
+				return fmt.Errorf("failed to delete directory mapping transforms: %w", err)
+			}
+		}
+
+		// Real-FK child rows block target deletion: remove them first.
+		if err := tx.Unscoped().Where("target_id IN ?", targetIDs).Delete(&TargetFileListRef{}).Error; err != nil {
+			return fmt.Errorf("failed to delete file list refs: %w", err)
+		}
+		if err := tx.Unscoped().Where("target_id IN ?", targetIDs).Delete(&TargetDirectoryListRef{}).Error; err != nil {
+			return fmt.Errorf("failed to delete directory list refs: %w", err)
+		}
+
+		// Polymorphic children owned directly by the targets (no FK; would orphan).
+		if err := tx.Unscoped().Where("owner_type = ? AND owner_id IN ?", "target", targetIDs).Delete(&FileMapping{}).Error; err != nil {
+			return fmt.Errorf("failed to delete target file mappings: %w", err)
+		}
+		if err := tx.Unscoped().Where("owner_type = ? AND owner_id IN ?", "target", targetIDs).Delete(&DirectoryMapping{}).Error; err != nil {
+			return fmt.Errorf("failed to delete target directory mappings: %w", err)
+		}
+		if err := tx.Unscoped().Where("owner_type = ? AND owner_id IN ?", "target", targetIDs).Delete(&Transform{}).Error; err != nil {
+			return fmt.Errorf("failed to delete target transforms: %w", err)
+		}
+	}
+
+	// Delete targets now that their children are gone.
 	if err := tx.Unscoped().Where("group_id = ?", groupID).Delete(&Target{}).Error; err != nil {
 		return fmt.Errorf("failed to delete targets: %w", err)
 	}
