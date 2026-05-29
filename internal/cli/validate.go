@@ -279,7 +279,7 @@ func validateRepositoryAccessibility(ctx context.Context, cfg *config.Config, lo
 	}
 
 	// Try to create GitHub client
-	ghClient, err := gh.NewClient(ctx, logrus.StandardLogger(), logConfig)
+	ghClient, err := newGHClient(ctx, logrus.StandardLogger(), logConfig)
 	if err != nil {
 		if strings.Contains(err.Error(), "gh CLI not found") {
 			output.Error("  ✗ GitHub CLI not found in PATH")
@@ -465,7 +465,7 @@ func checkCircularDependency(groupID string, dependencyMap map[string][]string, 
 // validateSourceFilesExist checks if all configured source files exist in the source repository
 func validateSourceFilesExist(ctx context.Context, cfg *config.Config, logConfig *logging.LogConfig) {
 	// Initialize GitHub client (reuse from previous function, but handle errors gracefully)
-	ghClient, err := gh.NewClient(ctx, logrus.StandardLogger(), logConfig)
+	ghClient, err := newGHClient(ctx, logrus.StandardLogger(), logConfig)
 	if err != nil {
 		output.Info("  ⚠ Skipping source file validation (GitHub client unavailable)")
 		return // Don't fail if client can't be created

@@ -100,6 +100,13 @@ func runSettingsApply(ctx context.Context, repo, presetID, topics, description s
 		return fmt.Errorf("failed to create GitHub client: %w", err)
 	}
 
+	return runSettingsApplyWithClient(ctx, ghClient, repo, preset, topics, force)
+}
+
+// runSettingsApplyWithClient performs the GitHub-side work of applying preset
+// settings to a repository using the provided client. The public runSettingsApply
+// builds the real client (and handles validation/dry-run) before delegating here.
+func runSettingsApplyWithClient(ctx context.Context, ghClient gh.Client, repo string, preset *config.SettingsPreset, topics string, force bool) error {
 	// Get current settings
 	output.Info("Fetching current settings...")
 	current, err := ghClient.GetRepoSettings(ctx, repo)

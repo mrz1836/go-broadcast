@@ -455,6 +455,18 @@ func getModuleType(moduleType string) string {
 	return moduleType
 }
 
+// gitLsRemoteTags runs `git ls-remote --tags <url>` and returns its stdout. It is
+// a package-level seam so tests can substitute it and avoid real network calls
+// (the real command reaches out to the remote git host and is slow/flaky under
+// concurrent test runs).
+//
+//nolint:gochecknoglobals // test injection seam
+var gitLsRemoteTags = func(ctx context.Context, url string) ([]byte, error) {
+	//nolint:gosec // Git URL is validated and constructed safely
+	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--tags", url)
+	return cmd.Output()
+}
+
 // fetchGitTags fetches git tags from a repository
 func fetchGitTags(ctx context.Context, repoPath string) ([]string, error) {
 	// Validate repoPath to prevent command injection
@@ -466,9 +478,7 @@ func fetchGitTags(ctx context.Context, repoPath string) ([]string, error) {
 	// Format: git ls-remote --tags https://github.com/org/repo
 	url := fmt.Sprintf("https://github.com/%s", repoPath)
 
-	//nolint:gosec // Git URL is validated and constructed safely
-	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--tags", url)
-	output, err := cmd.Output()
+	output, err := gitLsRemoteTags(ctx, url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch tags: %w", err)
 	}

@@ -109,6 +109,14 @@ func runSettingsAudit(ctx context.Context, repos []string, presetID, org string,
 		return fmt.Errorf("failed to create GitHub client: %w", err)
 	}
 
+	return runSettingsAuditWithClient(ctx, ghClient, auditRepos, presetID, save, format, jsonOutput)
+}
+
+// runSettingsAuditWithClient performs the GitHub-side auditing of the resolved
+// repositories using the provided client. The public runSettingsAudit resolves
+// the repo list (and handles dry-run) before building the real client and
+// delegating here.
+func runSettingsAuditWithClient(ctx context.Context, ghClient gh.Client, auditRepos []string, presetID string, save bool, format string, jsonOutput bool) error {
 	// Audit repos with bounded concurrency
 	const maxConcurrency = 5
 	sem := make(chan struct{}, maxConcurrency)

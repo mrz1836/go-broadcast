@@ -65,6 +65,25 @@ Repositories are always created as private — make public manually when ready.`
 }
 
 func runScaffold(ctx context.Context, repoName, desc, presetID, topics, _ string, noClone, noFiles, dryRun bool) error {
+	// In dry-run mode no real GH client is needed.
+	if dryRun {
+		return runScaffoldWithClient(ctx, nil, repoName, desc, presetID, topics, noClone, noFiles, dryRun)
+	}
+
+	// Initialize GitHub client
+	logger := logrus.StandardLogger()
+	ghClient, err := gh.NewClient(ctx, logger, &logging.LogConfig{})
+	if err != nil {
+		return fmt.Errorf("failed to create GitHub client: %w", err)
+	}
+
+	return runScaffoldWithClient(ctx, ghClient, repoName, desc, presetID, topics, noClone, noFiles, dryRun)
+}
+
+// runScaffoldWithClient performs repository scaffolding using the provided
+// client. The public runScaffold builds the real client (or passes nil in
+// dry-run mode) before delegating here. Behavior is identical to the original.
+func runScaffoldWithClient(ctx context.Context, ghClient gh.Client, repoName, desc, presetID, topics string, noClone, noFiles, dryRun bool) error {
 	// Parse owner/name
 	parts := strings.Split(repoName, "/")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
@@ -98,16 +117,8 @@ func runScaffold(ctx context.Context, repoName, desc, presetID, topics, _ string
 	}
 
 	if dryRun {
-		// No need for a real GH client in dry-run mode
-		_, err = RunScaffold(ctx, nil, opts)
+		_, err = RunScaffold(ctx, ghClient, opts)
 		return err
-	}
-
-	// Initialize GitHub client
-	logger := logrus.StandardLogger()
-	ghClient, err := gh.NewClient(ctx, logger, &logging.LogConfig{})
-	if err != nil {
-		return fmt.Errorf("failed to create GitHub client: %w", err)
 	}
 
 	result, err := RunScaffold(ctx, ghClient, opts)

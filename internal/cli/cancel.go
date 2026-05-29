@@ -237,7 +237,7 @@ func performCancel(ctx context.Context, cfg *config.Config, targetRepos []string
 	}
 
 	// Initialize GitHub client
-	ghClient, err := gh.NewClient(ctx, logger, logConfig)
+	ghClient, err := newGHClient(ctx, logger, logConfig)
 	if err != nil {
 		switch {
 		case errors.Is(err, gh.ErrGHNotFound):

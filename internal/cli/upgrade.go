@@ -39,6 +39,32 @@ var (
 	ErrBinaryNotFoundInArchive = errors.New("go-broadcast binary not found in archive")
 )
 
+// Package-level seams. These default to the real network/command implementations
+// but are overridable in tests so the test suite never makes real outbound
+// requests (e.g. to proxy.golang.org via "go install" or to github.com for
+// release downloads).
+var (
+	// runCommand executes an external command, streaming output to stdout/stderr.
+	runCommand = func(ctx context.Context, name string, args ...string) error { //nolint:gochecknoglobals // test seam
+		execCmd := exec.CommandContext(ctx, name, args...) //nolint:gosec // command is constructed from trusted, internally-built arguments
+		execCmd.Stdout = os.Stdout
+		execCmd.Stderr = os.Stderr
+		return execCmd.Run()
+	}
+
+	// getLatestRelease fetches the latest release metadata from GitHub.
+	getLatestRelease = versionpkg.GetLatestRelease //nolint:gochecknoglobals // test seam
+
+	// locateBinary resolves the path to the currently installed go-broadcast binary.
+	locateBinary = GetBinaryLocation //nolint:gochecknoglobals // test seam
+
+	// githubDownloadBaseURL is the base URL used to download pre-built release binaries.
+	githubDownloadBaseURL = "https://github.com" //nolint:gochecknoglobals // test seam
+
+	// upgradeHTTPClient is the HTTP client used for binary downloads.
+	upgradeHTTPClient = &http.Client{Timeout: 30 * time.Second} //nolint:gochecknoglobals // test seam
+)
+
 // UpgradeConfig holds configuration for the upgrade command
 type UpgradeConfig struct {
 	Force     bool
@@ -113,7 +139,7 @@ func runUpgradeWithConfig(cmd *cobra.Command, config UpgradeConfig) error {
 
 	// Fetch latest release
 	output.Info("Checking for updates...")
-	release, err := versionpkg.GetLatestRelease(cmd.Context(), "mrz1836", "go-broadcast")
+	release, err := getLatestRelease(cmd.Context(), "mrz1836", "go-broadcast")
 	if err != nil {
 		return fmt.Errorf("failed to check for updates: %w", err)
 	}
@@ -291,11 +317,7 @@ func upgradeGoInstall(latestVersion string) error {
 
 	output.Info(fmt.Sprintf("Running: go install %s", installCmd))
 
-	execCmd := exec.CommandContext(context.Background(), "go", "install", installCmd) //nolint:gosec // Command is constructed safely
-	execCmd.Stdout = os.Stdout
-	execCmd.Stderr = os.Stderr
-
-	if err := execCmd.Run(); err != nil {
+	if err := runCommand(context.Background(), "go", "install", installCmd); err != nil {
 		return fmt.Errorf("go install failed: %w", err)
 	}
 
@@ -305,14 +327,14 @@ func upgradeGoInstall(latestVersion string) error {
 // upgradeBinary downloads and installs pre-built binary
 func upgradeBinary(latestVersion string) error {
 	// Get current binary location
-	currentBinary, err := GetBinaryLocation()
+	currentBinary, err := locateBinary()
 	if err != nil {
 		return fmt.Errorf("could not determine current binary location: %w", err)
 	}
 
 	// Construct download URL for compressed archive
-	downloadURL := fmt.Sprintf("https://github.com/mrz1836/go-broadcast/releases/download/v%s/go-broadcast_%s_%s_%s.tar.gz",
-		latestVersion, latestVersion, runtime.GOOS, runtime.GOARCH)
+	downloadURL := fmt.Sprintf("%s/mrz1836/go-broadcast/releases/download/v%s/go-broadcast_%s_%s_%s.tar.gz",
+		githubDownloadBaseURL, latestVersion, latestVersion, runtime.GOOS, runtime.GOARCH)
 
 	output.Info(fmt.Sprintf("Downloading binary from: %s", downloadURL))
 
@@ -325,8 +347,7 @@ func upgradeBinary(latestVersion string) error {
 		return fmt.Errorf("%w: %w", ErrDownloadFailed, err)
 	}
 
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := upgradeHTTPClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrDownloadFailed, err)
 	}

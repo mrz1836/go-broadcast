@@ -197,7 +197,7 @@ func getRealStatus(ctx context.Context, cfg *config.Config) (*SyncStatus, error)
 	}
 
 	// Initialize GitHub client with comprehensive error handling
-	ghClient, err := gh.NewClient(ctx, logger, logConfig)
+	ghClient, err := newGHClient(ctx, logger, logConfig)
 	if err != nil {
 		// Provide specific error messages for common issues
 		switch {
