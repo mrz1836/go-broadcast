@@ -1552,7 +1552,8 @@ func (rs *RepositorySync) generatePRBody(ctx context.Context, commitSHA string, 
 		// Warn when diff is empty but files changed - AI may produce inaccurate description
 		if diffSummary == "" && len(filteredChanges) > 0 {
 			rs.logger.WithField("file_count", len(filteredChanges)).Warn(
-				"Empty diff generated despite having changed files - AI may produce inaccurate PR description")
+				"Empty diff generated despite having changed files - AI may produce inaccurate PR description",
+			)
 		}
 
 		prCtx := &ai.PRContext{

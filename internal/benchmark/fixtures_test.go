@@ -259,7 +259,7 @@ func TestGenerateLogEntries(t *testing.T) {
 				if tt.withTokens && tt.count > 0 {
 					hasToken := false
 					for _, entry := range result {
-						if len(entry) > 0 && (entry)[0:1] == "I" { // INFO entry (index 0)
+						if len(entry) > 0 && entry[0:1] == "I" { // INFO entry (index 0)
 							hasToken = true
 							require.Contains(t, entry, "[token: ghp_")
 							break

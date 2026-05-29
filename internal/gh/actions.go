@@ -64,7 +64,8 @@ func (g *githubClient) GetRunArtifacts(ctx context.Context, repo string, runID i
 // DownloadRunArtifact downloads a named artifact from a workflow run to the specified directory.
 // Uses `gh run download` which handles zip extraction natively.
 func (g *githubClient) DownloadRunArtifact(ctx context.Context, repo string, runID int64, artifactName, destDir string) error {
-	_, err := g.runner.Run(ctx, "gh", "run", "download",
+	_, err := g.runner.Run(
+		ctx, "gh", "run", "download",
 		fmt.Sprintf("%d", runID),
 		"--repo", repo,
 		"--name", artifactName,

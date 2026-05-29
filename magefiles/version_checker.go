@@ -670,7 +670,8 @@ func (s *VersionUpdateService) displayResults(results []CheckResult) {
 			errors++
 		}
 
-		line := fmt.Sprintf("%-20s %-22s %-22s %s\n",
+		line := fmt.Sprintf(
+			"%-20s %-22s %-22s %s\n",
 			result.Tool,
 			truncateVersion(result.CurrentVersion, 20),
 			truncateVersion(result.LatestVersion, 20),

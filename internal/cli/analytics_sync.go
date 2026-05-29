@@ -337,7 +337,8 @@ func syncSingleRepository(
 
 	if showProgress {
 		totalAlerts := getAlertTotal(ctx, analyticsRepo, repo.ID)
-		output.Success(fmt.Sprintf("✓ %s: %d stars, %d forks, %d open issues, %d alerts",
+		output.Success(fmt.Sprintf(
+			"✓ %s: %d stars, %d forks, %d open issues, %d alerts",
 			fullName,
 			metadata.Stars,
 			metadata.Forks,
@@ -958,7 +959,8 @@ func syncRepositoryMetadata(
 
 	if showProgress {
 		totalAlerts := getAlertTotal(ctx, analyticsRepo, repo.ID)
-		output.Success(fmt.Sprintf("✓ %s: %d stars, %d forks, %d open issues, %d alerts",
+		output.Success(fmt.Sprintf(
+			"✓ %s: %d stars, %d forks, %d open issues, %d alerts",
 			fullName,
 			metadata.Stars,
 			metadata.Forks,

@@ -121,7 +121,7 @@ func (m *mockTreeAPIClient) GetTree(_ context.Context, _, _ string) (*TreeMap, e
 	}
 
 	// Simulate failures based on failure rate
-	if m.failureRate > 0 && float64(atomic.LoadInt64(&m.getTreeCalls))/(float64(atomic.LoadInt64(&m.getTreeCalls)+atomic.LoadInt64(&m.getContentCalls))) < m.failureRate {
+	if m.failureRate > 0 && float64(atomic.LoadInt64(&m.getTreeCalls))/float64(atomic.LoadInt64(&m.getTreeCalls)+atomic.LoadInt64(&m.getContentCalls)) < m.failureRate {
 		return nil, ErrSimulatedAPIFailure
 	}
 
@@ -615,7 +615,8 @@ func BenchmarkExclusionPatternMemory(b *testing.B) {
 			// Generate exclusion patterns
 			var patterns []string
 			for i := 0; i < tc.patternCount; i++ {
-				patterns = append(patterns,
+				patterns = append(
+					patterns,
 					fmt.Sprintf("**/*.tmp_%d", i),
 					fmt.Sprintf("**/temp_%d/**", i),
 					fmt.Sprintf("build_%d/**/*.out", i),
@@ -625,7 +626,8 @@ func BenchmarkExclusionPatternMemory(b *testing.B) {
 			// Generate test paths
 			var testPaths []string
 			for i := 0; i < tc.testPaths; i++ {
-				testPaths = append(testPaths,
+				testPaths = append(
+					testPaths,
 					fmt.Sprintf("src/module_%d/file_%d.go", i%10, i),
 					fmt.Sprintf("build_%d/output_%d.out", i%5, i),
 					fmt.Sprintf("temp_%d/cache_%d.tmp_%d", i%3, i, i%7),

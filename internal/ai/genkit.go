@@ -58,7 +58,8 @@ func initAnthropicProvider(ctx context.Context, cfg *Config) *genkit.Genkit {
 			option.WithAPIKey(cfg.APIKey),
 		},
 	}
-	return genkit.Init(ctx,
+	return genkit.Init(
+		ctx,
 		genkit.WithPlugins(plugin),
 		genkit.WithDefaultModel(getModelPath(cfg)),
 	)
@@ -71,7 +72,8 @@ func initOpenAIProvider(ctx context.Context, cfg *Config) *genkit.Genkit {
 			option.WithAPIKey(cfg.APIKey),
 		},
 	}
-	return genkit.Init(ctx,
+	return genkit.Init(
+		ctx,
 		genkit.WithPlugins(plugin),
 		genkit.WithDefaultModel(getModelPath(cfg)),
 	)
@@ -82,7 +84,8 @@ func initGoogleProvider(ctx context.Context, cfg *Config) *genkit.Genkit {
 	plugin := &googlegenai.GoogleAI{
 		APIKey: cfg.APIKey,
 	}
-	return genkit.Init(ctx,
+	return genkit.Init(
+		ctx,
 		genkit.WithPlugins(plugin),
 		genkit.WithDefaultModel(getModelPath(cfg)),
 	)

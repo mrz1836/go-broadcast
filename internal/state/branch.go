@@ -84,7 +84,8 @@ func parseSyncBranchNameWithPrefix(name, prefix string) (*BranchMetadata, error)
 
 // FormatSyncBranchName creates a sync branch name with group ID
 func FormatSyncBranchName(prefix, groupID string, timestamp time.Time, commitSHA string) string {
-	return fmt.Sprintf("%s-%s-%s-%s",
+	return fmt.Sprintf(
+		"%s-%s-%s-%s",
 		prefix,
 		groupID,
 		timestamp.Format("20060102-150405"),

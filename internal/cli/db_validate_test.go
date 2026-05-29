@@ -496,7 +496,7 @@ func TestDBValidateEmpty(t *testing.T) {
 func TestDBValidateEmptyTarget(t *testing.T) {
 	testCases := []struct {
 		name         string
-		populate     func(t *testing.T, gormDB *gorm.DB, targetID uint, configID uint)
+		populate     func(t *testing.T, gormDB *gorm.DB, targetID, configID uint)
 		wantValid    bool
 		wantEmptyErr bool
 	}{
@@ -507,21 +507,21 @@ func TestDBValidateEmptyTarget(t *testing.T) {
 		},
 		{
 			name: "file mapping only is valid",
-			populate: func(t *testing.T, gormDB *gorm.DB, targetID uint, _ uint) {
+			populate: func(t *testing.T, gormDB *gorm.DB, targetID, _ uint) {
 				require.NoError(t, gormDB.Create(&db.FileMapping{OwnerType: "target", OwnerID: targetID, Src: "README.md", Dest: "README.md"}).Error)
 			},
 			wantValid: true,
 		},
 		{
 			name: "directory mapping only is valid",
-			populate: func(t *testing.T, gormDB *gorm.DB, targetID uint, _ uint) {
+			populate: func(t *testing.T, gormDB *gorm.DB, targetID, _ uint) {
 				require.NoError(t, gormDB.Create(&db.DirectoryMapping{OwnerType: "target", OwnerID: targetID, Src: "templates", Dest: "templates"}).Error)
 			},
 			wantValid: true,
 		},
 		{
 			name: "file list ref only is valid",
-			populate: func(t *testing.T, gormDB *gorm.DB, targetID uint, configID uint) {
+			populate: func(t *testing.T, gormDB *gorm.DB, targetID, configID uint) {
 				fileList := &db.FileList{ConfigID: configID, ExternalID: "files", Name: "Files"}
 				require.NoError(t, gormDB.Create(fileList).Error)
 				require.NoError(t, gormDB.Create(&db.TargetFileListRef{TargetID: targetID, FileListID: fileList.ID}).Error)
@@ -530,7 +530,7 @@ func TestDBValidateEmptyTarget(t *testing.T) {
 		},
 		{
 			name: "directory list ref only is valid",
-			populate: func(t *testing.T, gormDB *gorm.DB, targetID uint, configID uint) {
+			populate: func(t *testing.T, gormDB *gorm.DB, targetID, configID uint) {
 				dirList := &db.DirectoryList{ConfigID: configID, ExternalID: "dirs", Name: "Directories"}
 				require.NoError(t, gormDB.Create(dirList).Error)
 				require.NoError(t, gormDB.Create(&db.TargetDirectoryListRef{TargetID: targetID, DirectoryListID: dirList.ID}).Error)
