@@ -68,6 +68,36 @@ func TestPrintResponse(t *testing.T) {
 	})
 }
 
+func TestDeleteAction(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "hard-deleted", deleteAction(true))
+	assert.Equal(t, "soft-deleted", deleteAction(false))
+}
+
+func TestDryRunDeleteVerb(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "hard-delete", dryRunDeleteVerb(true))
+	assert.Equal(t, "soft-delete", dryRunDeleteVerb(false))
+}
+
+func TestPrintDryRunResponse(t *testing.T) {
+	t.Parallel()
+
+	t.Run("json mode sets dry-run flags", func(t *testing.T) {
+		t.Parallel()
+		resp := CLIResponse{Action: "deleted", Type: "group"}
+		err := printDryRunResponse(resp, "delete group", true)
+		assert.NoError(t, err)
+	})
+
+	t.Run("human mode prints preview", func(t *testing.T) {
+		t.Parallel()
+		resp := CLIResponse{Action: "deleted", Type: "group"}
+		err := printDryRunResponse(resp, "delete group", false)
+		assert.NoError(t, err)
+	})
+}
+
 func TestPrintErrorResponse(t *testing.T) {
 	t.Parallel()
 
