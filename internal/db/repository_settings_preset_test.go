@@ -392,6 +392,144 @@ func TestSettingsPresetRepository_ImportFromConfig_ReplaceChildren(t *testing.T)
 	assert.Empty(t, got.Rulesets)
 }
 
+func TestSettingsPresetRepository_SeedIfMissing(t *testing.T) {
+	t.Run("all new - all created", func(t *testing.T) {
+		gormDB := TestDB(t)
+		repo := NewSettingsPresetRepository(gormDB)
+		ctx := context.Background()
+
+		presets := []*SettingsPreset{
+			createTestPreset("seed-a", "Seed A"),
+			createTestPreset("seed-b", "Seed B"),
+			createTestPreset("seed-c", "Seed C"),
+		}
+
+		n, err := repo.SeedIfMissing(ctx, presets)
+		require.NoError(t, err)
+		assert.Equal(t, 3, n)
+
+		list, err := repo.List(ctx)
+		require.NoError(t, err)
+		require.Len(t, list, 3)
+		// Children created too
+		for _, p := range list {
+			assert.Len(t, p.Labels, 2)
+			assert.Len(t, p.Rulesets, 1)
+		}
+	})
+
+	t.Run("mixed - only new created", func(t *testing.T) {
+		gormDB := TestDB(t)
+		repo := NewSettingsPresetRepository(gormDB)
+		ctx := context.Background()
+
+		// Pre-create one preset
+		existing := createTestPreset("exists", "Already Here")
+		require.NoError(t, repo.Create(ctx, existing))
+
+		presets := []*SettingsPreset{
+			createTestPreset("exists", "Should Be Skipped"),
+			createTestPreset("brand-new", "New One"),
+		}
+		n, err := repo.SeedIfMissing(ctx, presets)
+		require.NoError(t, err)
+		assert.Equal(t, 1, n)
+
+		// "exists" should keep its original name (not overwritten)
+		got, err := repo.GetByExternalID(ctx, "exists")
+		require.NoError(t, err)
+		assert.Equal(t, "Already Here", got.Name)
+
+		// Only two presets total, no duplicate "exists"
+		list, err := repo.List(ctx)
+		require.NoError(t, err)
+		require.Len(t, list, 2)
+	})
+
+	t.Run("all exist - count 0, no dupes", func(t *testing.T) {
+		gormDB := TestDB(t)
+		repo := NewSettingsPresetRepository(gormDB)
+		ctx := context.Background()
+
+		seed := []*SettingsPreset{
+			createTestPreset("dup-a", "Dup A"),
+			createTestPreset("dup-b", "Dup B"),
+		}
+		n, err := repo.SeedIfMissing(ctx, seed)
+		require.NoError(t, err)
+		require.Equal(t, 2, n)
+
+		// Seed again with same external IDs
+		n, err = repo.SeedIfMissing(ctx, []*SettingsPreset{
+			createTestPreset("dup-a", "Dup A v2"),
+			createTestPreset("dup-b", "Dup B v2"),
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 0, n)
+
+		list, err := repo.List(ctx)
+		require.NoError(t, err)
+		assert.Len(t, list, 2)
+	})
+
+	t.Run("nil slice entry skipped", func(t *testing.T) {
+		gormDB := TestDB(t)
+		repo := NewSettingsPresetRepository(gormDB)
+		ctx := context.Background()
+
+		presets := []*SettingsPreset{
+			createTestPreset("with-nil-a", "A"),
+			nil,
+			createTestPreset("with-nil-b", "B"),
+		}
+		n, err := repo.SeedIfMissing(ctx, presets)
+		require.NoError(t, err)
+		assert.Equal(t, 2, n)
+
+		list, err := repo.List(ctx)
+		require.NoError(t, err)
+		assert.Len(t, list, 2)
+	})
+
+	t.Run("resets IDs before create (reusable template)", func(t *testing.T) {
+		gormDB := TestDB(t)
+		repo := NewSettingsPresetRepository(gormDB)
+		ctx := context.Background()
+
+		// Simulate a reusable template with pre-set, stale IDs
+		tmpl := createTestPreset("reset-ids", "Reset IDs")
+		tmpl.ID = 555
+		tmpl.Labels[0].ID = 777
+		tmpl.Labels[0].SettingsPresetID = 999
+		tmpl.Rulesets[0].ID = 888
+		tmpl.Rulesets[0].SettingsPresetID = 999
+
+		n, err := repo.SeedIfMissing(ctx, []*SettingsPreset{tmpl})
+		require.NoError(t, err)
+		require.Equal(t, 1, n)
+
+		// The created preset must get a fresh DB-assigned ID, and children must
+		// point at it (not the stale 999).
+		got, err := repo.GetByExternalID(ctx, "reset-ids")
+		require.NoError(t, err)
+		assert.NotEqual(t, uint(555), got.ID)
+		require.Len(t, got.Labels, 2)
+		require.Len(t, got.Rulesets, 1)
+		assert.Equal(t, got.ID, got.Labels[0].SettingsPresetID)
+		assert.Equal(t, got.ID, got.Rulesets[0].SettingsPresetID)
+	})
+
+	t.Run("empty input", func(t *testing.T) {
+		gormDB := TestDB(t)
+		repo := NewSettingsPresetRepository(gormDB)
+		ctx := context.Background()
+
+		n, err := repo.SeedIfMissing(ctx, nil)
+		require.NoError(t, err)
+		assert.Equal(t, 0, n)
+	})
+}
+
 func TestSettingsPresetRepository_AssignPresetToRepo(t *testing.T) {
 	gormDB := TestDB(t)
 	repo := NewSettingsPresetRepository(gormDB)

@@ -481,6 +481,215 @@ func TestAnalyticsRepo_SyncRuns(t *testing.T) {
 	})
 }
 
+func TestAnalyticsRepo_UpdateSnapshotAlertCounts(t *testing.T) {
+	db := TestDB(t)
+	repo := NewAnalyticsRepo(db)
+	ctx := context.Background()
+
+	// Setup client -> org -> repo
+	client := &Client{Name: "test-client"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{Name: "test-org", ClientID: client.ID}
+	require.NoError(t, repo.UpsertOrganization(ctx, org))
+	r := &Repo{OrganizationID: org.ID, Name: "test-repo", FullNameStr: "test-org/test-repo"}
+	require.NoError(t, repo.UpsertRepository(ctx, r))
+
+	t.Run("updates only alert counts, preserves other fields", func(t *testing.T) {
+		releaseAt := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
+		snapAt := time.Date(2024, 3, 1, 12, 0, 0, 0, time.UTC)
+		snap := &RepositorySnapshot{
+			RepositoryID:             r.ID,
+			SnapshotAt:               snapAt,
+			Stars:                    100,
+			Forks:                    10,
+			Watchers:                 7,
+			OpenIssues:               5,
+			OpenPRs:                  2,
+			BranchCount:              8,
+			Contributors:             4,
+			LatestRelease:            "v1.2.3",
+			LatestReleaseAt:          &releaseAt,
+			LatestTag:                "v1.2.3",
+			DependabotAlertCount:     1,
+			CodeScanningAlertCount:   2,
+			SecretScanningAlertCount: 3,
+		}
+		require.NoError(t, repo.CreateSnapshot(ctx, snap))
+
+		// Update alert counts to new values
+		snap.DependabotAlertCount = 11
+		snap.CodeScanningAlertCount = 22
+		snap.SecretScanningAlertCount = 33
+		require.NoError(t, repo.UpdateSnapshotAlertCounts(ctx, snap))
+
+		// Reload from DB and assert
+		var got RepositorySnapshot
+		require.NoError(t, db.First(&got, snap.ID).Error)
+
+		// Alert-count fields changed
+		assert.Equal(t, 11, got.DependabotAlertCount)
+		assert.Equal(t, 22, got.CodeScanningAlertCount)
+		assert.Equal(t, 33, got.SecretScanningAlertCount)
+
+		// All other fields preserved
+		assert.Equal(t, 100, got.Stars)
+		assert.Equal(t, 10, got.Forks)
+		assert.Equal(t, 7, got.Watchers)
+		assert.Equal(t, 5, got.OpenIssues)
+		assert.Equal(t, 2, got.OpenPRs)
+		assert.Equal(t, 8, got.BranchCount)
+		assert.Equal(t, 4, got.Contributors)
+		assert.Equal(t, "v1.2.3", got.LatestRelease)
+		assert.Equal(t, "v1.2.3", got.LatestTag)
+		require.NotNil(t, got.LatestReleaseAt)
+		assert.True(t, got.LatestReleaseAt.Equal(releaseAt))
+		assert.True(t, got.SnapshotAt.Equal(snapAt))
+		assert.Equal(t, r.ID, got.RepositoryID)
+	})
+
+	t.Run("zero-value alert counts", func(t *testing.T) {
+		snap := &RepositorySnapshot{
+			RepositoryID:             r.ID,
+			SnapshotAt:               time.Now().UTC(),
+			Stars:                    50,
+			DependabotAlertCount:     5,
+			CodeScanningAlertCount:   5,
+			SecretScanningAlertCount: 5,
+		}
+		require.NoError(t, repo.CreateSnapshot(ctx, snap))
+
+		snap.DependabotAlertCount = 0
+		snap.CodeScanningAlertCount = 0
+		snap.SecretScanningAlertCount = 0
+		require.NoError(t, repo.UpdateSnapshotAlertCounts(ctx, snap))
+
+		var got RepositorySnapshot
+		require.NoError(t, db.First(&got, snap.ID).Error)
+		assert.Zero(t, got.DependabotAlertCount)
+		assert.Zero(t, got.CodeScanningAlertCount)
+		assert.Zero(t, got.SecretScanningAlertCount)
+		assert.Equal(t, 50, got.Stars) // preserved
+	})
+
+	t.Run("not found - no rows affected, no error", func(t *testing.T) {
+		// A snapshot with an ID that does not exist. GORM Updates by primary key
+		// returns no error when zero rows match.
+		ghost := &RepositorySnapshot{
+			BaseModel:            BaseModel{ID: 999999},
+			RepositoryID:         r.ID,
+			DependabotAlertCount: 1,
+		}
+		err := repo.UpdateSnapshotAlertCounts(ctx, ghost)
+		require.NoError(t, err)
+
+		var count int64
+		db.Model(&RepositorySnapshot{}).Where("id = ?", 999999).Count(&count)
+		assert.Equal(t, int64(0), count)
+	})
+}
+
+func TestAnalyticsRepo_UpdateRepoSyncTimestamp(t *testing.T) {
+	db := TestDB(t)
+	repo := NewAnalyticsRepo(db)
+	ctx := context.Background()
+
+	client := &Client{Name: "test-client"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{Name: "test-org", ClientID: client.ID}
+	require.NoError(t, repo.UpsertOrganization(ctx, org))
+
+	t.Run("updates sync fields, preserves others", func(t *testing.T) {
+		r := &Repo{
+			OrganizationID: org.ID,
+			Name:           "sync-repo",
+			FullNameStr:    "test-org/sync-repo",
+			Description:    "preserve me",
+			Language:       "Go",
+		}
+		require.NoError(t, repo.UpsertRepository(ctx, r))
+		require.Nil(t, r.LastSyncAt)
+		require.Nil(t, r.LastSyncRunID)
+
+		syncAt := time.Date(2025, 5, 1, 9, 30, 0, 0, time.UTC)
+		require.NoError(t, repo.UpdateRepoSyncTimestamp(ctx, r.ID, syncAt, 42))
+
+		var got Repo
+		require.NoError(t, db.First(&got, r.ID).Error)
+		require.NotNil(t, got.LastSyncAt)
+		assert.True(t, got.LastSyncAt.Equal(syncAt))
+		require.NotNil(t, got.LastSyncRunID)
+		assert.Equal(t, uint(42), *got.LastSyncRunID)
+
+		// Other fields preserved
+		assert.Equal(t, "preserve me", got.Description)
+		assert.Equal(t, "Go", got.Language)
+		assert.Equal(t, "test-org/sync-repo", got.FullNameStr)
+		assert.Equal(t, org.ID, got.OrganizationID)
+	})
+
+	t.Run("zero-value sync run ID", func(t *testing.T) {
+		r := &Repo{
+			OrganizationID: org.ID,
+			Name:           "zero-sync-repo",
+			FullNameStr:    "test-org/zero-sync-repo",
+		}
+		require.NoError(t, repo.UpsertRepository(ctx, r))
+
+		syncAt := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
+		require.NoError(t, repo.UpdateRepoSyncTimestamp(ctx, r.ID, syncAt, 0))
+
+		var got Repo
+		require.NoError(t, db.First(&got, r.ID).Error)
+		require.NotNil(t, got.LastSyncAt)
+		assert.True(t, got.LastSyncAt.Equal(syncAt))
+		require.NotNil(t, got.LastSyncRunID)
+		assert.Equal(t, uint(0), *got.LastSyncRunID)
+	})
+
+	t.Run("not found - no rows affected, no error", func(t *testing.T) {
+		err := repo.UpdateRepoSyncTimestamp(ctx, 999999, time.Now().UTC(), 1)
+		require.NoError(t, err)
+
+		var count int64
+		db.Model(&Repo{}).Where("id = ?", 999999).Count(&count)
+		assert.Equal(t, int64(0), count)
+	})
+}
+
+func TestAnalyticsRepo_ensureDefaultClient(t *testing.T) {
+	db := TestDB(t)
+	r := &analyticsRepo{db: db}
+	ctx := context.Background()
+
+	t.Run("creates client when missing", func(t *testing.T) {
+		var count int64
+		db.Model(&Client{}).Where("name = ?", analyticsDefaultClientName).Count(&count)
+		require.Equal(t, int64(0), count)
+
+		id, err := r.ensureDefaultClient(ctx)
+		require.NoError(t, err)
+		assert.NotZero(t, id)
+
+		var client Client
+		require.NoError(t, db.First(&client, id).Error)
+		assert.Equal(t, analyticsDefaultClientName, client.Name)
+		assert.Equal(t, "Auto-created client for analytics-discovered organizations", client.Description)
+	})
+
+	t.Run("idempotent - retrieves existing client", func(t *testing.T) {
+		id1, err := r.ensureDefaultClient(ctx)
+		require.NoError(t, err)
+		id2, err := r.ensureDefaultClient(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, id1, id2)
+
+		// Only one default client should exist
+		var count int64
+		db.Model(&Client{}).Where("name = ?", analyticsDefaultClientName).Count(&count)
+		assert.Equal(t, int64(1), count)
+	})
+}
+
 func TestAnalyticsRepo_CISnapshots(t *testing.T) {
 	db := TestDB(t)
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"runtime/trace"
@@ -910,4 +911,214 @@ func TestProfileSuiteStopErrorReturnedFromProfileWithFunc(t *testing.T) {
 
 	require.NoError(t, err)
 	require.False(t, suite.IsActive())
+}
+
+// TestStartSessionAlreadyStarted verifies startSession returns ErrSessionAlreadyStarted
+// when invoked on a session that has already been started.
+func TestStartSessionAlreadyStarted(t *testing.T) {
+	tempDir := t.TempDir()
+	suite := NewProfileSuite(tempDir)
+	configureForTesting(suite)
+
+	session := &ComprehensiveSession{
+		Name:      "already-started",
+		StartTime: time.Now(),
+		OutputDir: tempDir,
+	}
+
+	// First start succeeds (only block/mutex enabled by configureForTesting,
+	// which do not touch the started flag here aside from setting it).
+	require.NoError(t, suite.startSession(session))
+	require.True(t, session.started)
+
+	// Second start must report the session is already started.
+	err := suite.startSession(session)
+	require.ErrorIs(t, err, ErrSessionAlreadyStarted)
+}
+
+// TestStartSessionMemoryFailureCleansUpCPU drives the path where CPU profiling
+// starts successfully but memory profiling fails, forcing cleanupPartialSession
+// to stop and close the CPU profile. The memProfiler is intentionally left
+// disabled so StartProfiling returns ErrProfilerNotEnabled.
+func TestStartSessionMemoryFailureCleansUpCPU(t *testing.T) {
+	// Ensure no leftover global profiling state from other tests.
+	pprof.StopCPUProfile()
+	trace.Stop()
+
+	tempDir := t.TempDir()
+	suite := NewProfileSuite(tempDir)
+
+	// Enable CPU + memory, disable trace/block/mutex. The memProfiler is NOT
+	// enabled (we call startSession directly, bypassing enableProfiling), so
+	// its StartProfiling will fail and trigger cleanupPartialSession.
+	config := suite.config
+	config.EnableCPU = true
+	config.EnableMemory = true
+	config.EnableTrace = false
+	config.EnableBlock = false
+	config.EnableMutex = false
+	config.GenerateReports = false
+	suite.Configure(config)
+
+	// Defensive cleanup in case the assertions fail mid-flight.
+	defer func() {
+		pprof.StopCPUProfile()
+		trace.Stop()
+	}()
+
+	session := &ComprehensiveSession{
+		Name:      "mem-fail",
+		StartTime: time.Now(),
+		OutputDir: tempDir,
+	}
+
+	err := suite.startSession(session)
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrProfilerNotEnabled)
+
+	// cleanupPartialSession must have stopped CPU profiling and nilled the file.
+	require.Nil(t, session.cpuFile)
+	require.Nil(t, session.memSession)
+	require.False(t, session.started)
+}
+
+// TestStartSessionTraceCreateFailureCleansUp drives the path where CPU and
+// memory profiling start successfully but creating the trace file fails,
+// forcing cleanupPartialSession to tear down CPU and memory. The trace file
+// creation is made to fail by pre-creating a directory at the trace.out path.
+func TestStartSessionTraceCreateFailureCleansUp(t *testing.T) {
+	pprof.StopCPUProfile()
+	trace.Stop()
+
+	tempDir := t.TempDir()
+	suite := NewProfileSuite(tempDir)
+
+	// CPU and memory both consume the single global CPU profile, so they cannot
+	// be enabled together. Enable only trace at the suite level and make its
+	// file creation fail; cleanupPartialSession then runs on an otherwise empty
+	// session (no CPU/memory resources to tear down).
+	config := suite.config
+	config.EnableCPU = false
+	config.EnableMemory = false
+	config.EnableTrace = true
+	config.EnableBlock = false
+	config.EnableMutex = false
+	config.GenerateReports = false
+	suite.Configure(config)
+
+	defer func() {
+		pprof.StopCPUProfile()
+		trace.Stop()
+	}()
+
+	session := &ComprehensiveSession{
+		Name:      "trace-fail",
+		StartTime: time.Now(),
+		OutputDir: tempDir,
+	}
+
+	// Make os.Create("trace.out") fail by creating a directory at that path.
+	require.NoError(t, os.Mkdir(filepath.Join(tempDir, "trace.out"), 0o750))
+
+	err := suite.startSession(session)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to create trace file")
+
+	require.Nil(t, session.cpuFile)
+	require.Nil(t, session.memSession)
+	require.Nil(t, session.traceFile)
+	require.False(t, session.started)
+}
+
+// TestStartSessionCPUCreateFailure drives the CPU profile file creation error
+// path: os.Create fails because the target path is a directory.
+func TestStartSessionCPUCreateFailure(t *testing.T) {
+	pprof.StopCPUProfile()
+	trace.Stop()
+
+	tempDir := t.TempDir()
+	suite := NewProfileSuite(tempDir)
+
+	config := suite.config
+	config.EnableCPU = true
+	config.EnableMemory = false
+	config.EnableTrace = false
+	config.EnableBlock = false
+	config.EnableMutex = false
+	config.GenerateReports = false
+	suite.Configure(config)
+
+	defer func() {
+		pprof.StopCPUProfile()
+		trace.Stop()
+	}()
+
+	session := &ComprehensiveSession{
+		Name:      "cpu-fail",
+		StartTime: time.Now(),
+		OutputDir: tempDir,
+	}
+
+	// Make os.Create("cpu.prof") fail by creating a directory at that path.
+	require.NoError(t, os.Mkdir(filepath.Join(tempDir, "cpu.prof"), 0o750))
+
+	err := suite.startSession(session)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to create CPU profile file")
+	require.Nil(t, session.cpuFile)
+	require.False(t, session.started)
+}
+
+// TestCleanupPartialSessionFullTeardown verifies cleanupPartialSession tears down
+// a session that has CPU, memory, and trace resources all active, returning the
+// process-wide profiling state to idle.
+func TestCleanupPartialSessionFullTeardown(t *testing.T) {
+	pprof.StopCPUProfile()
+	trace.Stop()
+
+	tempDir := t.TempDir()
+	suite := NewProfileSuite(tempDir)
+	require.NoError(t, suite.memProfiler.Enable())
+
+	defer func() {
+		pprof.StopCPUProfile()
+		trace.Stop()
+	}()
+
+	session := &ComprehensiveSession{
+		Name:      "full-teardown",
+		StartTime: time.Now(),
+		OutputDir: tempDir,
+	}
+
+	// The memProfiler owns the single global CPU profile + trace, so we let it
+	// hold that state and exercise the suite's CPU/trace cleanup branches with
+	// plain (unstarted) file handles. cleanupPartialSession calls
+	// pprof.StopCPUProfile and trace.Stop, which tears down the memProfiler's
+	// global state, and closes/nils all three resource handles.
+	memSession, err := suite.memProfiler.StartProfiling("full-teardown-mem")
+	require.NoError(t, err)
+	session.memSession = memSession
+
+	cpuFile, err := os.Create(filepath.Join(tempDir, "cpu.prof")) //nolint:gosec // test profile file
+	require.NoError(t, err)
+	session.cpuFile = cpuFile
+
+	traceFile, err := os.Create(filepath.Join(tempDir, "trace.out")) //nolint:gosec // test trace file
+	require.NoError(t, err)
+	session.traceFile = traceFile
+
+	// Tear it all down.
+	suite.cleanupPartialSession(session)
+
+	require.Nil(t, session.cpuFile)
+	require.Nil(t, session.memSession)
+	require.Nil(t, session.traceFile)
+
+	// Verify global state is idle: we can start and stop CPU profiling again.
+	verifyFile, err := os.Create(filepath.Join(tempDir, "verify.prof")) //nolint:gosec // test profile file
+	require.NoError(t, err)
+	require.NoError(t, pprof.StartCPUProfile(verifyFile))
+	pprof.StopCPUProfile()
+	require.NoError(t, verifyFile.Close())
 }
