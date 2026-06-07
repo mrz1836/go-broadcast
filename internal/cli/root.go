@@ -25,6 +25,8 @@ type loggerContextKey struct{}
 var (
 	showVersionMu sync.RWMutex
 	showVersion   bool
+	checkAuthMu   sync.RWMutex
+	checkAuth     bool
 	rootCmdMu     sync.RWMutex // Protects rootCmd for thread-safe test access
 )
 
@@ -33,6 +35,13 @@ func getShowVersion() bool {
 	showVersionMu.RLock()
 	defer showVersionMu.RUnlock()
 	return showVersion
+}
+
+// getCheckAuth returns the checkAuth flag (thread-safe)
+func getCheckAuth() bool {
+	checkAuthMu.RLock()
+	defer checkAuthMu.RUnlock()
+	return checkAuth
 }
 
 // getRootCmd returns the root command (thread-safe, for testing)
@@ -82,6 +91,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&globalFlags.DryRun, "dry-run", false, "Preview changes without making them")
 	rootCmd.PersistentFlags().StringVar(&globalFlags.LogLevel, "log-level", "info", "Log level (debug, info, warn, error)")
 	rootCmd.PersistentFlags().BoolVar(&showVersion, "version", false, "Show version information")
+	rootCmd.PersistentFlags().BoolVar(&checkAuth, "check-auth", false, "Check GitHub authentication and exit (codes: 0 authenticated, 1 no token, 2 token rejected)")
 	rootCmd.PersistentFlags().StringVar(&dbPath, "db-path", "", "Path to database file (default: ~/.config/go-broadcast/broadcast.db)")
 	rootCmd.PersistentFlags().BoolVar(&globalFlags.FromDB, "from-db", false, "Load configuration from database instead of YAML file")
 
@@ -121,6 +131,7 @@ func NewRootCmd() *cobra.Command {
 
 	// Create local version flag for this command instance (avoids race on global)
 	var localShowVersion bool
+	var localCheckAuth bool
 
 	// Create new command instance with isolated setup function
 	cmd := &cobra.Command{
@@ -137,6 +148,9 @@ state locally. It supports file transformations and provides progress tracking.`
 			if localShowVersion {
 				return printVersion(false)
 			}
+			if localCheckAuth {
+				return runCheckAuth(cmd.Context(), cmd.OutOrStdout())
+			}
 			return cmd.Help()
 		},
 		SilenceUsage:  true,
@@ -148,6 +162,7 @@ state locally. It supports file transformations and provides progress tracking.`
 	cmd.PersistentFlags().BoolVar(&flags.DryRun, "dry-run", false, "Preview changes without making them")
 	cmd.PersistentFlags().StringVar(&flags.LogLevel, "log-level", "info", "Log level (debug, info, warn, error)")
 	cmd.PersistentFlags().BoolVar(&localShowVersion, "version", false, "Show version information")
+	cmd.PersistentFlags().BoolVar(&localCheckAuth, "check-auth", false, "Check GitHub authentication and exit (codes: 0 authenticated, 1 no token, 2 token rejected)")
 
 	// Add commands with isolated flags
 	cmd.AddCommand(createSyncCmd(flags))
@@ -216,7 +231,7 @@ func GetRootCmd() *cobra.Command {
 func Execute() {
 	if err := ExecuteWithContext(context.Background()); err != nil {
 		output.Error(err.Error())
-		os.Exit(1)
+		os.Exit(ExitCodeForError(err))
 	}
 }
 
@@ -295,6 +310,9 @@ func rootRunE(cmd *cobra.Command, _ []string) error {
 	if getShowVersion() {
 		return printVersion(false)
 	}
+	if getCheckAuth() {
+		return runCheckAuth(cmd.Context(), cmd.OutOrStdout())
+	}
 
 	// Otherwise show help
 	return cmd.Help()
@@ -306,6 +324,9 @@ func createRootRunEWithVerbose(config *LogConfig) func(*cobra.Command, []string)
 		// If version flag is set, print version (with JSON support, thread-safe read)
 		if getShowVersion() {
 			return printVersion(config.JSONOutput)
+		}
+		if getCheckAuth() {
+			return runCheckAuth(cmd.Context(), cmd.OutOrStdout())
 		}
 
 		// Otherwise show help
@@ -391,6 +412,7 @@ func addVerboseFlags(cmd *cobra.Command, config *LogConfig) {
 	cmd.PersistentFlags().StringVar(&config.LogLevel, "log-level", "info",
 		"Log level (debug, info, warn, error) - overridden by verbose flags")
 	cmd.PersistentFlags().BoolVar(&showVersion, "version", false, "Show version information")
+	cmd.PersistentFlags().BoolVar(&checkAuth, "check-auth", false, "Check GitHub authentication and exit (codes: 0 authenticated, 1 no token, 2 token rejected)")
 }
 
 // createSetupLoggingWithVerbose creates a verbose logging setup function.
