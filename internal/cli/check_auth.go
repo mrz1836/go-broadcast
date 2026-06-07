@@ -11,6 +11,8 @@ import (
 	"os/exec"
 	"sort"
 	"strings"
+
+	"github.com/mrz1836/go-broadcast/internal/ai"
 )
 
 const (
@@ -45,6 +47,14 @@ type githubAuthReport struct {
 	Scopes        []string
 }
 
+type aiProviderAuthReport struct {
+	Provider string
+	Active   bool
+	Detected bool
+	Source   string
+	Hint     string
+}
+
 func runCheckAuth(ctx context.Context, writer io.Writer) error {
 	return runCheckAuthWithRunner(ctx, writer, ghCheckAuthRunner{}, os.Getenv, os.Environ())
 }
@@ -57,27 +67,28 @@ func runCheckAuthWithRunner(
 	baseEnv []string,
 ) error {
 	token, detected := detectGitHubToken(getenv)
+	aiReport := buildAIAuthReport(getenv)
 	if !detected {
-		printGitHubAuthReport(writer, githubAuthReport{TokenDetected: false})
+		printAuthReport(writer, githubAuthReport{TokenDetected: false}, aiReport)
 		return newExitCodeError(checkAuthExitNoToken, errCheckAuthNoToken)
 	}
 
 	env := withGitHubTokenEnv(baseEnv, token)
 	userOutput, err := runner.Run(ctx, []string{"api", "user"}, env)
 	if err != nil {
-		printGitHubAuthReport(writer, githubAuthReport{
+		printAuthReport(writer, githubAuthReport{
 			TokenDetected: true,
 			Scopes:        []string{},
-		})
+		}, aiReport)
 		return newExitCodeError(checkAuthExitTokenRejected, errCheckAuthTokenRejected)
 	}
 
 	login, err := parseGitHubLogin(userOutput)
 	if err != nil {
-		printGitHubAuthReport(writer, githubAuthReport{
+		printAuthReport(writer, githubAuthReport{
 			TokenDetected: true,
 			Scopes:        []string{},
-		})
+		}, aiReport)
 		return newExitCodeError(checkAuthExitTokenRejected, errCheckAuthTokenRejected)
 	}
 
@@ -87,11 +98,11 @@ func runCheckAuthWithRunner(
 		scopes = parseGitHubScopes(scopesOutput)
 	}
 
-	printGitHubAuthReport(writer, githubAuthReport{
+	printAuthReport(writer, githubAuthReport{
 		TokenDetected: true,
 		Login:         login,
 		Scopes:        scopes,
-	})
+	}, aiReport)
 
 	return nil
 }
@@ -154,6 +165,85 @@ func splitScopes(value string) []string {
 	return scopes
 }
 
+func buildAIAuthReport(getenv func(string) string) []aiProviderAuthReport {
+	activeProvider := strings.TrimSpace(getenv("GO_BROADCAST_AI_PROVIDER"))
+	if activeProvider == "" {
+		activeProvider = ai.ProviderAnthropic
+	}
+
+	reports := make([]aiProviderAuthReport, 0, 3)
+	for _, provider := range []string{ai.ProviderAnthropic, ai.ProviderOpenAI, ai.ProviderGoogle} {
+		key, source := detectAIProviderKey(getenv, provider)
+		reports = append(reports, aiProviderAuthReport{
+			Provider: provider,
+			Active:   provider == activeProvider,
+			Detected: key != "",
+			Source:   source,
+			Hint:     detectAIKeyHint(provider, key),
+		})
+	}
+
+	return reports
+}
+
+func detectAIProviderKey(getenv func(string) string, provider string) (string, string) {
+	if key := strings.TrimSpace(getenv("GO_BROADCAST_AI_API_KEY")); key != "" {
+		return key, "GO_BROADCAST_AI_API_KEY"
+	}
+
+	source := providerSpecificAIKeyEnv(provider)
+	if source == "" {
+		return "", ""
+	}
+	if key := strings.TrimSpace(getenv(source)); key != "" {
+		return key, source
+	}
+
+	return "", ""
+}
+
+func providerSpecificAIKeyEnv(provider string) string {
+	switch provider {
+	case ai.ProviderAnthropic:
+		return "ANTHROPIC_API_KEY" //nolint:gosec // G101: env var name only, never the credential value.
+	case ai.ProviderOpenAI:
+		return "OPENAI_API_KEY" //nolint:gosec // G101: env var name only, never the credential value.
+	case ai.ProviderGoogle:
+		return "GEMINI_API_KEY" //nolint:gosec // G101: env var name only, never the credential value.
+	default:
+		return ""
+	}
+}
+
+func detectAIKeyHint(provider, key string) string {
+	if key == "" {
+		return "(none)"
+	}
+
+	switch provider {
+	case ai.ProviderAnthropic:
+		if strings.HasPrefix(key, "sk-ant-") {
+			return "prefix sk-ant-"
+		}
+	case ai.ProviderOpenAI:
+		if strings.HasPrefix(key, "sk-") {
+			return "prefix sk-"
+		}
+	case ai.ProviderGoogle:
+		if strings.HasPrefix(key, "AIza") {
+			return "prefix AIza"
+		}
+	}
+
+	return "prefix unrecognized"
+}
+
+func printAuthReport(writer io.Writer, githubReport githubAuthReport, aiReport []aiProviderAuthReport) {
+	printGitHubAuthReport(writer, githubReport)
+	_, _ = fmt.Fprintln(writer)
+	printAIAuthReport(writer, aiReport)
+}
+
 func printGitHubAuthReport(writer io.Writer, report githubAuthReport) {
 	tokenDetected := "no"
 	if report.TokenDetected {
@@ -174,4 +264,31 @@ func printGitHubAuthReport(writer io.Writer, report githubAuthReport) {
 	_, _ = fmt.Fprintf(writer, "token detected: %s\n", tokenDetected)
 	_, _ = fmt.Fprintf(writer, "login: %s\n", login)
 	_, _ = fmt.Fprintf(writer, "scopes: %s\n", scopes)
+}
+
+func printAIAuthReport(writer io.Writer, report []aiProviderAuthReport) {
+	_, _ = fmt.Fprintf(writer, "AI provider credentials\n")
+	for _, provider := range report {
+		active := ""
+		if provider.Active {
+			active = " (active)"
+		}
+
+		detected := "unset"
+		source := "(none)"
+		if provider.Detected {
+			detected = "set"
+			source = provider.Source
+		}
+
+		_, _ = fmt.Fprintf(
+			writer,
+			"%s%s: %s, source: %s, hint: %s\n",
+			provider.Provider,
+			active,
+			detected,
+			source,
+			provider.Hint,
+		)
+	}
 }
