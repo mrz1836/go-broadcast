@@ -20,8 +20,7 @@ func main() {
 	app := NewApp()
 	if err := app.Run(os.Args[1:]); err != nil {
 		// Error already displayed by outputHandler in Run() or by cli.Execute()
-		// Just exit with error code
-		os.Exit(1)
+		os.Exit(cli.ExitCodeForError(err))
 	}
 }
 
