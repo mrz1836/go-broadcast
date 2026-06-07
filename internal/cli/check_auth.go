@@ -23,6 +23,7 @@ const (
 var (
 	errCheckAuthNoToken       = errors.New("GitHub token not detected")
 	errCheckAuthTokenRejected = errors.New("GitHub authentication check failed")
+	errCheckAuthMissingLogin  = errors.New("GitHub user response did not include a login")
 )
 
 type checkAuthRunner interface {
@@ -32,6 +33,7 @@ type checkAuthRunner interface {
 type ghCheckAuthRunner struct{}
 
 func (r ghCheckAuthRunner) Run(ctx context.Context, args, env []string) ([]byte, error) {
+	//nolint:gosec // G204: args are fixed by internal auth probe callers, not user input.
 	cmd := exec.CommandContext(ctx, "gh", args...)
 	cmd.Env = env
 	return cmd.Output()
@@ -134,7 +136,7 @@ func parseGitHubLogin(data []byte) (string, error) {
 		return "", fmt.Errorf("parse GitHub user response: %w", err)
 	}
 	if strings.TrimSpace(user.Login) == "" {
-		return "", errors.New("GitHub user response did not include a login")
+		return "", errCheckAuthMissingLogin
 	}
 	return user.Login, nil
 }
@@ -205,11 +207,11 @@ func detectAIProviderKey(getenv func(string) string, provider string) (string, s
 func providerSpecificAIKeyEnv(provider string) string {
 	switch provider {
 	case ai.ProviderAnthropic:
-		return "ANTHROPIC_API_KEY" //nolint:gosec // G101: env var name only, never the credential value.
+		return "ANTHROPIC_API_KEY"
 	case ai.ProviderOpenAI:
-		return "OPENAI_API_KEY" //nolint:gosec // G101: env var name only, never the credential value.
+		return "OPENAI_API_KEY"
 	case ai.ProviderGoogle:
-		return "GEMINI_API_KEY" //nolint:gosec // G101: env var name only, never the credential value.
+		return "GEMINI_API_KEY"
 	default:
 		return ""
 	}
