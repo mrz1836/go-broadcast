@@ -1503,6 +1503,25 @@ func TestEngineRunRateLimitPreflight(t *testing.T) {
 		assert.Contains(t, scope.Stderr.String(), "resets at")
 	})
 
+	t.Run("over secondary content-write cap hard-halts with healthy primary", func(t *testing.T) {
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		// Healthy primary budget (5000 remaining), so only the documented secondary
+		// content-write cap can trip the gate. 71 targets => 71 content writes,
+		// which exceeds the per-minute cap minus the default reserve (80-10=70).
+		ghClient := &gh.MockClient{}
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil)
+
+		engine := newEngine(rateLimitTestConfig(71), ghClient, DefaultOptions())
+		err := engine.runRateLimitPreflight(context.Background())
+
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrRateLimitPreflight)
+		// Halt reason names the secondary (not primary) cap.
+		assert.Contains(t, scope.Stderr.String(), "per-minute")
+	})
+
 	t.Run("over budget with override proceeds and warns", func(t *testing.T) {
 		scope := output.CaptureOutput()
 		defer scope.Restore()
