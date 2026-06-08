@@ -120,6 +120,10 @@ func TestOrchestrator_MultiGroupSync(t *testing.T) {
 	// Mock GitHub operations for all repositories
 	ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 
+	// Mock the rate-limit preflight probe (DefaultOptions enables the gate) with a
+	// generous budget so the whole-run sync proceeds.
+	ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
+
 	// Mock GetFile for checking existing content (files don't exist initially, so they'll be synced)
 	ghClient.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, gh.ErrFileNotFound)
 

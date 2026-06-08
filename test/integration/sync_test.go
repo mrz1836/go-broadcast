@@ -64,6 +64,7 @@ func TestEndToEndSync(t *testing.T) {
 	t.Run("successful sync with outdated targets", func(t *testing.T) {
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -119,6 +120,7 @@ func TestEndToEndSync(t *testing.T) {
 	t.Run("sync with up-to-date targets", func(t *testing.T) {
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -174,6 +176,7 @@ func TestEndToEndSync(t *testing.T) {
 	t.Run("dry run mode", func(t *testing.T) {
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -227,6 +230,7 @@ func TestEndToEndSync(t *testing.T) {
 	t.Run("error handling - state discovery failure", func(t *testing.T) {
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -256,6 +260,7 @@ func TestEndToEndSync(t *testing.T) {
 	t.Run("concurrent sync processing", func(t *testing.T) {
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()

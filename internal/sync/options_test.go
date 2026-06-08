@@ -19,6 +19,43 @@ func TestDefaultOptions(t *testing.T) {
 	assert.True(t, opts.CleanupTempFiles)
 	assert.False(t, opts.Automerge)
 	assert.Empty(t, opts.AutomergeLabels)
+
+	// Rate-limit preflight defaults (AC-7).
+	assert.True(t, opts.RateLimitPreflightEnabled)
+	assert.False(t, opts.IgnoreRateLimitPreflight)
+	assert.Equal(t, 20, opts.RateLimitPrimaryMarginPercent)
+	assert.Equal(t, 10, opts.RateLimitSecondaryReserve)
+	assert.False(t, opts.RateLimitFailClosed)
+}
+
+func TestOptionsWithRateLimitPreflight(t *testing.T) {
+	opts := DefaultOptions().WithRateLimitPreflight(false)
+	assert.False(t, opts.RateLimitPreflightEnabled)
+
+	opts = opts.WithRateLimitPreflight(true)
+	assert.True(t, opts.RateLimitPreflightEnabled)
+}
+
+func TestOptionsWithRateLimitMargins(t *testing.T) {
+	opts := DefaultOptions().WithRateLimitMargins(35, 25)
+	assert.Equal(t, 35, opts.RateLimitPrimaryMarginPercent)
+	assert.Equal(t, 25, opts.RateLimitSecondaryReserve)
+}
+
+func TestOptionsWithRateLimitFailClosed(t *testing.T) {
+	opts := DefaultOptions().WithRateLimitFailClosed(true)
+	assert.True(t, opts.RateLimitFailClosed)
+
+	opts = opts.WithRateLimitFailClosed(false)
+	assert.False(t, opts.RateLimitFailClosed)
+}
+
+func TestOptionsWithIgnoreRateLimitPreflight(t *testing.T) {
+	opts := DefaultOptions().WithIgnoreRateLimitPreflight(true)
+	assert.True(t, opts.IgnoreRateLimitPreflight)
+
+	opts = opts.WithIgnoreRateLimitPreflight(false)
+	assert.False(t, opts.IgnoreRateLimitPreflight)
 }
 
 func TestOptionsWithDryRun(t *testing.T) {

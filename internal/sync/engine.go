@@ -18,6 +18,7 @@ import (
 	appErrors "github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/git"
+	"github.com/mrz1836/go-broadcast/internal/output"
 	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/mrz1836/go-broadcast/internal/transform"
 )
@@ -250,6 +251,15 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 
 	log.WithField("group_count", len(groups)).Info("Processing sync groups")
 
+	// Rate-limit preflight gate (whole-run, before any write). This runs once at
+	// the single chokepoint both the single-group and multi-group paths flow
+	// through, so the "all-or-nothing, no partial state" guarantee holds for every
+	// invocation shape. On a hard-halt it returns ErrRateLimitPreflight before any
+	// write happens.
+	if err := e.runRateLimitPreflight(ctx); err != nil {
+		return err
+	}
+
 	// Check if we have multiple groups - use orchestrator if so
 	if len(groups) > 1 {
 		// Use the orchestrator for multi-group execution
@@ -264,6 +274,75 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 
 	// Execute the single group sync
 	return e.executeSingleGroup(ctx, group, targetFilter)
+}
+
+// runRateLimitPreflight runs the whole-run rate-limit gate before any sync write.
+//
+// Behavior (per T-407):
+//   - Disabled via Options → no-op.
+//   - Estimates the whole-run GitHub request cost across every resolved target.
+//   - Probes the live primary budget; on probe failure it fails open with a loud
+//     warning by default, or hard-halts ("could not verify budget") when
+//     RateLimitFailClosed is set.
+//   - Prints a human-readable estimate-vs-budget summary before any write.
+//   - When over budget it hard-halts with ErrRateLimitPreflight (clean, actionable
+//     message + reset hint) unless --ignore-rate-limit-preflight forces it through.
+func (e *Engine) runRateLimitPreflight(ctx context.Context) error {
+	if e.options == nil || !e.options.RateLimitPreflightEnabled {
+		return nil
+	}
+
+	log := e.logger.WithField("component", "rate_limit_preflight")
+
+	estimate := EstimateRun(e.config, e.options)
+
+	pf := NewPreflight(e.gh, PreflightConfig{
+		Enabled:              e.options.RateLimitPreflightEnabled,
+		PrimaryMarginPercent: e.options.RateLimitPrimaryMarginPercent,
+		SecondaryReserve:     e.options.RateLimitSecondaryReserve,
+		FailClosed:           e.options.RateLimitFailClosed,
+	})
+
+	decision, err := pf.Evaluate(ctx, estimate)
+	if err != nil {
+		// Probe unavailable: fail open with a loud warning by default; hard-halt
+		// only when fail-closed is explicitly configured.
+		if e.options.RateLimitFailClosed {
+			msg := fmt.Sprintf(
+				"rate-limit preflight could not verify the GitHub budget and fail-closed is enabled: %v; wait and retry or re-run with --ignore-rate-limit-preflight",
+				err,
+			)
+			output.Error(msg)
+			log.WithError(err).Error("Rate-limit preflight probe unavailable; halting (fail-closed)")
+			return fmt.Errorf("%w: %s", ErrRateLimitPreflight, msg)
+		}
+
+		output.Warn(fmt.Sprintf(
+			"Rate-limit preflight could not verify the GitHub budget (%v); proceeding without the gate (fail-open). Use --rate-limit-fail-closed to halt instead.",
+			err,
+		))
+		log.WithError(err).Warn("Rate-limit preflight probe unavailable; failing open")
+		return nil
+	}
+
+	// Surface the estimate-vs-budget summary before any write happens.
+	output.Info(decision.Summary())
+
+	if decision.Proceed {
+		return nil
+	}
+
+	// Over budget. Force through only when the override flag is set.
+	if e.options.IgnoreRateLimitPreflight {
+		output.Warn("Rate-limit preflight would halt this sync, but --ignore-rate-limit-preflight is set; proceeding anyway. " + decision.Reason)
+		log.WithField("reason", decision.Reason).Warn("Rate-limit preflight over budget but overridden via --ignore-rate-limit-preflight")
+		return nil
+	}
+
+	msg := decision.HaltMessage()
+	output.Error(msg)
+	log.WithField("reason", decision.Reason).Error("Rate-limit preflight halted the sync before any write")
+	return fmt.Errorf("%w: %s", ErrRateLimitPreflight, msg)
 }
 
 // executeSingleGroup handles synchronization for a single group

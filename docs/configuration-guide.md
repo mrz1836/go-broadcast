@@ -178,6 +178,56 @@ targets:
 
 **Merge Order:** Global + Target → Defaults (as fallback)
 
+## Rate-Limit Preflight
+
+Before any write, go-broadcast estimates the total GitHub API requests a sync run
+will need and halts up front if the run would exceed your budget — instead of
+failing partway through a multi-repo sync with a raw `HTTP 403` and partially
+applied state. The gate is enabled by default and runs once for the whole run
+(all-or-nothing) at the single chokepoint both single-group and multi-group syncs
+flow through.
+
+It checks two independent limits:
+
+- **Primary (live):** the hourly budget read from the free `GET /rate_limit`
+  endpoint (`resources.core.remaining`). Halts when the estimate exceeds
+  `remaining − (remaining × primary_margin_percent%)`.
+- **Secondary (static caps):** GitHub does not expose the secondary
+  content-creation budget via `GET /rate_limit`, so the run's estimated
+  content-creating requests are compared against the documented caps — ≤ 80/min
+  (minus `secondary_reserve`) and ≤ 500/hr. Source:
+  [GitHub REST API rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api)
+  (retrieved 2026-06-07).
+
+Configure it with the top-level `rate_limit_preflight` block:
+
+```yaml
+version: 1
+rate_limit_preflight:
+  enabled: true                 # Toggle the gate (default: true)
+  primary_margin_percent: 20    # % of the primary budget to keep as headroom (0-100, default: 20)
+  secondary_reserve: 10         # Reserve N of the 80/min secondary content-write slots (>= 0, default: 10)
+  fail_closed: false            # Halt when the probe is unavailable (default: false = fail open with a warning)
+groups:
+  - ...
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | bool | `true` | Enable/disable the preflight gate |
+| `primary_margin_percent` | int | `20` | Percent of the primary budget to keep as headroom (0–100) |
+| `secondary_reserve` | int | `10` | Number of the 80/min secondary content-write slots to reserve (≥ 0) |
+| `fail_closed` | bool | `false` | Halt when the `GET /rate_limit` probe is unavailable; default fails open with a loud warning |
+
+CLI flags override the config block for a single run (see the [README](../README.md#rate-limit-aware-sync-preflight)):
+`--rate-limit-preflight`, `--ignore-rate-limit-preflight`,
+`--rate-limit-margin-percent`, `--rate-limit-secondary-reserve`, and
+`--rate-limit-fail-closed`. A flag only overrides config when explicitly set.
+
+When over budget the sync hard-halts with an actionable message + reset time and
+exits non-zero — see
+[Troubleshooting → sync halted: rate-limit preflight](troubleshooting.md#sync-halted-rate-limit-preflight).
+
 ## Module-Aware Synchronization
 
 go-broadcast can intelligently sync Go modules with version management:

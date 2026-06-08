@@ -169,9 +169,58 @@ targets:
 
 ## GitHub API Issues
 
+### "sync halted: rate-limit preflight"
+
+**Problem**: The pre-sync rate-limit gate estimated that the whole run would
+exceed your GitHub API budget (after the safety margin) and **halted before any
+write** — no partial state was created. The message names which limit would be
+exceeded (primary hourly budget and/or the documented secondary content-creation
+caps) and the time the primary budget resets.
+
+This is the **intended, clean** replacement for the old failure mode where a
+multi-repo sync died partway through with a raw `gh: API rate limit exceeded ...
+(HTTP 403)` (see ["API rate limit exceeded"](#api-rate-limit-exceeded) below).
+
+**How to read the summary**: go-broadcast prints an estimate-vs-budget line before
+halting, e.g. `Rate-limit preflight: estimated N primary requests vs M remaining
+(reserving K for safety margin); estimated W content writes vs 80/min cap ...`.
+
+**Solutions**:
+1. **Wait for the reset** shown in the halt message, then re-run. Check the live
+   budget any time (this call is free and does not count against your quota):
+   ```bash
+   gh api rate_limit
+   ```
+2. **Sync fewer repositories at once** — split a large multi-group run into
+   smaller invocations with `--groups` so each run fits the budget.
+3. **Force the sync through** if you understand the risk (it may still trip a real
+   403 mid-run):
+   ```bash
+   go-broadcast sync --config sync.yaml --ignore-rate-limit-preflight
+   ```
+4. **Tune the safety margin** for a single run, or in the `rate_limit_preflight`
+   config block (see the [Configuration Guide](configuration-guide.md#rate-limit-preflight)):
+   ```bash
+   go-broadcast sync --config sync.yaml --rate-limit-margin-percent 10 --rate-limit-secondary-reserve 5
+   ```
+5. **Disable the gate** entirely if you must (not recommended for multi-repo runs):
+   ```bash
+   go-broadcast sync --config sync.yaml --rate-limit-preflight=false
+   ```
+
+> **Probe unavailable?** If go-broadcast warns it "could not verify the GitHub
+> budget", the free `GET /rate_limit` probe failed (network/token issue). By
+> default the gate **fails open** and proceeds with a warning; pass
+> `--rate-limit-fail-closed` (or set `fail_closed: true`) to halt instead in
+> strict environments.
+
 ### "API rate limit exceeded"
 
-**Problem**: Too many GitHub API requests.
+**Problem**: Too many GitHub API requests. With the [rate-limit preflight](#sync-halted-rate-limit-preflight)
+enabled (the default), most multi-repo runs now halt cleanly *before* this raw
+`HTTP 403` occurs; you may still hit it on syncs that bypass the gate
+(`--ignore-rate-limit-preflight` / `--rate-limit-preflight=false`) or that trip
+GitHub's secondary limit despite the conservative estimate.
 
 **Solutions**:
 1. **Wait for rate limit reset**: GitHub resets limits hourly

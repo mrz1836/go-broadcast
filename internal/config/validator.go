@@ -49,6 +49,10 @@ var (
 	ErrUnknownDependency = errors.New("unknown dependency group")
 	// ErrSelfDependency indicates a group depends on itself
 	ErrSelfDependency = errors.New("group cannot depend on itself")
+	// ErrInvalidRateLimitMargin indicates the primary margin percent is out of range
+	ErrInvalidRateLimitMargin = errors.New("rate_limit_preflight primary_margin_percent must be between 0 and 100")
+	// ErrInvalidRateLimitReserve indicates the secondary reserve is negative
+	ErrInvalidRateLimitReserve = errors.New("rate_limit_preflight secondary_reserve must be >= 0")
 )
 
 // containsPathTraversal checks if a path contains path traversal sequences.
@@ -118,6 +122,14 @@ func (c *Config) ValidateWithLogging(ctx context.Context, logConfig *logging.Log
 			}).Error("Unsupported configuration version")
 		}
 		return fmt.Errorf("%w: %d (only version 1 is supported)", ErrUnsupportedVersion, c.Version)
+	}
+
+	// Validate rate-limit preflight settings
+	if err := c.validateRateLimitPreflight(); err != nil {
+		if logConfig != nil && logConfig.Debug.Config {
+			logger.WithField("error", err.Error()).Error("Invalid rate_limit_preflight configuration")
+		}
+		return err
 	}
 
 	// Validate file lists if present
@@ -296,6 +308,19 @@ func (c *Config) ValidateWithLogging(ctx context.Context, logConfig *logging.Log
 		}).Debug("Configuration validation completed successfully")
 	}
 
+	return nil
+}
+
+// validateRateLimitPreflight validates the rate-limit preflight configuration block.
+// A zero PrimaryMarginPercent / SecondaryReserve is allowed: it means "use the
+// documented default" (see applyDefaults / ResolveRateLimitPreflight).
+func (c *Config) validateRateLimitPreflight() error {
+	if c.RateLimitPreflight.PrimaryMarginPercent < 0 || c.RateLimitPreflight.PrimaryMarginPercent > 100 {
+		return fmt.Errorf("%w: got %d", ErrInvalidRateLimitMargin, c.RateLimitPreflight.PrimaryMarginPercent)
+	}
+	if c.RateLimitPreflight.SecondaryReserve < 0 {
+		return fmt.Errorf("%w: got %d", ErrInvalidRateLimitReserve, c.RateLimitPreflight.SecondaryReserve)
+	}
 	return nil
 }
 

@@ -255,6 +255,57 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 
 <br/>
 
+### Rate-limit aware sync preflight
+
+Before any write, go-broadcast estimates how many GitHub API requests the whole
+run will need (summed across every resolved target in every filtered/enabled
+group) and checks that estimate against your remaining budget. This prevents the
+mid-run failure where a multi-repo sync dies partway through with a raw
+`gh: API rate limit exceeded ... (HTTP 403)` and leaves partially-applied state.
+
+The gate is **on by default** and runs once, whole-run (all-or-nothing):
+
+- **Primary limit (live):** queries the free `GET /rate_limit` endpoint and reads
+  the remaining hourly budget (`resources.core.remaining`).
+- **Secondary limit (static caps):** GitHub does **not** expose the secondary
+  content-creation budget via `GET /rate_limit`, so the run's estimated
+  content-creating requests are compared against the documented caps
+  (≤ 80/min, ≤ 500/hr). Source: [GitHub REST API rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api) (retrieved 2026-06-07).
+- **Safety margin (default):** keep 20% of the primary budget as headroom and
+  reserve 10 of the 80/min secondary content-write slots.
+
+A human-readable estimate-vs-budget summary is printed before any write. If the
+run would exceed the budget (after the margin), the sync **hard-halts** with an
+actionable message and the reset time — no partial writes, no raw 403 dump — and
+exits non-zero. If the `GET /rate_limit` probe itself is unavailable, the gate
+**fails open** with a loud warning by default (configurable to fail-closed).
+
+```bash
+# Default: preflight runs automatically
+go-broadcast sync --config sync.yaml
+
+# Force a sync through even if the preflight would halt it
+go-broadcast sync --config sync.yaml --ignore-rate-limit-preflight
+
+# Disable the preflight entirely
+go-broadcast sync --config sync.yaml --rate-limit-preflight=false
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--rate-limit-preflight` | `true` | Enable/disable the preflight gate |
+| `--ignore-rate-limit-preflight` | `false` | Force the sync through even if the gate would halt |
+| `--rate-limit-margin-percent` | `20` | Percent of the primary budget to keep as headroom |
+| `--rate-limit-secondary-reserve` | `10` | Number of the 80/min secondary content-write slots to reserve |
+| `--rate-limit-fail-closed` | `false` | Halt (instead of failing open) when the probe is unavailable |
+
+The same knobs are configurable via the `rate_limit_preflight` config block — see
+the [Configuration Guide](docs/configuration-guide.md#rate-limit-preflight). For
+the over-budget halt message, see
+[Troubleshooting](docs/troubleshooting.md#sync-halted-rate-limit-preflight).
+
+<br/>
+
 ### Install [MAGE-X](https://github.com/mrz1836/mage-x) build tool
 Want to contribute to go-broadcast? Use MAGE-X for building, testing, linting, and more.
 

@@ -66,11 +66,14 @@ func initAnthropicProvider(ctx context.Context, cfg *Config) *genkit.Genkit {
 }
 
 // initOpenAIProvider initializes the OpenAI backend.
+//
+// The OpenAI plugin requires the key on its APIKey field (or the OPENAI_API_KEY
+// env var) and panics during Init otherwise - it does not consult Opts for that
+// check. Setting the field directly (as the Google plugin does) ensures the
+// provider works with a config-supplied key without requiring OPENAI_API_KEY.
 func initOpenAIProvider(ctx context.Context, cfg *Config) *genkit.Genkit {
 	plugin := &openai.OpenAI{
-		Opts: []option.RequestOption{
-			option.WithAPIKey(cfg.APIKey),
-		},
+		APIKey: cfg.APIKey,
 	}
 	return genkit.Init(
 		ctx,
