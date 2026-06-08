@@ -16,6 +16,13 @@ import (
 // response). The integration layer decides whether this fails open or closed.
 var ErrRateLimitProbeUnavailable = errors.New("rate-limit probe unavailable")
 
+// ErrRateLimitPreflight is the sentinel returned when the preflight gate halts a
+// run because the estimated request budget exceeds what is available (after the
+// safety margin). It is a package-level error so the CLI can present a clean,
+// actionable message instead of a raw gh 403 dump, and callers can match it with
+// errors.Is.
+var ErrRateLimitPreflight = errors.New("sync halted by rate-limit preflight")
+
 // PreflightConfig carries the resolved knobs the preflight decision needs. It is
 // derived from the sync Options (which in turn merge config + CLI flags) so the
 // decision logic stays free of config/flag plumbing.
@@ -93,6 +100,19 @@ func (p *Preflight) probe(ctx context.Context) (remaining int, reset time.Time, 
 	return resp.Resources.Core.Remaining, time.Unix(resp.Resources.Core.Reset, 0), nil
 }
 
+// Evaluate probes the live primary budget via GET /rate_limit and returns the
+// preflight decision for the given whole-run estimate. On probe failure it
+// returns an error wrapping ErrRateLimitProbeUnavailable; the integration layer
+// applies its fail-open (default) / fail-closed policy. The pure decision logic
+// (decide) is exercised only on a successful probe.
+func (p *Preflight) Evaluate(ctx context.Context, estimate RunEstimate) (Decision, error) {
+	remaining, reset, err := p.probe(ctx)
+	if err != nil {
+		return Decision{}, err
+	}
+	return decide(estimate, remaining, reset, p.cfg), nil
+}
+
 // decide is the pure preflight decision. It has no gh/network dependency.
 //
 // Two independent halt conditions are evaluated; either trips the gate:
@@ -162,5 +182,21 @@ func (d Decision) Summary() string {
 	if !d.ResetAt.IsZero() {
 		fmt.Fprintf(&b, "; primary budget resets at %s", d.ResetAt.Format(time.RFC3339))
 	}
+	return b.String()
+}
+
+// HaltMessage renders the actionable over-budget message shown to the user when
+// the gate hard-halts a run. It names why the run was halted, the primary reset
+// time (when known), and how to proceed — wait for the reset or force through
+// with --ignore-rate-limit-preflight. It is pure (no wall-clock dependency) so
+// the rendered text is deterministic for tests.
+func (d Decision) HaltMessage() string {
+	var b strings.Builder
+	b.WriteString("rate-limit preflight halted the sync before any write: ")
+	b.WriteString(d.Reason)
+	if !d.ResetAt.IsZero() {
+		fmt.Fprintf(&b, "; primary budget resets at %s", d.ResetAt.Format(time.RFC3339))
+	}
+	b.WriteString("; wait for the budget to reset or re-run with --ignore-rate-limit-preflight to force the sync through")
 	return b.String()
 }

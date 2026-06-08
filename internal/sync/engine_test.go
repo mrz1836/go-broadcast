@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	stderrors "errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,10 +19,22 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/git"
+	"github.com/mrz1836/go-broadcast/internal/output"
 	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/mrz1836/go-broadcast/internal/transform"
 )
+
+// healthyRateLimit returns a GetRateLimit response with a generous primary
+// budget so the rate-limit preflight gate (enabled by DefaultOptions) proceeds.
+// Tests exercising halt/probe-error paths set their own expectations instead.
+func healthyRateLimit() *gh.RateLimitResponse {
+	resp := &gh.RateLimitResponse{}
+	resp.Resources.Core.Limit = 5000
+	resp.Resources.Core.Remaining = 5000
+	resp.Resources.Core.Reset = 1_900_000_000
+	return resp
+}
 
 var (
 	errGitCloneFailed     = stderrors.New("git clone failed")
@@ -44,6 +57,7 @@ func TestNewEngine(t *testing.T) {
 
 	// Setup default expectations for pre-sync validation
 	ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+	ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 
 	t.Run("with options", func(t *testing.T) {
 		opts := &Options{DryRun: true}
@@ -104,6 +118,7 @@ func TestEngineSync(t *testing.T) {
 
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 
 		// Mock GitHub GetFile calls for file existence checks
 		ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
@@ -163,6 +178,7 @@ func TestEngineSync(t *testing.T) {
 
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 
 		// Mock GitHub GetFile calls for file existence checks
 		ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
@@ -197,6 +213,7 @@ func TestEngineSync(t *testing.T) {
 
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 
 		// Mock GitHub GetFile calls for file existence checks
 		ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
@@ -249,6 +266,7 @@ func TestEngineSync(t *testing.T) {
 
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 
 		// Mock GitHub GetFile calls for file existence checks
 		ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
@@ -294,6 +312,7 @@ func TestEngineSync(t *testing.T) {
 
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 
 		// Mock GitHub GetFile calls for file existence checks
 		ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
@@ -487,6 +506,7 @@ func TestEngineWithDryRun(t *testing.T) {
 
 	// Setup default expectations for pre-sync validation
 	ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+	ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 
 	currentState := &state.State{
 		Source: state.SourceState{
@@ -574,6 +594,7 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 
 		// Mock GitHub GetFile calls for file existence checks
 		ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
@@ -645,6 +666,7 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 
 		// Mock GitHub GetFile calls for file existence checks
 		ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
@@ -716,6 +738,7 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 
 		// Mock GitHub GetFile calls for file existence checks
 		ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
@@ -798,6 +821,7 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 
 		// Mock GitHub GetFile calls for file existence checks
 		ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
@@ -905,6 +929,7 @@ func TestEngine_ErrorCollection(t *testing.T) {
 
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 
 		// Mock GitHub GetFile calls - return existing content for files that exist in target repos
 		// This ensures file changes are detected and the sync progresses to the intended failure points
@@ -1103,6 +1128,7 @@ func TestEngine_ErrorCollection(t *testing.T) {
 
 		// Setup default expectations
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 
 		// Mock GitHub GetFile calls for file existence checks
 		ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
@@ -1319,6 +1345,7 @@ func TestEngine_ErrorCollection(t *testing.T) {
 
 		// Setup default expectations
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 		ghClient.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, gh.ErrFileNotFound).Maybe()
 		ghClient.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser"}, nil).Maybe()
 
@@ -1407,4 +1434,148 @@ func TestEngine_ErrorCollection(t *testing.T) {
 		// Verify operations were completed
 		ghClient.AssertCalled(t, "CreatePR", mock.Anything, "org/target-1", mock.AnythingOfType("gh.PRRequest"))
 	})
+}
+
+// rateLimitTestConfig builds a single-group config with targetCount targets so
+// the rate-limit preflight estimate is deterministic and non-zero.
+func rateLimitTestConfig(targetCount int) *config.Config {
+	targets := make([]config.TargetConfig, 0, targetCount)
+	for i := 0; i < targetCount; i++ {
+		targets = append(targets, config.TargetConfig{
+			Repo:  fmt.Sprintf("org/target-%d", i),
+			Files: []config.FileMapping{{Src: "f.txt", Dest: "f.txt"}},
+		})
+	}
+	return &config.Config{
+		Groups: []config.Group{{
+			Source:  config.SourceConfig{Repo: "org/template", Branch: "master"},
+			Targets: targets,
+		}},
+	}
+}
+
+// lowBudgetRateLimit returns a GetRateLimit response with a tiny primary budget
+// so any non-trivial run estimate trips the primary preflight halt.
+func lowBudgetRateLimit() *gh.RateLimitResponse {
+	resp := &gh.RateLimitResponse{}
+	resp.Resources.Core.Limit = 5000
+	resp.Resources.Core.Remaining = 3
+	resp.Resources.Core.Reset = 1_900_000_000
+	return resp
+}
+
+// TestEngineRunRateLimitPreflight exercises the integration decision paths of the
+// preflight gate (AC-5/6/8): under-budget proceed, over-budget halt, override,
+// disabled no-op, and fail-open vs. fail-closed on probe error.
+func TestEngineRunRateLimitPreflight(t *testing.T) {
+	newEngine := func(cfg *config.Config, ghClient gh.Client, opts *Options) *Engine {
+		return &Engine{config: cfg, gh: ghClient, options: opts, logger: logrus.New()}
+	}
+
+	t.Run("under budget proceeds and prints summary", func(t *testing.T) {
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		ghClient := &gh.MockClient{}
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil)
+
+		engine := newEngine(rateLimitTestConfig(2), ghClient, DefaultOptions())
+		require.NoError(t, engine.runRateLimitPreflight(context.Background()))
+
+		ghClient.AssertExpectations(t)
+		assert.Contains(t, scope.Stdout.String(), "Rate-limit preflight")
+	})
+
+	t.Run("over primary budget hard-halts with ErrRateLimitPreflight", func(t *testing.T) {
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		ghClient := &gh.MockClient{}
+		ghClient.On("GetRateLimit", mock.Anything).Return(lowBudgetRateLimit(), nil)
+
+		engine := newEngine(rateLimitTestConfig(3), ghClient, DefaultOptions())
+		err := engine.runRateLimitPreflight(context.Background())
+
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrRateLimitPreflight)
+		// Actionable halt message names the reset hint + override flag.
+		assert.Contains(t, scope.Stderr.String(), "--ignore-rate-limit-preflight")
+		assert.Contains(t, scope.Stderr.String(), "resets at")
+	})
+
+	t.Run("over budget with override proceeds and warns", func(t *testing.T) {
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		ghClient := &gh.MockClient{}
+		ghClient.On("GetRateLimit", mock.Anything).Return(lowBudgetRateLimit(), nil)
+
+		opts := DefaultOptions().WithIgnoreRateLimitPreflight(true)
+		engine := newEngine(rateLimitTestConfig(3), ghClient, opts)
+
+		require.NoError(t, engine.runRateLimitPreflight(context.Background()))
+		assert.Contains(t, scope.Stderr.String(), "ignore-rate-limit-preflight")
+	})
+
+	t.Run("disabled is a no-op and does not probe", func(t *testing.T) {
+		ghClient := &gh.MockClient{}
+
+		opts := DefaultOptions().WithRateLimitPreflight(false)
+		engine := newEngine(rateLimitTestConfig(3), ghClient, opts)
+
+		require.NoError(t, engine.runRateLimitPreflight(context.Background()))
+		ghClient.AssertNotCalled(t, "GetRateLimit", mock.Anything)
+	})
+
+	t.Run("probe error fails open by default", func(t *testing.T) {
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		ghClient := &gh.MockClient{}
+		ghClient.On("GetRateLimit", mock.Anything).Return(nil, assert.AnError)
+
+		engine := newEngine(rateLimitTestConfig(2), ghClient, DefaultOptions())
+
+		require.NoError(t, engine.runRateLimitPreflight(context.Background()))
+		assert.Contains(t, scope.Stderr.String(), "fail-open")
+	})
+
+	t.Run("probe error fails closed when configured", func(t *testing.T) {
+		ghClient := &gh.MockClient{}
+		ghClient.On("GetRateLimit", mock.Anything).Return(nil, assert.AnError)
+
+		opts := DefaultOptions().WithRateLimitFailClosed(true)
+		engine := newEngine(rateLimitTestConfig(2), ghClient, opts)
+
+		err := engine.runRateLimitPreflight(context.Background())
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrRateLimitPreflight)
+	})
+}
+
+// TestEngineSyncRateLimitPreflightZeroWrites verifies the full Sync path halts
+// before any write when over budget: no state discovery and no PR creation occur
+// (AC-6, no-partial-state guarantee).
+func TestEngineSyncRateLimitPreflightZeroWrites(t *testing.T) {
+	scope := output.CaptureOutput()
+	defer scope.Restore()
+
+	ghClient := &gh.MockClient{}
+	ghClient.On("GetRateLimit", mock.Anything).Return(lowBudgetRateLimit(), nil)
+
+	gitClient := &git.MockClient{}
+	stateDiscoverer := &state.MockDiscoverer{}
+	transformChain := &transform.MockChain{}
+
+	engine := NewEngine(context.Background(), rateLimitTestConfig(4), ghClient, gitClient, stateDiscoverer, transformChain, DefaultOptions())
+	engine.SetLogger(logrus.New())
+
+	err := engine.Sync(context.Background(), nil)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrRateLimitPreflight)
+
+	// Zero writes: the gate returns before any state discovery or PR creation.
+	stateDiscoverer.AssertNotCalled(t, "DiscoverState", mock.Anything, mock.Anything)
+	ghClient.AssertNotCalled(t, "CreatePR", mock.Anything, mock.Anything, mock.Anything)
 }

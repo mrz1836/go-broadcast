@@ -605,6 +605,7 @@ func TestModuleSync_Integration(t *testing.T) {
 
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -715,6 +716,7 @@ const (
 
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -846,6 +848,7 @@ const (
 
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -957,6 +960,7 @@ const (
 
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 

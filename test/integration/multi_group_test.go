@@ -139,6 +139,7 @@ func TestMultiGroupSync_BasicExecution(t *testing.T) {
 
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -307,6 +308,7 @@ func TestMultiGroupSync_BasicExecution(t *testing.T) {
 
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -490,6 +492,7 @@ func TestMultiGroupSync_BasicExecution(t *testing.T) {
 
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -693,6 +696,7 @@ func TestMultiGroupSync_Dependencies(t *testing.T) {
 
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -873,6 +877,7 @@ func TestMultiGroupSync_Dependencies(t *testing.T) {
 
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1008,6 +1013,7 @@ func TestMultiGroupSync_Dependencies(t *testing.T) {
 
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1128,6 +1134,7 @@ func TestMultiGroupSync_Dependencies(t *testing.T) {
 
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1421,6 +1428,7 @@ func TestMultiGroupSync_ComplexScenarios(t *testing.T) {
 
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1569,6 +1577,7 @@ func TestMultiGroupSync_ComplexScenarios(t *testing.T) {
 
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1692,6 +1701,7 @@ func TestMultiGroupSync_ComplexScenarios(t *testing.T) {
 
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1841,6 +1851,7 @@ func TestMultiGroupSync_GroupFiltering(t *testing.T) {
 
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1990,6 +2001,7 @@ func TestMultiGroupSync_GroupFiltering(t *testing.T) {
 
 		// Setup mocks
 		mockGH := &gh.MockClient{}
+		expectRateLimitProbe(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()

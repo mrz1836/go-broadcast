@@ -89,6 +89,7 @@ func BenchmarkPerformanceRegression(b *testing.B) {
 
 			// Setup mocks
 			mockGH := &gh.MockClient{}
+			expectRateLimitProbe(mockGH)
 			mockGit := &git.MockClient{}
 			// Add broad GetChangedFiles mock to handle all calls
 			mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -229,6 +230,7 @@ func BenchmarkPerformanceRegression(b *testing.B) {
 
 			// Setup mocks
 			mockGH := &gh.MockClient{}
+			expectRateLimitProbe(mockGH)
 			mockGit := &git.MockClient{}
 			// Add broad GetChangedFiles mock to handle all calls
 			mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
