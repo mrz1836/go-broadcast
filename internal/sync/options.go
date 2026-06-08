@@ -1,6 +1,10 @@
 package sync
 
-import "time"
+import (
+	"time"
+
+	"github.com/mrz1836/go-broadcast/internal/config"
+)
 
 // Options configures the behavior of the sync engine
 type Options struct {
@@ -46,17 +50,39 @@ type Options struct {
 
 	// ClearModuleCache indicates whether to clear the module version cache before sync
 	ClearModuleCache bool
+
+	// RateLimitPreflightEnabled enables the pre-sync rate-limit gate
+	RateLimitPreflightEnabled bool
+
+	// IgnoreRateLimitPreflight forces the sync through even when the preflight
+	// gate would halt (the CLI --ignore-rate-limit-preflight escape hatch)
+	IgnoreRateLimitPreflight bool
+
+	// RateLimitPrimaryMarginPercent is the percentage of the live primary budget
+	// to keep as headroom before the preflight halts
+	RateLimitPrimaryMarginPercent int
+
+	// RateLimitSecondaryReserve is how many of the documented per-minute secondary
+	// content-write slots to keep in reserve before the preflight halts
+	RateLimitSecondaryReserve int
+
+	// RateLimitFailClosed halts the sync when the rate-limit probe is unavailable
+	// instead of failing open with a warning
+	RateLimitFailClosed bool
 }
 
 // DefaultOptions returns the default sync options
 func DefaultOptions() *Options {
 	return &Options{
-		DryRun:            false,
-		Force:             false,
-		MaxConcurrency:    5,
-		UpdateExistingPRs: true,
-		Timeout:           10 * time.Minute,
-		CleanupTempFiles:  true,
+		DryRun:                        false,
+		Force:                         false,
+		MaxConcurrency:                5,
+		UpdateExistingPRs:             true,
+		Timeout:                       10 * time.Minute,
+		CleanupTempFiles:              true,
+		RateLimitPreflightEnabled:     true,
+		RateLimitPrimaryMarginPercent: config.DefaultRateLimitPrimaryMarginPercent,
+		RateLimitSecondaryReserve:     config.DefaultRateLimitSecondaryReserve,
 	}
 }
 
@@ -132,5 +158,32 @@ func (o *Options) WithAICommitEnabled(enabled bool) *Options {
 // WithClearModuleCache sets whether to clear the module version cache before sync
 func (o *Options) WithClearModuleCache(enabled bool) *Options {
 	o.ClearModuleCache = enabled
+	return o
+}
+
+// WithRateLimitPreflight enables or disables the pre-sync rate-limit gate
+func (o *Options) WithRateLimitPreflight(enabled bool) *Options {
+	o.RateLimitPreflightEnabled = enabled
+	return o
+}
+
+// WithRateLimitMargins sets the preflight safety margins: the primary-budget
+// headroom percentage and the per-minute secondary content-write reserve
+func (o *Options) WithRateLimitMargins(primaryMarginPercent, secondaryReserve int) *Options {
+	o.RateLimitPrimaryMarginPercent = primaryMarginPercent
+	o.RateLimitSecondaryReserve = secondaryReserve
+	return o
+}
+
+// WithRateLimitFailClosed sets whether to halt when the rate-limit probe fails
+func (o *Options) WithRateLimitFailClosed(failClosed bool) *Options {
+	o.RateLimitFailClosed = failClosed
+	return o
+}
+
+// WithIgnoreRateLimitPreflight sets whether to force the sync through even when
+// the preflight gate would halt
+func (o *Options) WithIgnoreRateLimitPreflight(ignore bool) *Options {
+	o.IgnoreRateLimitPreflight = ignore
 	return o
 }

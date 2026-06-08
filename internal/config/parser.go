@@ -165,6 +165,18 @@ func LoadFromReader(reader io.Reader) (*Config, error) {
 
 // applyDefaults sets default values for optional fields in group-based configuration
 func applyDefaults(config *Config) {
+	// Apply rate-limit preflight defaults. A nil Enabled means "enabled"; a zero
+	// margin/reserve means "use the documented default" (see RateLimitPreflightConfig).
+	if config.RateLimitPreflight.Enabled == nil {
+		config.RateLimitPreflight.Enabled = boolPtr(true)
+	}
+	if config.RateLimitPreflight.PrimaryMarginPercent == 0 {
+		config.RateLimitPreflight.PrimaryMarginPercent = DefaultRateLimitPrimaryMarginPercent
+	}
+	if config.RateLimitPreflight.SecondaryReserve == 0 {
+		config.RateLimitPreflight.SecondaryReserve = DefaultRateLimitSecondaryReserve
+	}
+
 	// Apply defaults to all groups
 	for i := range config.Groups {
 		group := &config.Groups[i]

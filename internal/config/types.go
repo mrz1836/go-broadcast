@@ -2,13 +2,44 @@ package config
 
 // Config represents the complete sync configuration
 type Config struct {
-	Version         int              `yaml:"version"`                    // Config version (1)
-	Name            string           `yaml:"name,omitempty"`             // Optional config name
-	ID              string           `yaml:"id,omitempty"`               // Optional config ID
-	FileLists       []FileList       `yaml:"file_lists,omitempty"`       // Reusable file lists
-	DirectoryLists  []DirectoryList  `yaml:"directory_lists,omitempty"`  // Reusable directory lists
-	Groups          []Group          `yaml:"groups"`                     // List of sync groups
-	SettingsPresets []SettingsPreset `yaml:"settings_presets,omitempty"` // Repository settings presets
+	Version            int                      `yaml:"version"`                        // Config version (1)
+	Name               string                   `yaml:"name,omitempty"`                 // Optional config name
+	ID                 string                   `yaml:"id,omitempty"`                   // Optional config ID
+	FileLists          []FileList               `yaml:"file_lists,omitempty"`           // Reusable file lists
+	DirectoryLists     []DirectoryList          `yaml:"directory_lists,omitempty"`      // Reusable directory lists
+	Groups             []Group                  `yaml:"groups"`                         // List of sync groups
+	SettingsPresets    []SettingsPreset         `yaml:"settings_presets,omitempty"`     // Repository settings presets
+	RateLimitPreflight RateLimitPreflightConfig `yaml:"rate_limit_preflight,omitempty"` // Pre-sync rate-limit gate settings
+}
+
+// RateLimitPreflightConfig configures the pre-sync GitHub rate-limit gate.
+//
+// Before any write, the sync engine estimates the GitHub API requests a run will
+// need, probes the live primary budget, compares the estimated content-creation
+// requests against the documented secondary caps, and hard-halts when the run
+// would exceed budget (after a configurable safety margin). These fields tune
+// that gate. Defaults are applied during config load (see applyDefaults) and are
+// also defensively re-applied by ResolveRateLimitPreflight.
+type RateLimitPreflightConfig struct {
+	// Enabled toggles the preflight gate. Nil means the documented default
+	// (enabled). Set to false to skip the gate entirely.
+	Enabled *bool `yaml:"enabled,omitempty"`
+
+	// PrimaryMarginPercent is the percentage of the live primary "remaining"
+	// budget to keep as headroom; the gate halts when the estimate would consume
+	// more than (remaining - margin). A value of 0 means "use the documented
+	// default" (20). Valid range: 0-100.
+	PrimaryMarginPercent int `yaml:"primary_margin_percent,omitempty"`
+
+	// SecondaryReserve is how many of the documented per-minute secondary
+	// content-write slots to keep in reserve; the gate halts when the estimated
+	// content writes would exceed (per-minute cap - reserve). A value of 0 means
+	// "use the documented default" (10). Must be >= 0.
+	SecondaryReserve int `yaml:"secondary_reserve,omitempty"`
+
+	// FailClosed controls behavior when the rate-limit probe itself is
+	// unavailable. Default (false) fails open with a loud warning; true halts.
+	FailClosed bool `yaml:"fail_closed,omitempty"`
 }
 
 // GetPreset returns a settings preset by ID, or nil if not found

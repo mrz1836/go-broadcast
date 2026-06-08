@@ -9,6 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"gorm.io/gorm/logger"
 
 	"github.com/mrz1836/go-broadcast/internal/config"
@@ -133,6 +134,16 @@ func (s *SyncCommand) ExecuteSync(ctx context.Context, flags *Flags, args []stri
 	return nil
 }
 
+// Rate-limit preflight flag names (used for both registration and override
+// detection via cobra's Changed()).
+const (
+	flagRateLimitPreflight        = "rate-limit-preflight"
+	flagIgnoreRateLimitPreflight  = "ignore-rate-limit-preflight"
+	flagRateLimitMarginPercent    = "rate-limit-margin-percent"
+	flagRateLimitSecondaryReserve = "rate-limit-secondary-reserve"
+	flagRateLimitFailClosed       = "rate-limit-fail-closed"
+)
+
 //nolint:gochecknoglobals // Package-level variables for CLI flags
 var (
 	syncFlagsMu      gosync.RWMutex // Protects sync flag variables for thread-safety
@@ -140,6 +151,22 @@ var (
 	skipGroups       []string
 	automerge        bool
 	clearModuleCache bool
+
+	// Rate-limit preflight flags. Defaults mirror the documented config defaults
+	// so that, absent any --config rate_limit_preflight block, the gate behaves
+	// per AC-7. CLI values override config only when the flag is explicitly set
+	// (see currentRateLimitOverrides / Changed()).
+	rateLimitPreflight        = true
+	ignoreRateLimitPreflight  bool
+	rateLimitMarginPercent    = config.DefaultRateLimitPrimaryMarginPercent
+	rateLimitSecondaryReserve = config.DefaultRateLimitSecondaryReserve
+	rateLimitFailClosed       bool
+
+	// syncFlagSet is the sync command's flag set, captured in init() so that
+	// override detection (Changed()) does not statically reference the syncCmd
+	// variable — that would form a package initialization cycle
+	// (syncCmd -> runSync -> createSyncEngine -> override detection -> syncCmd).
+	syncFlagSet *pflag.FlagSet
 )
 
 // getGroupFilter returns a copy of the group filter slice (thread-safe)
@@ -168,6 +195,81 @@ func getClearModuleCache() bool {
 	syncFlagsMu.RLock()
 	defer syncFlagsMu.RUnlock()
 	return clearModuleCache
+}
+
+// rateLimitPreflightOverrides captures the CLI override intent for the
+// rate-limit preflight. A nil pointer field means "not overridden — use the
+// config default"; a non-nil field overrides config. The ignore escape hatch is
+// CLI-only (no config equivalent) so it is always carried.
+type rateLimitPreflightOverrides struct {
+	enabled    *bool
+	ignore     bool
+	margin     *int
+	reserve    *int
+	failClosed *bool
+}
+
+// mergeRateLimitPreflight applies the resolved rate-limit preflight settings to
+// opts. Config (via config.ResolveRateLimitPreflight) provides the base values;
+// any explicitly-set CLI override replaces the corresponding base value. This is
+// the single source of truth used by every engine builder, so the
+// config-feeds-Options / flags-override-config behavior is consistent.
+func mergeRateLimitPreflight(opts *sync.Options, cfg *config.Config, ov rateLimitPreflightOverrides) *sync.Options {
+	enabled, margin, reserve, failClosed := config.ResolveRateLimitPreflight(cfg)
+
+	if ov.enabled != nil {
+		enabled = *ov.enabled
+	}
+	if ov.margin != nil {
+		margin = *ov.margin
+	}
+	if ov.reserve != nil {
+		reserve = *ov.reserve
+	}
+	if ov.failClosed != nil {
+		failClosed = *ov.failClosed
+	}
+
+	return opts.
+		WithRateLimitPreflight(enabled).
+		WithRateLimitMargins(margin, reserve).
+		WithRateLimitFailClosed(failClosed).
+		WithIgnoreRateLimitPreflight(ov.ignore)
+}
+
+// currentRateLimitOverrides reads the sync command's CLI flags and returns the
+// overrides the user explicitly set. Cobra's Changed() distinguishes an
+// explicitly-set flag from its default, so unset flags fall through to config.
+func currentRateLimitOverrides() rateLimitPreflightOverrides {
+	syncFlagsMu.RLock()
+	defer syncFlagsMu.RUnlock()
+
+	ov := rateLimitPreflightOverrides{ignore: ignoreRateLimitPreflight}
+
+	flags := syncFlagSet
+	if flags == nil {
+		// Flags not registered (e.g. an alternate command path); use config base.
+		return ov
+	}
+
+	if flags.Changed(flagRateLimitPreflight) {
+		v := rateLimitPreflight
+		ov.enabled = &v
+	}
+	if flags.Changed(flagRateLimitMarginPercent) {
+		v := rateLimitMarginPercent
+		ov.margin = &v
+	}
+	if flags.Changed(flagRateLimitSecondaryReserve) {
+		v := rateLimitSecondaryReserve
+		ov.reserve = &v
+	}
+	if flags.Changed(flagRateLimitFailClosed) {
+		v := rateLimitFailClosed
+		ov.failClosed = &v
+	}
+
+	return ov
 }
 
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables
@@ -226,6 +328,17 @@ func init() {
 	syncCmd.Flags().StringSliceVar(&skipGroups, "skip-groups", nil, "Skip specified groups during sync")
 	syncCmd.Flags().BoolVar(&automerge, "automerge", false, "Add automerge labels from GO_BROADCAST_AUTOMERGE_LABELS to created PRs")
 	syncCmd.Flags().BoolVar(&clearModuleCache, "clear-cache", false, "Clear module version cache before sync")
+
+	// Rate-limit preflight flags (override the config rate_limit_preflight block).
+	syncCmd.Flags().BoolVar(&rateLimitPreflight, flagRateLimitPreflight, true, "Enable the pre-sync GitHub rate-limit preflight gate")
+	syncCmd.Flags().BoolVar(&ignoreRateLimitPreflight, flagIgnoreRateLimitPreflight, false, "Force the sync through even if the rate-limit preflight would halt")
+	syncCmd.Flags().IntVar(&rateLimitMarginPercent, flagRateLimitMarginPercent, config.DefaultRateLimitPrimaryMarginPercent, "Percent of the primary rate-limit budget to keep as headroom")
+	syncCmd.Flags().IntVar(&rateLimitSecondaryReserve, flagRateLimitSecondaryReserve, config.DefaultRateLimitSecondaryReserve, "Number of the 80/min secondary content-write slots to keep in reserve")
+	syncCmd.Flags().BoolVar(&rateLimitFailClosed, flagRateLimitFailClosed, false, "Halt the sync when the rate-limit probe is unavailable (default fails open)")
+
+	// Capture the flag set for override detection without statically referencing
+	// syncCmd from the engine-builder call graph (avoids an init cycle).
+	syncFlagSet = syncCmd.Flags()
 }
 
 func runSync(cmd *cobra.Command, args []string) error {
@@ -563,6 +676,9 @@ repoTransformerAdded:
 		WithAutomergeLabels(automergeLabels).
 		WithClearModuleCache(getClearModuleCache())
 
+	// Apply rate-limit preflight settings (config base + CLI overrides)
+	opts = mergeRateLimitPreflight(opts, cfg, currentRateLimitOverrides())
+
 	// Create and return engine
 	engine := sync.NewEngine(ctx, cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
 	engine.SetLogger(logrus.StandardLogger())
@@ -653,6 +769,9 @@ repoTransformerAdded2:
 		WithSkipGroups(flags.SkipGroups).
 		WithAutomerge(flags.Automerge).
 		WithAutomergeLabels(automergeLabels)
+
+	// Apply rate-limit preflight settings (config base + CLI overrides)
+	opts = mergeRateLimitPreflight(opts, cfg, currentRateLimitOverrides())
 
 	// Create and return engine
 	engine := sync.NewEngine(ctx, cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
@@ -814,6 +933,9 @@ repoTransformerAdded3:
 		WithSkipGroups(logConfig.SkipGroups).
 		WithAutomerge(logConfig.Automerge).
 		WithAutomergeLabels(automergeLabels)
+
+	// Apply rate-limit preflight settings (config base + CLI overrides)
+	opts = mergeRateLimitPreflight(opts, cfg, currentRateLimitOverrides())
 
 	// Create and return engine
 	engine := sync.NewEngine(ctx, cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
