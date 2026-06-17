@@ -5,7 +5,7 @@ go 1.25.8
 require (
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/fatih/color v1.19.0
-	github.com/firebase/genkit/go v1.8.0
+	github.com/firebase/genkit/go v1.9.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/magefile/mage v1.17.2
 	github.com/openai/openai-go v1.12.0
