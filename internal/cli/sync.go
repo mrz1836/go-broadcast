@@ -142,6 +142,7 @@ const (
 	flagRateLimitMarginPercent    = "rate-limit-margin-percent"
 	flagRateLimitSecondaryReserve = "rate-limit-secondary-reserve"
 	flagRateLimitFailClosed       = "rate-limit-fail-closed"
+	flagConfirmScope              = "confirm-scope"
 )
 
 //nolint:gochecknoglobals // Package-level variables for CLI flags
@@ -161,6 +162,11 @@ var (
 	rateLimitMarginPercent    = config.DefaultRateLimitPrimaryMarginPercent
 	rateLimitSecondaryReserve = config.DefaultRateLimitSecondaryReserve
 	rateLimitFailClosed       bool
+
+	// confirmScope carries the --confirm-scope=<N> blast-radius opt-in. It is only
+	// applied to Options when explicitly set (see currentRateLimitOverrides /
+	// Changed()); N must equal the resolved repository count to proceed.
+	confirmScope int
 
 	// syncFlagSet is the sync command's flag set, captured in init() so that
 	// override detection (Changed()) does not statically reference the syncCmd
@@ -207,6 +213,10 @@ type rateLimitPreflightOverrides struct {
 	margin     *int
 	reserve    *int
 	failClosed *bool
+
+	// confirmScope is the --confirm-scope=<N> blast-radius opt-in. nil means the
+	// flag was not set; non-nil carries the operator-confirmed repo count.
+	confirmScope *int
 }
 
 // mergeRateLimitPreflight applies the resolved rate-limit preflight settings to
@@ -234,7 +244,8 @@ func mergeRateLimitPreflight(opts *sync.Options, cfg *config.Config, ov rateLimi
 		WithRateLimitPreflight(enabled).
 		WithRateLimitMargins(margin, reserve).
 		WithRateLimitFailClosed(failClosed).
-		WithIgnoreRateLimitPreflight(ov.ignore)
+		WithIgnoreRateLimitPreflight(ov.ignore).
+		WithConfirmScope(ov.confirmScope)
 }
 
 // currentRateLimitOverrides reads the sync command's CLI flags and returns the
@@ -268,6 +279,10 @@ func currentRateLimitOverrides() rateLimitPreflightOverrides {
 		v := rateLimitFailClosed
 		ov.failClosed = &v
 	}
+	if flags.Changed(flagConfirmScope) {
+		v := confirmScope
+		ov.confirmScope = &v
+	}
 
 	return ov
 }
@@ -288,7 +303,20 @@ Configuration Source:
 Group Filtering:
   Use --groups to sync only specific groups (by name or ID).
   Use --skip-groups to exclude specific groups from sync.
-  When both are specified, skip-groups takes precedence.`,
+  When both are specified, skip-groups takes precedence.
+
+Scope is resolved up front, so a target argument or --groups/--skip-groups always
+narrows the run to exactly what you named — even in a multi-group config. The
+resolved scope (groups, repos, repo count) is printed before any write.
+
+Blast-radius confirmation guard:
+  A large sync — more than 1 group OR more than 5 repositories in the resolved
+  scope — must be confirmed before any write. On an interactive terminal you are
+  prompted to type the resolved repository count. In non-interactive contexts
+  (agents, CI, no TTY) the sync hard-refuses unless --confirm-scope=<N> is passed
+  with N equal to the resolved repository count. N is always the repository count,
+  never the group count, so --confirm-scope=1 cannot pass a 6-repo single-group
+  sync. --ignore-rate-limit-preflight does NOT bypass this guard.`,
 	Example: `  # Basic operations
   go-broadcast sync                        # Sync all targets from config
   go-broadcast sync --config sync.yaml     # Use specific config file
@@ -303,6 +331,9 @@ Group Filtering:
   go-broadcast sync --groups "core,security"       # Sync only core and security groups
   go-broadcast sync --skip-groups "experimental"   # Sync all except experimental group
   go-broadcast sync --groups core org/repo1        # Sync specific target in core group
+
+  # Large sync confirmation (>1 group or >5 repos)
+  go-broadcast sync --groups "core,security" --confirm-scope 12  # Confirm by stating the resolved repo count (required when non-interactive)
 
   # Debugging and troubleshooting
   go-broadcast sync --log-level debug      # Enable debug logging
@@ -335,6 +366,12 @@ func init() {
 	syncCmd.Flags().IntVar(&rateLimitMarginPercent, flagRateLimitMarginPercent, config.DefaultRateLimitPrimaryMarginPercent, "Percent of the primary rate-limit budget to keep as headroom")
 	syncCmd.Flags().IntVar(&rateLimitSecondaryReserve, flagRateLimitSecondaryReserve, config.DefaultRateLimitSecondaryReserve, "Number of the 80/min secondary content-write slots to keep in reserve")
 	syncCmd.Flags().BoolVar(&rateLimitFailClosed, flagRateLimitFailClosed, false, "Halt the sync when the rate-limit probe is unavailable (default fails open)")
+
+	// Blast-radius confirmation guard. A resolved scope crossing >1 group OR >5
+	// repos must be confirmed with the resolved repo count before any write. This
+	// is a separate gate from the rate-limit preflight; --ignore-rate-limit-preflight
+	// does NOT bypass it.
+	syncCmd.Flags().IntVar(&confirmScope, flagConfirmScope, 0, "Confirm a large sync (>1 group or >5 repos) by stating the exact number of repositories it will write to")
 
 	// Capture the flag set for override detection without statically referencing
 	// syncCmd from the engine-builder call graph (avoids an init cycle).

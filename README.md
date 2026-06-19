@@ -306,6 +306,48 @@ the over-budget halt message, see
 
 <br/>
 
+### Blast-radius confirmation guard
+
+`sync` is designed around a **one-group-at-a-time default**: scope is resolved up
+front, so `sync org/repo` and `--groups`/`--skip-groups` always narrow the run to
+exactly what you named, even when the configuration holds many groups. The resolved
+scope (groups, repo list, repo count, estimated writes) is printed **before any
+write on every invocation** — not only under `--dry-run`.
+
+On top of that, a separate **blast-radius confirmation guard** trips when the
+resolved scope is large — **more than 1 group OR more than 5 repositories**. A
+large sync cannot write until it is explicitly confirmed:
+
+- **Interactive (TTY):** the guard lists every group and repository it will touch
+  and requires you to type the exact **resolved repository count** before it
+  proceeds. Any other value aborts with zero writes.
+- **Non-interactive (agents, CI, no TTY):** the guard **hard-refuses** (non-zero
+  exit, zero writes) unless you pass `--confirm-scope=<N>`, where `N` equals the
+  resolved repository count. A boolean always-pass token is intentionally not
+  accepted, so a single-group command copied into a multi-group context fails
+  closed. `N` is always the **repository** count — for a single group syncing 6
+  repos, `--confirm-scope=1` is rejected and `--confirm-scope=6` proceeds.
+
+This guard is independent of the rate-limit preflight:
+`--ignore-rate-limit-preflight` cannot widen scope and does **not** bypass it.
+
+```bash
+# Small single-group sync (<=5 repos): runs without confirmation
+go-broadcast sync --config sync.yaml --groups core
+
+# Large sync (>1 group or >5 repos), non-interactive: confirm the repo count
+go-broadcast sync --config sync.yaml --groups "core,security" --confirm-scope 12
+
+# --ignore-rate-limit-preflight does NOT bypass the guard
+go-broadcast sync --config sync.yaml --ignore-rate-limit-preflight --confirm-scope 12
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--confirm-scope` | _(unset)_ | Confirm a large sync (>1 group or >5 repos) by stating the exact number of repositories it will write to; required (matching the resolved repo count) in non-interactive contexts |
+
+<br/>
+
 ### Install [MAGE-X](https://github.com/mrz1836/mage-x) build tool
 Want to contribute to go-broadcast? Use MAGE-X for building, testing, linting, and more.
 
@@ -893,6 +935,7 @@ go-broadcast sync --groups "default" --config sync.yaml             # Sync by gr
 go-broadcast sync --groups "core,security" --config sync.yaml       # Sync multiple groups
 go-broadcast sync --skip-groups "experimental" --config sync.yaml   # Skip specific groups
 go-broadcast sync --groups "core" org/repo1 --config sync.yaml      # Combine with target filtering
+go-broadcast sync --groups "core,security" --confirm-scope 12 --config sync.yaml  # Confirm a large sync (>1 group or >5 repos) by stating the repo count
 
 # Automerge configuration
 go-broadcast sync --automerge --config sync.yaml                    # Add automerge labels to created PRs

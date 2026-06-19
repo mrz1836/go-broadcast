@@ -188,6 +188,10 @@ func TestOrchestrator_MultiGroupSync(t *testing.T) {
 	engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, DefaultOptions())
 	engine.SetLogger(logrus.New())
 
+	// This multi-group scope (2 groups / 3 repos) trips the blast-radius guard,
+	// so confirm it with the resolved repo count to exercise the confirmed path.
+	engine.SetScopeConfirmer(&fakeConfirmer{interactive: true, reply: 3})
+
 	// Execute the sync
 	err := engine.Sync(context.Background(), []string{})
 

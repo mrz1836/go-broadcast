@@ -34,6 +34,7 @@ type Engine struct {
 	transform      transform.Chain
 	options        *Options
 	logger         *logrus.Logger
+	scopeConfirmer ScopeConfirmer // Blast-radius interactive confirmer (injectable for tests)
 
 	// AI text generation (optional, nil when disabled)
 	prGenerator     *ai.PRBodyGenerator
@@ -62,13 +63,14 @@ func NewEngine(
 	}
 
 	e := &Engine{
-		config:    cfg,
-		gh:        ghClient,
-		git:       gitClient,
-		state:     stateDiscoverer,
-		transform: transformChain,
-		options:   opts,
-		logger:    logrus.StandardLogger(),
+		config:         cfg,
+		gh:             ghClient,
+		git:            gitClient,
+		state:          stateDiscoverer,
+		transform:      transformChain,
+		options:        opts,
+		logger:         logrus.StandardLogger(),
+		scopeConfirmer: newTerminalScopeConfirmer(),
 	}
 
 	// Initialize AI components (non-fatal if it fails)
@@ -116,6 +118,12 @@ func (e *Engine) SetCurrentGroup(group *config.Group) {
 	e.currentGroupMu.Lock()
 	defer e.currentGroupMu.Unlock()
 	e.currentGroup = group
+}
+
+// SetScopeConfirmer sets a custom blast-radius scope confirmer. Tests inject a
+// non-TTY fake so the guard's interactive branch is exercised without a terminal.
+func (e *Engine) SetScopeConfirmer(c ScopeConfirmer) {
+	e.scopeConfirmer = c
 }
 
 // SetSyncMetricsRecorder sets the sync metrics recorder for this engine
@@ -242,14 +250,48 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 		log.Warn("DRY-RUN MODE: No changes will be made")
 	}
 
-	// Get groups using compatibility layer
-	groups := e.config.Groups
-	if len(groups) == 0 {
+	if len(e.config.Groups) == 0 {
 		log.Info("No groups found in configuration")
 		return nil
 	}
 
-	log.WithField("group_count", len(groups)).Info("Processing sync groups")
+	// Resolve the full scope up front — group/skip/enabled filtering plus the
+	// target-filter repo narrowing — before the single- vs multi-group branch.
+	// This makes the target/group filters authoritative in every config shape
+	// (the multi-group path previously ignored targetFilter entirely). SC-1/SC-2.
+	scope, err := ResolveScope(e.config, e.options, targetFilter)
+	if err != nil {
+		return err
+	}
+	if scope.RepoCount == 0 {
+		log.Info("Nothing to sync after applying scope filters")
+		return nil
+	}
+
+	// Scope this run's config to exactly what will be written, so state
+	// discovery, the rate-limit estimate, and the execution paths all operate on
+	// the resolved scope (mirrors cancel's filter-before-discovery and the
+	// orchestrator's per-group config swap).
+	e.config = scope.Config
+
+	// Surface the resolved scope before any write happens, on every invocation
+	// (not only --dry-run), so the blast radius is always visible. SC-5.
+	output.Info(scope.Summary())
+
+	log.WithFields(logrus.Fields{
+		"group_count": scope.GroupCount,
+		"repo_count":  scope.RepoCount,
+	}).Info("Processing resolved sync scope")
+
+	// Blast-radius confirmation guard (SC-3/SC-4). This is a SEPARATE gate from
+	// the rate-limit preflight, evaluated first and independently: it never reads
+	// IgnoreRateLimitPreflight, so disabling the rate-limit gate can never re-open
+	// the scope hole that disabling the rate-limit gate would otherwise re-open. On
+	// a guarded scope without a matching confirmation it returns
+	// ErrScopeConfirmationRequired before any write happens.
+	if err := e.runBlastRadiusGuard(scope); err != nil {
+		return err
+	}
 
 	// Rate-limit preflight gate (whole-run, before any write). This runs once at
 	// the single chokepoint both the single-group and multi-group paths flow
@@ -260,20 +302,73 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 		return err
 	}
 
-	// Check if we have multiple groups - use orchestrator if so
+	// Branch on the resolved group count. Targets are already narrowed in the
+	// scoped config, so both paths run with no further target filtering.
+	groups := scope.Config.Groups
 	if len(groups) > 1 {
-		// Use the orchestrator for multi-group execution
+		// Use the orchestrator for multi-group execution.
 		orchestrator := NewGroupOrchestrator(e.config, e, e.logger)
 		return orchestrator.ExecuteGroups(ctx, groups)
 	}
 
-	// Single group - execute directly
+	// Single group - execute directly. The group's targets are pre-narrowed, so
+	// a nil target filter is correct here.
 	group := groups[0]
 	e.SetCurrentGroup(&group) // Set current group for RepositorySync to use
 	log.WithField("group_name", group.Name).Info("Processing single group")
 
 	// Execute the single group sync
-	return e.executeSingleGroup(ctx, group, targetFilter)
+	return e.executeSingleGroup(ctx, group, nil)
+}
+
+// runBlastRadiusGuard evaluates the blast-radius confirmation guard for the
+// resolved scope (SC-3/SC-4). It is a separate gate from the rate-limit
+// preflight and never reads IgnoreRateLimitPreflight by construction.
+//
+// Behavior:
+//   - Scope below the thresholds → no-op (proceed).
+//   - --confirm-scope=<N> matching the resolved repo count → proceed.
+//   - Interactive TTY with no matching flag → prompt for the exact resolved repo
+//     count; proceed only when the typed value matches.
+//   - Non-interactive with no matching flag → hard refuse
+//     (ErrScopeConfirmationRequired, zero writes).
+func (e *Engine) runBlastRadiusGuard(scope ResolvedScope) error {
+	interactive := false
+	if e.scopeConfirmer != nil {
+		interactive = e.scopeConfirmer.Interactive()
+	}
+
+	log := e.logger.WithField("component", "blast_radius_guard")
+
+	decision := decideScopeGuard(scope, e.options.ConfirmScope, interactive)
+	if decision.Proceed {
+		return nil
+	}
+
+	if decision.NeedPrompt {
+		typed, err := e.scopeConfirmer.Prompt(scope)
+		if err != nil {
+			msg := fmt.Sprintf("could not read scope confirmation: %v", err)
+			output.Error(msg)
+			log.WithError(err).Error("Blast-radius guard prompt failed; refusing the sync")
+			return fmt.Errorf("%w: %s", ErrScopeConfirmationRequired, msg)
+		}
+		if typed == scope.RepoCount {
+			log.WithField("repo_count", scope.RepoCount).Info("Blast-radius scope confirmed interactively")
+			return nil
+		}
+		msg := fmt.Sprintf(
+			"scope confirmation mismatch: expected the resolved repo count %d, got %d; refusing the sync",
+			scope.RepoCount, typed,
+		)
+		output.Error(msg)
+		log.WithFields(logrus.Fields{"expected": scope.RepoCount, "got": typed}).Error("Blast-radius guard refused the sync")
+		return fmt.Errorf("%w: %s", ErrScopeConfirmationRequired, msg)
+	}
+
+	output.Error(decision.Reason)
+	log.WithField("reason", decision.Reason).Error("Blast-radius guard refused the sync before any write")
+	return fmt.Errorf("%w: %s", ErrScopeConfirmationRequired, decision.Reason)
 }
 
 // runRateLimitPreflight runs the whole-run rate-limit gate before any sync write.
