@@ -69,6 +69,12 @@ type Options struct {
 	// RateLimitFailClosed halts the sync when the rate-limit probe is unavailable
 	// instead of failing open with a warning
 	RateLimitFailClosed bool
+
+	// ConfirmScope, when non-nil, is the operator-supplied resolved repository
+	// count used to satisfy the blast-radius guard (the --confirm-scope=<N> flag).
+	// nil means the flag was not provided. The value must equal the resolved repo
+	// count; a boolean always-pass token is intentionally not accepted (Q7=A).
+	ConfirmScope *int
 }
 
 // DefaultOptions returns the default sync options
@@ -185,5 +191,13 @@ func (o *Options) WithRateLimitFailClosed(failClosed bool) *Options {
 // the preflight gate would halt
 func (o *Options) WithIgnoreRateLimitPreflight(ignore bool) *Options {
 	o.IgnoreRateLimitPreflight = ignore
+	return o
+}
+
+// WithConfirmScope sets the operator-supplied resolved repository count used to
+// satisfy the blast-radius guard. Pass nil to leave it unset (the flag was not
+// provided), or a pointer to the confirmed repo count.
+func (o *Options) WithConfirmScope(n *int) *Options {
+	o.ConfirmScope = n
 	return o
 }
