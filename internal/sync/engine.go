@@ -242,14 +242,38 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 		log.Warn("DRY-RUN MODE: No changes will be made")
 	}
 
-	// Get groups using compatibility layer
-	groups := e.config.Groups
-	if len(groups) == 0 {
+	if len(e.config.Groups) == 0 {
 		log.Info("No groups found in configuration")
 		return nil
 	}
 
-	log.WithField("group_count", len(groups)).Info("Processing sync groups")
+	// Resolve the full scope up front — group/skip/enabled filtering plus the
+	// target-filter repo narrowing — before the single- vs multi-group branch.
+	// This makes the target/group filters authoritative in every config shape
+	// (the multi-group path previously ignored targetFilter entirely). SC-1/SC-2.
+	scope, err := ResolveScope(e.config, e.options, targetFilter)
+	if err != nil {
+		return err
+	}
+	if scope.RepoCount == 0 {
+		log.Info("Nothing to sync after applying scope filters")
+		return nil
+	}
+
+	// Scope this run's config to exactly what will be written, so state
+	// discovery, the rate-limit estimate, and the execution paths all operate on
+	// the resolved scope (mirrors cancel's filter-before-discovery and the
+	// orchestrator's per-group config swap).
+	e.config = scope.Config
+
+	// Surface the resolved scope before any write happens, on every invocation
+	// (not only --dry-run), so the blast radius is always visible. SC-5.
+	output.Info(scope.Summary())
+
+	log.WithFields(logrus.Fields{
+		"group_count": scope.GroupCount,
+		"repo_count":  scope.RepoCount,
+	}).Info("Processing resolved sync scope")
 
 	// Rate-limit preflight gate (whole-run, before any write). This runs once at
 	// the single chokepoint both the single-group and multi-group paths flow
@@ -260,20 +284,23 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 		return err
 	}
 
-	// Check if we have multiple groups - use orchestrator if so
+	// Branch on the resolved group count. Targets are already narrowed in the
+	// scoped config, so both paths run with no further target filtering.
+	groups := scope.Config.Groups
 	if len(groups) > 1 {
-		// Use the orchestrator for multi-group execution
+		// Use the orchestrator for multi-group execution.
 		orchestrator := NewGroupOrchestrator(e.config, e, e.logger)
 		return orchestrator.ExecuteGroups(ctx, groups)
 	}
 
-	// Single group - execute directly
+	// Single group - execute directly. The group's targets are pre-narrowed, so
+	// a nil target filter is correct here.
 	group := groups[0]
 	e.SetCurrentGroup(&group) // Set current group for RepositorySync to use
 	log.WithField("group_name", group.Name).Info("Processing single group")
 
 	// Execute the single group sync
-	return e.executeSingleGroup(ctx, group, targetFilter)
+	return e.executeSingleGroup(ctx, group, nil)
 }
 
 // runRateLimitPreflight runs the whole-run rate-limit gate before any sync write.

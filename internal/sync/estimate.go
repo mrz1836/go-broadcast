@@ -84,17 +84,17 @@ func EstimateRun(cfg *config.Config, options *Options) RunEstimate {
 	}
 }
 
-// resolveEstimateGroups returns the groups that would actually be synced,
-// mirroring GroupOrchestrator.filterGroupsByOptions followed by
-// filterEnabledGroups (same order ExecuteGroups applies). Kept as a pure,
-// logger-free helper so the estimate has no I/O dependency.
+// resolveEstimateGroups returns the groups that would actually be synced. It
+// derives the group set from ResolveScope (with no target filter) so the
+// rate-limit estimate and the resolved sync scope can never drift apart. The
+// underlying group/skip/enabled filtering still flows through the same pure,
+// logger-free helpers, so the estimate has no I/O dependency.
 func resolveEstimateGroups(cfg *config.Config, options *Options) []config.Group {
-	if cfg == nil {
+	scope, err := ResolveScope(cfg, options, nil)
+	if err != nil || scope.Config == nil {
 		return nil
 	}
-
-	groups := filterEstimateGroupsByOptions(cfg.Groups, options)
-	return filterEstimateEnabledGroups(groups)
+	return scope.Config.Groups
 }
 
 // filterEstimateGroupsByOptions mirrors GroupOrchestrator.filterGroupsByOptions:

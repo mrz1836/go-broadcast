@@ -288,7 +288,9 @@ func TestEngineSync(t *testing.T) {
 			},
 		}
 
-		stateDiscoverer.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
+		// Scope is now resolved before state discovery, so the engine discovers
+		// state for the narrowed (single-target) config rather than the original.
+		stateDiscoverer.On("DiscoverState", mock.Anything, mock.Anything).Return(currentState, nil)
 
 		engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, nil)
 
@@ -328,7 +330,9 @@ func TestEngineSync(t *testing.T) {
 			Targets: map[string]*state.TargetState{},
 		}
 
-		stateDiscoverer.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
+		// Scope resolution now rejects a non-matching target filter up front, so
+		// state discovery is never reached for an invalid target filter.
+		stateDiscoverer.On("DiscoverState", mock.Anything, mock.Anything).Return(currentState, nil).Maybe()
 
 		engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, nil)
 
