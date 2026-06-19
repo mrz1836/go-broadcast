@@ -1656,6 +1656,89 @@ func TestPerformCancelWithDiscoverer_GroupFiltering(t *testing.T) {
 	}
 }
 
+// TestPerformCancelWithDiscoverer_SC7_ScopeConsistency is the SC-7 audit
+// regression: cancel must honor the same multi-group scoping semantics as the
+// fixed sync engine's ResolveScope. Group/skip filters are applied via
+// FilterConfigByGroups *before* state discovery (so cancel can never discover or
+// touch more groups than requested), and an explicit target arg narrows the
+// result to exactly that repository. This mirrors ResolveScope's "resolve group
+// scope up front, then narrow to the matching targets" model. Cancel resolves
+// group scope before discovery and target scope after (via filterTargets), which
+// is equivalent for a close-only command and cannot blast more than requested.
+func TestPerformCancelWithDiscoverer_SC7_ScopeConsistency(t *testing.T) {
+	// Multi-group config (3 groups); the target arg belongs to the last group,
+	// proving the fix is not accidentally honoring only the first group.
+	cfg := &config.Config{
+		Version: 1,
+		Groups: []config.Group{
+			{
+				ID:      "core",
+				Name:    "Core Group",
+				Source:  config.SourceConfig{Repo: "org/template", Branch: "main"},
+				Targets: []config.TargetConfig{{Repo: "org/group1-target1"}, {Repo: "org/group1-target2"}},
+			},
+			{
+				ID:      "security",
+				Name:    "Security Group",
+				Source:  config.SourceConfig{Repo: "org/template", Branch: "main"},
+				Targets: []config.TargetConfig{{Repo: "org/group2-target1"}},
+			},
+			{
+				ID:      "vendor-go",
+				Name:    "Vendor Go",
+				Source:  config.SourceConfig{Repo: "acme/template", Branch: "development"},
+				Targets: []config.TargetConfig{{Repo: "org/group4-target1"}},
+			},
+		},
+	}
+
+	// Ensure dry run is off (thread-safe).
+	originalFlags := GetGlobalFlags()
+	SetFlags(&Flags{ConfigFile: originalFlags.ConfigFile, DryRun: false, LogLevel: originalFlags.LogLevel})
+	defer func() { SetFlags(originalFlags) }()
+
+	// Scope to a single group via --groups, mirroring a one-group-at-a-time run.
+	originalGroupFilter := getCancelGroupFilter()
+	originalSkipGroups := getCancelSkipGroups()
+	defer func() {
+		setCancelGroupFilter(originalGroupFilter)
+		setCancelSkipGroups(originalSkipGroups)
+	}()
+	setCancelGroupFilter([]string{"vendor-go"})
+	setCancelSkipGroups(nil)
+
+	mockClient := &gh.MockClient{}
+	mockClient.On("ClosePR", mock.Anything, "org/group4-target1", 430, mock.AnythingOfType("string")).Return(nil)
+	mockClient.On("DeleteBranch", mock.Anything, "org/group4-target1", "chore/sync-files-vendor-go-20250112-145757-561a06e").Return(nil)
+
+	// Scope-before-discovery: the discoverer must receive ONLY the filtered group,
+	// so cancel cannot discover state for groups outside the requested scope.
+	mockDiscoverer := &state.MockDiscoverer{}
+	mockDiscoverer.On("DiscoverState", mock.Anything, mock.MatchedBy(func(c *config.Config) bool {
+		return len(c.Groups) == 1 && c.Groups[0].ID == "vendor-go"
+	})).Return(createMultiGroupState(), nil)
+
+	// Target arg further narrows to a single repo within the already-scoped group.
+	summary, err := performCancelWithDiscoverer(
+		context.Background(),
+		cfg,
+		[]string{"org/group4-target1"},
+		mockClient,
+		mockDiscoverer,
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+	assert.Equal(t, 1, summary.TotalTargets, "multi-group config + one target arg must resolve to exactly one repo")
+	require.Len(t, summary.Results, 1)
+	assert.Equal(t, "org/group4-target1", summary.Results[0].Repository)
+	assert.Equal(t, 1, summary.PRsClosed)
+	assert.Equal(t, 0, summary.Errors)
+
+	mockClient.AssertExpectations(t)
+	mockDiscoverer.AssertExpectations(t)
+}
+
 func TestPerformCancelWithDiscoverer_EmptyGroupFilter(t *testing.T) {
 	// Test that when no groups match the filter, we get an empty summary without errors
 	cfg := &config.Config{
