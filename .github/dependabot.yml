@@ -39,6 +39,8 @@ updates:
     groups:
       go-deps:
         patterns: ["*"]
+        # Batch only minor/patch; major bumps open as individual PRs for review
+        update-types: ["minor", "patch"]
     open-pull-requests-limit: 10
     assignees: ["mrz1836"]
     labels: ["chore", "dependencies", "gomod"]
@@ -61,6 +63,8 @@ updates:
     groups:
       ghactions-all:
         patterns: ["*"]
+        # Batch only minor/patch; major bumps open as individual PRs for review
+        update-types: ["minor", "patch"]
     open-pull-requests-limit: 10
     assignees: ["mrz1836"]
     labels: ["chore", "dependencies", "github-actions"]
@@ -82,6 +86,8 @@ updates:
     groups:
       ghactions-all:
         patterns: ["*"]
+        # Batch only minor/patch; major bumps open as individual PRs for review
+        update-types: ["minor", "patch"]
     open-pull-requests-limit: 5
     assignees: ["mrz1836"]
     labels: ["chore", "dependencies", "github-actions"]
