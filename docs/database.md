@@ -1375,9 +1375,19 @@ go-broadcast db target update \
   --pr-assignees "contributor" \
   --pr-reviewers "reviewer1,reviewer2" \
   --json
+
+# Set or correct the contact emails directly
+go-broadcast db target update \
+  --group my-tools \
+  --repo owner/go-api \
+  --security-email security@example.com \
+  --support-email support@example.com \
+  --json
 ```
 
-**Updatable fields:** `--branch`, `--pr-labels`, `--pr-assignees`, `--pr-reviewers`
+**Updatable fields:** `--branch`, `--pr-labels`, `--pr-assignees`, `--pr-reviewers`, `--security-email`, `--support-email`
+
+Omitted flags leave the existing value unchanged; passing an empty string clears the field.
 
 </details>
 
@@ -1402,6 +1412,7 @@ go-broadcast db target clone \
   --branch develop \
   --pr-labels "sync,automated" \
   --pr-reviewers "reviewer1" \
+  --security-email security@example.com \
   --json
 ```
 
@@ -1414,7 +1425,20 @@ go-broadcast db target clone \
 - File list references — new join rows pointing to the same shared `file_lists` (not duplicated)
 - Directory list references — new join rows pointing to the same shared `directory_lists` (not duplicated)
 
-**Override flags:** `--branch`, `--pr-labels`, `--pr-assignees`, `--pr-reviewers`, `--pr-team-reviewers` (omitted flags inherit from source)
+**Contact email handling (`security_email` / `support_email`):** Each email column is resolved
+independently when cloning:
+- **Rebased** when the source email follows the per-repo `<repo>@domain` convention — i.e. its
+  local-part exactly (case-sensitive) equals the source repo's short name. The destination repo's
+  short name is substituted as the new local-part and the domain is preserved
+  (e.g. cloning `existing-repo@example.com` to `owner/new-repo` yields `new-repo@example.com`).
+- **Copied verbatim** otherwise — a shared or org-wide email (local-part does not match the source
+  repo short name, e.g. `security@example.org`) is carried over unchanged, never rebased.
+- **Verbatim fallback with a warning** if a rebase would produce an address that fails email
+  validation (an exotic destination repo name). The source value is copied as-is and a warning is
+  printed; the clone still succeeds. Set the address explicitly with `--security-email` /
+  `--support-email` to correct it.
+
+**Override flags:** `--branch`, `--pr-labels`, `--pr-assignees`, `--pr-reviewers`, `--pr-team-reviewers`, `--security-email`, `--support-email` (omitted flags inherit from source; a set `--security-email` / `--support-email` wins over the rebase/verbatim resolution)
 
 **Auto-creates:** The destination repo and organization if they don't exist in the database.
 

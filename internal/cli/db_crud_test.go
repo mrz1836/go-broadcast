@@ -461,6 +461,117 @@ func TestTargetUpdate(t *testing.T) {
 	})
 }
 
+// TestTargetUpdateEmail verifies the --security-email / --support-email flags on
+// `db target update`: a set flag updates that column, an unset flag leaves the
+// existing value untouched, and a dry-run reports the new value without writing.
+func TestTargetUpdateEmail(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+
+	// Seed existing contact emails on target1 so we can prove an unset flag leaves
+	// the column untouched while the other column is updated.
+	database, err := openDatabase()
+	require.NoError(t, err)
+	gormDB := database.DB()
+	var seedTarget db.Target
+	require.NoError(t, gormDB.Where("position = ?", 0).First(&seedTarget).Error)
+	seedTarget.SecurityEmail = "old-security@example.com"
+	seedTarget.SupportEmail = "keep-support@example.com"
+	require.NoError(t, gormDB.Save(&seedTarget).Error)
+	require.NoError(t, database.Close())
+
+	// loadTarget fetches the persisted target row for org/name.
+	loadTarget := func(t *testing.T, org, name string) db.Target {
+		t.Helper()
+		database, err := openDatabase()
+		require.NoError(t, err)
+		defer func() { _ = database.Close() }()
+		gormDB := database.DB()
+
+		var repo db.Repo
+		require.NoError(t, gormDB.
+			Joins("JOIN organizations ON organizations.id = repos.organization_id").
+			Where("organizations.name = ? AND repos.name = ?", org, name).
+			First(&repo).Error)
+		var target db.Target
+		require.NoError(t, gormDB.Where("repo_id = ?", repo.ID).First(&target).Error)
+		return target
+	}
+
+	t.Run("set security flag, unset support leaves existing value", func(t *testing.T) {
+		cmd := newDBTargetUpdateCmd()
+		cmd.SetArgs([]string{
+			"--group", "my-tools",
+			"--repo", "acme/test-repo-1",
+			"--security-email", "new-security@example.com",
+			"--json",
+		})
+
+		resp, err := captureJSON(t, func() error { return cmd.Execute() })
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.Equal(t, "updated", resp.Action)
+
+		// Result JSON reports both emails (AC-8).
+		data, ok := resp.Data.(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, "new-security@example.com", data["security_email"])
+		assert.Equal(t, "keep-support@example.com", data["support_email"])
+
+		// Persisted row: security updated, support left untouched (AC-6).
+		updated := loadTarget(t, "acme", "test-repo-1")
+		assert.Equal(t, "new-security@example.com", updated.SecurityEmail)
+		assert.Equal(t, "keep-support@example.com", updated.SupportEmail)
+	})
+
+	t.Run("set support flag updates support column", func(t *testing.T) {
+		cmd := newDBTargetUpdateCmd()
+		cmd.SetArgs([]string{
+			"--group", "my-tools",
+			"--repo", "acme/test-repo-1",
+			"--support-email", "new-support@example.com",
+			"--json",
+		})
+
+		resp, err := captureJSON(t, func() error { return cmd.Execute() })
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+
+		// Support column updated; security retains its prior value (AC-6).
+		updated := loadTarget(t, "acme", "test-repo-1")
+		assert.Equal(t, "new-support@example.com", updated.SupportEmail)
+		assert.Equal(t, "new-security@example.com", updated.SecurityEmail)
+	})
+
+	t.Run("dry-run reports new value without writing", func(t *testing.T) {
+		withDryRunEnabled(t)
+
+		before := loadTarget(t, "acme", "test-repo-1")
+
+		cmd := newDBTargetUpdateCmd()
+		cmd.SetArgs([]string{
+			"--group", "my-tools",
+			"--repo", "acme/test-repo-1",
+			"--security-email", "dryrun@example.com",
+			"--json",
+		})
+
+		resp, err := captureJSON(t, func() error { return cmd.Execute() })
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.True(t, resp.DryRun)
+
+		// Dry-run reports the new value (AC-8)...
+		data, ok := resp.Data.(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, "dryrun@example.com", data["security_email"])
+
+		// ...but the persisted row is unchanged.
+		after := loadTarget(t, "acme", "test-repo-1")
+		assert.Equal(t, before.SecurityEmail, after.SecurityEmail)
+	})
+}
+
 func TestTargetGet(t *testing.T) {
 	cleanup := setupTestDB(t)
 	defer cleanup()
@@ -1356,6 +1467,154 @@ func TestTargetClone(t *testing.T) {
 		var org db.Organization
 		require.NoError(t, gormDB.Where("name = ?", "neworg").First(&org).Error)
 		assert.Equal(t, "neworg", org.Name)
+	})
+}
+
+// TestTargetCloneEmail verifies contact-email handling on clone: per-repo addresses
+// are rebased to the destination repo short name, shared/org addresses are copied
+// verbatim, an explicit flag overrides the resolved value (independently per column),
+// and a dry-run reports the resolved emails without writing a row.
+func TestTargetCloneEmail(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+
+	// Seed source contact emails: target1 (test-repo-1) follows the per-repo
+	// convention (local-part == repo short name) so a clone should rebase it;
+	// target2 (test-repo-2) uses a shared/org address that must be copied verbatim.
+	database, err := openDatabase()
+	require.NoError(t, err)
+	gormDB := database.DB()
+
+	var target1 db.Target
+	require.NoError(t, gormDB.Where("position = ?", 0).First(&target1).Error)
+	target1.SecurityEmail = "test-repo-1@example.com"
+	target1.SupportEmail = "test-repo-1@example.com"
+	require.NoError(t, gormDB.Save(&target1).Error)
+
+	var target2 db.Target
+	require.NoError(t, gormDB.Where("position = ?", 1).First(&target2).Error)
+	target2.SecurityEmail = "security@example.org"
+	target2.SupportEmail = "security@example.org"
+	require.NoError(t, gormDB.Save(&target2).Error)
+
+	require.NoError(t, database.Close())
+
+	// loadClonedTarget fetches the persisted cloned target row for org/name.
+	loadClonedTarget := func(t *testing.T, org, name string) db.Target {
+		t.Helper()
+		database, err := openDatabase()
+		require.NoError(t, err)
+		defer func() { _ = database.Close() }()
+		gormDB := database.DB()
+
+		var repo db.Repo
+		require.NoError(t, gormDB.
+			Joins("JOIN organizations ON organizations.id = repos.organization_id").
+			Where("organizations.name = ? AND repos.name = ?", org, name).
+			First(&repo).Error)
+		var target db.Target
+		require.NoError(t, gormDB.Where("repo_id = ?", repo.ID).First(&target).Error)
+		return target
+	}
+
+	t.Run("rebase per-repo email to destination short name", func(t *testing.T) {
+		cmd := newDBTargetCloneCmd()
+		cmd.SetArgs([]string{
+			"--group", "my-tools",
+			"--from", "acme/test-repo-1",
+			"--to", "acme/go-actions",
+			"--json",
+		})
+
+		resp, err := captureJSON(t, func() error { return cmd.Execute() })
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+
+		// Result JSON reports the rebased emails (AC-8, real path).
+		data, ok := resp.Data.(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, "go-actions@example.com", data["security_email"])
+		assert.Equal(t, "go-actions@example.com", data["support_email"])
+
+		// Persisted row carries the rebased emails for both columns (AC-1, AC-4).
+		cloned := loadClonedTarget(t, "acme", "go-actions")
+		assert.Equal(t, "go-actions@example.com", cloned.SecurityEmail)
+		assert.Equal(t, "go-actions@example.com", cloned.SupportEmail)
+	})
+
+	t.Run("shared org email copied verbatim", func(t *testing.T) {
+		cmd := newDBTargetCloneCmd()
+		cmd.SetArgs([]string{
+			"--group", "my-tools",
+			"--from", "acme/test-repo-2",
+			"--to", "acme/go-cache",
+			"--json",
+		})
+
+		resp, err := captureJSON(t, func() error { return cmd.Execute() })
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+
+		// Shared/org address is unchanged on both columns (AC-2).
+		cloned := loadClonedTarget(t, "acme", "go-cache")
+		assert.Equal(t, "security@example.org", cloned.SecurityEmail)
+		assert.Equal(t, "security@example.org", cloned.SupportEmail)
+	})
+
+	t.Run("explicit flag overrides rebase per column", func(t *testing.T) {
+		cmd := newDBTargetCloneCmd()
+		cmd.SetArgs([]string{
+			"--group", "my-tools",
+			"--from", "acme/test-repo-1",
+			"--to", "acme/go-fortress",
+			"--security-email", "custom@override.com",
+			"--json",
+		})
+
+		resp, err := captureJSON(t, func() error { return cmd.Execute() })
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+
+		// The explicit flag wins for security; support (no flag) still rebases —
+		// proving the override applies independently per column (AC-5, AC-4).
+		cloned := loadClonedTarget(t, "acme", "go-fortress")
+		assert.Equal(t, "custom@override.com", cloned.SecurityEmail)
+		assert.Equal(t, "go-fortress@example.com", cloned.SupportEmail)
+	})
+
+	t.Run("dry-run reports resolved emails without writing", func(t *testing.T) {
+		withDryRunEnabled(t)
+
+		database, err := openDatabase()
+		require.NoError(t, err)
+		defer func() { _ = database.Close() }()
+
+		var before int64
+		require.NoError(t, database.DB().Model(&db.Target{}).Count(&before).Error)
+
+		cmd := newDBTargetCloneCmd()
+		cmd.SetArgs([]string{
+			"--group", "my-tools",
+			"--from", "acme/test-repo-1",
+			"--to", "acme/dry-dest",
+			"--json",
+		})
+
+		resp, err := captureJSON(t, func() error { return cmd.Execute() })
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.True(t, resp.DryRun)
+
+		// Dry-run reports the resolved emails for both columns (AC-8)...
+		data, ok := resp.Data.(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, "dry-dest@example.com", data["security_email"])
+		assert.Equal(t, "dry-dest@example.com", data["support_email"])
+
+		// ...but writes no row.
+		var after int64
+		require.NoError(t, database.DB().Model(&db.Target{}).Count(&after).Error)
+		assert.Equal(t, before, after)
 	})
 }
 
