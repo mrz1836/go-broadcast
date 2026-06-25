@@ -351,7 +351,7 @@ func TestGroupTargetWrite_JSON(t *testing.T) { //nolint:paralleltest // mutates 
 		cmd.SetContext(context.Background())
 		require.NoError(t, cmd.Flags().Set("branch", "release"))
 		_, err := captureJSON(t, func() error {
-			return runTargetUpdate(cmd, "my-tools", "acme/test-repo-1", "release", "", "", "", true)
+			return runTargetUpdate(cmd, "my-tools", "acme/test-repo-1", "release", "", "", "", "", "", true)
 		})
 		require.NoError(t, err)
 	})
@@ -360,7 +360,7 @@ func TestGroupTargetWrite_JSON(t *testing.T) { //nolint:paralleltest // mutates 
 		cmd := newDBTargetCloneCmd()
 		cmd.SetContext(context.Background())
 		_, err := captureJSON(t, func() error {
-			return runTargetClone(cmd, "my-tools", "acme/test-repo-1", "acme/cloned-repo", "", "", "", "", "", true)
+			return runTargetClone(cmd, "my-tools", "acme/test-repo-1", "acme/cloned-repo", "", "", "", "", "", "", "", true)
 		})
 		require.NoError(t, err)
 	})
@@ -369,7 +369,7 @@ func TestGroupTargetWrite_JSON(t *testing.T) { //nolint:paralleltest // mutates 
 		cmd := newDBTargetCloneCmd()
 		cmd.SetContext(context.Background())
 		err := runTargetClone(cmd, "my-tools", "acme/test-repo-1", "acme/cloned-repo-2",
-			"release", "lbl1,lbl2", "asg1", "rev1", "team1", false)
+			"release", "lbl1,lbl2", "asg1", "rev1", "team1", "", "", false)
 		require.NoError(t, err)
 	})
 
@@ -377,14 +377,14 @@ func TestGroupTargetWrite_JSON(t *testing.T) { //nolint:paralleltest // mutates 
 		cmd := newDBTargetCloneCmd()
 		cmd.SetContext(context.Background())
 		// acme/cloned-repo-2 was just created above.
-		err := runTargetClone(cmd, "my-tools", "acme/test-repo-1", "acme/cloned-repo-2", "", "", "", "", "", false)
+		err := runTargetClone(cmd, "my-tools", "acme/test-repo-1", "acme/cloned-repo-2", "", "", "", "", "", "", "", false)
 		require.Error(t, err)
 	})
 
 	t.Run("target clone missing source errors", func(t *testing.T) {
 		cmd := newDBTargetCloneCmd()
 		cmd.SetContext(context.Background())
-		err := runTargetClone(cmd, "my-tools", "acme/ghost-source", "acme/new-dest", "", "", "", "", "", false)
+		err := runTargetClone(cmd, "my-tools", "acme/ghost-source", "acme/new-dest", "", "", "", "", "", "", "", false)
 		require.Error(t, err)
 	})
 
@@ -392,7 +392,7 @@ func TestGroupTargetWrite_JSON(t *testing.T) { //nolint:paralleltest // mutates 
 		cmd := newDBTargetUpdateCmd()
 		cmd.SetContext(context.Background())
 		require.NoError(t, cmd.Flags().Set("branch", "stable"))
-		require.NoError(t, runTargetUpdate(cmd, "my-tools", "acme/test-repo-1", "stable", "", "", "", false))
+		require.NoError(t, runTargetUpdate(cmd, "my-tools", "acme/test-repo-1", "stable", "", "", "", "", "", false))
 	})
 
 	t.Run("target remove json", func(t *testing.T) {
@@ -423,7 +423,7 @@ func TestGroupTargetWrite_JSON(t *testing.T) { //nolint:paralleltest // mutates 
 		cmdC := newDBTargetCloneCmd()
 		cmdC.SetContext(context.Background())
 		_, err = captureJSON(t, func() error {
-			return runTargetClone(cmdC, "my-tools", "acme/test-repo-1", "acme/dry-clone", "", "", "", "", "", true)
+			return runTargetClone(cmdC, "my-tools", "acme/test-repo-1", "acme/dry-clone", "", "", "", "", "", "", "", true)
 		})
 		require.NoError(t, err)
 
@@ -443,7 +443,7 @@ func TestGroupTargetWrite_JSON(t *testing.T) { //nolint:paralleltest // mutates 
 
 		cmd := newDBTargetCloneCmd()
 		cmd.SetContext(context.Background())
-		require.Error(t, runTargetClone(cmd, "g", "o/a", "o/b", "", "", "", "", "", false))
+		require.Error(t, runTargetClone(cmd, "g", "o/a", "o/b", "", "", "", "", "", "", "", false))
 	})
 }
 

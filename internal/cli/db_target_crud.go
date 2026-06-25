@@ -17,10 +17,12 @@ import (
 
 // targetListResult is the JSON-serializable result for target list
 type targetListResult struct {
-	Repo     string `json:"repo"`
-	Branch   string `json:"branch,omitempty"`
-	Position int    `json:"position"`
-	GroupID  string `json:"group_id"`
+	Repo          string `json:"repo"`
+	Branch        string `json:"branch,omitempty"`
+	Position      int    `json:"position"`
+	GroupID       string `json:"group_id"`
+	SecurityEmail string `json:"security_email,omitempty"`
+	SupportEmail  string `json:"support_email,omitempty"`
 }
 
 // targetDetailResult is the JSON-serializable result for target get
@@ -448,19 +450,21 @@ func runTargetRemove(groupExternalID, repoFullName string, hard, jsonOutput bool
 
 func newDBTargetUpdateCmd() *cobra.Command {
 	var (
-		jsonOutput  bool
-		groupID     string
-		repo        string
-		branch      string
-		prLabels    string
-		prAssignees string
-		prReviewers string
+		jsonOutput    bool
+		groupID       string
+		repo          string
+		branch        string
+		prLabels      string
+		prAssignees   string
+		prReviewers   string
+		securityEmail string
+		supportEmail  string
 	)
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update target settings",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runTargetUpdate(cmd, groupID, repo, branch, prLabels, prAssignees, prReviewers, jsonOutput)
+			return runTargetUpdate(cmd, groupID, repo, branch, prLabels, prAssignees, prReviewers, securityEmail, supportEmail, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -470,12 +474,14 @@ func newDBTargetUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&prLabels, "pr-labels", "", "Comma-separated PR labels")
 	cmd.Flags().StringVar(&prAssignees, "pr-assignees", "", "Comma-separated PR assignees")
 	cmd.Flags().StringVar(&prReviewers, "pr-reviewers", "", "Comma-separated PR reviewers")
+	cmd.Flags().StringVar(&securityEmail, "security-email", "", "Set the security contact email (omit to leave unchanged)")
+	cmd.Flags().StringVar(&supportEmail, "support-email", "", "Set the support contact email (omit to leave unchanged)")
 	_ = cmd.MarkFlagRequired("group")
 	_ = cmd.MarkFlagRequired("repo")
 	return cmd
 }
 
-func runTargetUpdate(cmd *cobra.Command, groupExternalID, repoFullName, branch, prLabels, prAssignees, prReviewers string, jsonOutput bool) error {
+func runTargetUpdate(cmd *cobra.Command, groupExternalID, repoFullName, branch, prLabels, prAssignees, prReviewers, securityEmail, supportEmail string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("target", "updated", err.Error(), "", jsonOutput)
@@ -509,12 +515,23 @@ func runTargetUpdate(cmd *cobra.Command, groupExternalID, repoFullName, branch, 
 	if cmd.Flags().Changed("pr-reviewers") {
 		target.PRReviewers = splitCSV(prReviewers)
 	}
+	// An unset email flag means no change; setting it to empty clears the column
+	// (mirrors the string-field set convention). The DB-layer BeforeUpdate hook
+	// validates the address, so no extra validation is needed here.
+	if cmd.Flags().Changed("security-email") {
+		target.SecurityEmail = securityEmail
+	}
+	if cmd.Flags().Changed("support-email") {
+		target.SupportEmail = supportEmail
+	}
 
 	result := targetListResult{
-		Repo:     repoFullName,
-		Branch:   target.Branch,
-		Position: target.Position,
-		GroupID:  groupExternalID,
+		Repo:          repoFullName,
+		Branch:        target.Branch,
+		Position:      target.Position,
+		GroupID:       groupExternalID,
+		SecurityEmail: target.SecurityEmail,
+		SupportEmail:  target.SupportEmail,
 	}
 
 	if IsDryRun() {
@@ -547,6 +564,22 @@ func resolveRepoName(ctx context.Context, gormDB *gorm.DB, repoID uint) string {
 	return fmt.Sprintf("repo-id-%d", repoID)
 }
 
+// resolveTargetEmail resolves a single contact email column for a clone destination.
+// An explicitly provided flag value always wins; otherwise the source email is
+// rebased to the destination repo short name (per-repo convention), copied verbatim
+// (shared/org email), or copied verbatim with a warning when a rebase would be
+// invalid. Any warning is surfaced once, here, so the resolver stays pure.
+func resolveTargetEmail(cmd *cobra.Command, flagName, flagValue, sourceEmail, srcShort, dstShort string) string {
+	if cmd.Flags().Changed(flagName) {
+		return flagValue
+	}
+	resolved, warning := resolveClonedEmail(sourceEmail, srcShort, dstShort)
+	if warning != "" {
+		output.Warn(warning)
+	}
+	return resolved
+}
+
 // splitCSV splits a comma-separated string into a JSONStringSlice, trimming whitespace
 func splitCSV(s string) db.JSONStringSlice {
 	if s == "" {
@@ -574,6 +607,8 @@ func newDBTargetCloneCmd() *cobra.Command {
 		prAssignees     string
 		prReviewers     string
 		prTeamReviewers string
+		securityEmail   string
+		supportEmail    string
 		createRepo      bool
 		presetID        string
 		topicsStr       string
@@ -587,7 +622,7 @@ func newDBTargetCloneCmd() *cobra.Command {
 
 With --create-repo, also creates the GitHub repository using the scaffold flow before cloning the target.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runTargetClone(cmd, groupID, from, to, branch, prLabels, prAssignees, prReviewers, prTeamReviewers, jsonOutput)
+			return runTargetClone(cmd, groupID, from, to, branch, prLabels, prAssignees, prReviewers, prTeamReviewers, securityEmail, supportEmail, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -599,6 +634,8 @@ With --create-repo, also creates the GitHub repository using the scaffold flow b
 	cmd.Flags().StringVar(&prAssignees, "pr-assignees", "", "Override comma-separated PR assignees")
 	cmd.Flags().StringVar(&prReviewers, "pr-reviewers", "", "Override comma-separated PR reviewers")
 	cmd.Flags().StringVar(&prTeamReviewers, "pr-team-reviewers", "", "Override comma-separated PR team reviewers")
+	cmd.Flags().StringVar(&securityEmail, "security-email", "", "Override the security contact email for the new target")
+	cmd.Flags().StringVar(&supportEmail, "support-email", "", "Override the support contact email for the new target")
 	cmd.Flags().BoolVar(&createRepo, "create-repo", false, "Create the GitHub repository before cloning target")
 	cmd.Flags().StringVar(&presetID, "preset", "mvp", "Settings preset ID (used with --create-repo)")
 	cmd.Flags().StringVar(&topicsStr, "topics", "", "Comma-separated topics (used with --create-repo)")
@@ -616,7 +653,7 @@ With --create-repo, also creates the GitHub repository using the scaffold flow b
 	return cmd
 }
 
-func runTargetClone(cmd *cobra.Command, groupExternalID, fromRepo, toRepo, branch, prLabels, prAssignees, prReviewers, prTeamReviewers string, jsonOutput bool) error {
+func runTargetClone(cmd *cobra.Command, groupExternalID, fromRepo, toRepo, branch, prLabels, prAssignees, prReviewers, prTeamReviewers, securityEmail, supportEmail string, jsonOutput bool) error {
 	ctx := cmd.Context()
 	if ctx == nil {
 		ctx = context.Background()
@@ -726,15 +763,26 @@ func runTargetClone(cmd *cobra.Command, groupExternalID, fromRepo, toRepo, branc
 		previewBranch = branch
 	}
 
+	// Resolve the contact emails for the destination. A per-repo address (local-part
+	// equal to the source repo's short name) is rebased to the destination repo's
+	// short name; a shared/org address is copied verbatim; an invalid rebase falls
+	// back to a verbatim copy with a warning. An explicit flag always wins.
+	srcShort := repoShortName(resolveRepoName(ctx, gormDB, source.RepoID))
+	dstShort := repoShortName(toRepo)
+	resolvedSecurityEmail := resolveTargetEmail(cmd, "security-email", securityEmail, source.SecurityEmail, srcShort, dstShort)
+	resolvedSupportEmail := resolveTargetEmail(cmd, "support-email", supportEmail, source.SupportEmail, srcShort, dstShort)
+
 	if IsDryRun() {
 		return printDryRunResponse(CLIResponse{
 			Action: "cloned",
 			Type:   "target",
 			Data: targetListResult{
-				Repo:     toRepo,
-				Branch:   previewBranch,
-				Position: len(targets),
-				GroupID:  groupExternalID,
+				Repo:          toRepo,
+				Branch:        previewBranch,
+				Position:      len(targets),
+				GroupID:       groupExternalID,
+				SecurityEmail: resolvedSecurityEmail,
+				SupportEmail:  resolvedSupportEmail,
 			},
 			Hint: fmt.Sprintf("cloned from %s", fromRepo),
 		}, fmt.Sprintf("clone target %q to %q in group %q", fromRepo, toRepo, groupExternalID), jsonOutput)
@@ -744,7 +792,8 @@ func runTargetClone(cmd *cobra.Command, groupExternalID, fromRepo, toRepo, branc
 	var newTarget *db.Target
 	err = gormDB.Transaction(func(tx *gorm.DB) error {
 		newTarget, err = cloneTargetInTx(ctx, cmd, tx, source, group.ID, toRepo, len(targets),
-			branch, prLabels, prAssignees, prReviewers, prTeamReviewers)
+			branch, prLabels, prAssignees, prReviewers, prTeamReviewers,
+			resolvedSecurityEmail, resolvedSupportEmail)
 		return err
 	})
 	if err != nil {
@@ -752,10 +801,12 @@ func runTargetClone(cmd *cobra.Command, groupExternalID, fromRepo, toRepo, branc
 	}
 
 	result := targetListResult{
-		Repo:     toRepo,
-		Branch:   newTarget.Branch,
-		Position: newTarget.Position,
-		GroupID:  groupExternalID,
+		Repo:          toRepo,
+		Branch:        newTarget.Branch,
+		Position:      newTarget.Position,
+		GroupID:       groupExternalID,
+		SecurityEmail: newTarget.SecurityEmail,
+		SupportEmail:  newTarget.SupportEmail,
 	}
 
 	return printResponse(CLIResponse{
@@ -776,6 +827,7 @@ func cloneTargetInTx(
 	toRepo string,
 	position int,
 	branch, prLabels, prAssignees, prReviewers, prTeamReviewers string,
+	securityEmail, supportEmail string,
 ) (*db.Target, error) {
 	// Resolve destination repo (auto-creates client/org/repo)
 	repoRepo := db.NewRepoRepository(tx)
@@ -784,14 +836,15 @@ func cloneTargetInTx(
 		return nil, fmt.Errorf("failed to resolve destination repo: %w", err)
 	}
 
-	// Create new Target record - copy scalar fields from source
+	// Create new Target record - copy scalar fields from source. The contact emails
+	// are pre-resolved by the caller (rebase / verbatim / explicit override).
 	newTarget := &db.Target{
 		GroupID:         groupID,
 		RepoID:          destRepo.ID,
 		Branch:          source.Branch,
 		BlobSizeLimit:   source.BlobSizeLimit,
-		SecurityEmail:   source.SecurityEmail,
-		SupportEmail:    source.SupportEmail,
+		SecurityEmail:   securityEmail,
+		SupportEmail:    supportEmail,
 		PRLabels:        copyJSONStringSlice(source.PRLabels),
 		PRAssignees:     copyJSONStringSlice(source.PRAssignees),
 		PRReviewers:     copyJSONStringSlice(source.PRReviewers),
