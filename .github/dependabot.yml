@@ -8,7 +8,7 @@
 #   • Minimise PR noise via smart grouping and sane pull‑request limits.
 #
 # References:
-#   https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+#   https://docs.github.com/en/code-security/dependabot/dependabot-version-updates?v=1
 #   https://docs.github.com/en/code-security/dependabot/configuration-options-for-dependency-updates
 #
 # Security Hardened Defaults:
