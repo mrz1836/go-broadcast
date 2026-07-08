@@ -93,7 +93,6 @@ type SyncRun struct {
 }
 
 // CIMetricsSnapshot captures CI build metrics from GoFortress workflow artifacts.
-// Replaces the fragile shell script approach in zai/scripts/scorecard-collect.sh.
 type CIMetricsSnapshot struct {
 	BaseModel
 
