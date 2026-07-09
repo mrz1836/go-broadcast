@@ -47,7 +47,6 @@ require (
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
-	github.com/mailru/easyjson v0.9.2 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mbleigh/raymond v0.0.0-20250414171441-6b3a58ab9e0a // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
@@ -58,7 +57,6 @@ require (
 	github.com/tidwall/match v1.2.0 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
@@ -90,7 +88,3 @@ replace github.com/golang-jwt/jwt/v5 => github.com/golang-jwt/jwt/v5 v5.3.1
 
 // Fix CVE-2025-67818: Path Traversal vulnerability in backup modules
 replace github.com/weaviate/weaviate => github.com/weaviate/weaviate v1.37.6
-
-// Pin to v0.13.0: v0.14.0 switched Properties from wk8/go-ordered-map to pb33f/ordered-map,
-// breaking dotprompt (github.com/google/dotprompt/go) which still imports wk8.
-replace github.com/invopop/jsonschema => github.com/invopop/jsonschema v0.13.0
