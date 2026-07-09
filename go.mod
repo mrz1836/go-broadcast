@@ -36,7 +36,7 @@ require (
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
-	github.com/google/dotprompt/go v0.0.0-20260502013637-5cd4a8405ca3 // indirect
+	github.com/google/dotprompt/go v0.0.0-20260708220100-73beb993ac95 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -44,13 +44,14 @@ require (
 	github.com/googleapis/gax-go/v2 v2.23.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/invopop/jsonschema v0.13.0 // indirect
+	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mailru/easyjson v0.9.2 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mbleigh/raymond v0.0.0-20250414171441-6b3a58ab9e0a // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
+	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
 	github.com/tidwall/gjson v1.19.0 // indirect
@@ -68,12 +69,13 @@ require (
 	go.opentelemetry.io/otel/metric v1.44.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.44.0 // indirect
 	go.opentelemetry.io/otel/trace v1.44.0 // indirect
-	golang.org/x/crypto v0.53.0 // indirect
-	golang.org/x/net v0.56.0 // indirect
+	go.yaml.in/yaml/v4 v4.0.0-rc.6 // indirect
+	golang.org/x/crypto v0.54.0 // indirect
+	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
 	google.golang.org/api v0.287.1 // indirect
-	google.golang.org/genai v1.62.0 // indirect
+	google.golang.org/genai v1.63.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260706201446-f0a921348800 // indirect
 	google.golang.org/grpc v1.82.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
