@@ -8,7 +8,7 @@ require (
 	github.com/firebase/genkit/go v1.10.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/magefile/mage v1.17.2
-	github.com/mattn/go-isatty v0.0.22
+	github.com/mattn/go-isatty v0.0.23
 	github.com/openai/openai-go v1.12.0
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 	github.com/sirupsen/logrus v1.9.4
