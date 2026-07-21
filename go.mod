@@ -33,7 +33,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/glebarez/go-sqlite v1.22.0 // indirect
-	github.com/go-logr/logr v1.4.3 // indirect
+	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
 	github.com/google/dotprompt/go v0.0.0-20260708220100-73beb993ac95 // indirect
@@ -74,10 +74,10 @@ require (
 	golang.org/x/text v0.40.0 // indirect
 	google.golang.org/api v0.289.0 // indirect
 	google.golang.org/genai v1.64.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260715232425-e75dac1f907d // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260720211330-0afa2a65878a // indirect
 	google.golang.org/grpc v1.82.1 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
-	modernc.org/libc v1.74.1 // indirect
+	modernc.org/libc v1.74.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 	modernc.org/sqlite v1.54.0 // indirect
