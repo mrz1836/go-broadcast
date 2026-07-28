@@ -182,7 +182,10 @@
                     "github.com/golang-jwt/jwt/v5",
                     "golang.org/x/crypto",
                     "github.com/weaviate/weaviate",
-                    "github.com/invopop/jsonschema"
+                    "github.com/invopop/jsonschema",
+                    "github.com/jackc/pgx/v5",
+                    "go.mongodb.org/mongo-driver",
+                    "github.com/klauspost/compress"
                 ]
             },
             "govet": {
