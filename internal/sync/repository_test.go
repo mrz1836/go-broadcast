@@ -1996,12 +1996,14 @@ func TestRepositorySync_validateAndCleanupOrphanedBranches(t *testing.T) {
 	})
 
 	t.Run("orphaned branches found and cleaned", func(t *testing.T) {
-		orphanedBranch := "chore/sync-files-test-123"
+		// Names must match the full generated format and be older than
+		// orphanedBranchMinAge to be eligible for cleanup
+		orphanedBranch := "chore/sync-files-repo-20240115-120530-abc1234"
 		ghClient := &TestValidationMockGHClient{
 			branches: []gh.Branch{
 				{Name: "main"},
 				{Name: orphanedBranch},
-				{Name: "chore/sync-files-test-456"}, // This one has a PR
+				{Name: "chore/sync-files-repo-20240115-120531-abc1234"}, // This one has a PR
 			},
 		}
 
@@ -2026,7 +2028,7 @@ func TestRepositorySync_validateAndCleanupOrphanedBranches(t *testing.T) {
 					{Head: struct {
 						Ref string `json:"ref"`
 						SHA string `json:"sha"`
-					}{Ref: "chore/sync-files-test-456"}}, // This branch has a PR
+					}{Ref: "chore/sync-files-repo-20240115-120531-abc1234"}}, // This branch has a PR
 				},
 			},
 			logger: logger,
@@ -2058,7 +2060,7 @@ func TestRepositorySync_validateAndCleanupOrphanedBranches(t *testing.T) {
 	})
 
 	t.Run("DeleteBranch fails but continues", func(t *testing.T) {
-		orphanedBranch := "chore/sync-files-test-123"
+		orphanedBranch := "chore/sync-files-repo-20240115-120530-abc1234"
 		ghClient := &TestValidationMockGHClient{
 			branches: []gh.Branch{
 				{Name: orphanedBranch},

@@ -33,6 +33,11 @@ var (
 // Constants
 const (
 	mainBranch = "master"
+
+	// orphanedBranchMinAge is how long a sync branch must exist before pre-sync
+	// cleanup will delete it. The window covers a concurrent run that has pushed
+	// its branch but has not opened its PR yet.
+	orphanedBranchMinAge = time.Hour
 )
 
 // RepositorySync handles synchronization for a single repository
@@ -415,14 +420,30 @@ func (rs *RepositorySync) validateAndCleanupOrphanedBranches(ctx context.Context
 	// Look for orphaned sync branches (branches that match our pattern but have no PR)
 	orphanedBranches := make([]string, 0)
 	syncBranchPrefix := rs.getBranchPrefix()
+	cutoff := time.Now().Add(-orphanedBranchMinAge)
 
 	for _, branch := range branches {
-		// Check if this is a sync branch (matches our prefix pattern)
-		if strings.HasPrefix(branch.Name, syncBranchPrefix) {
-			// Check if there's an existing PR for this branch
-			if existingPR := rs.findExistingPRForBranch(branch.Name); existingPR == nil {
-				orphanedBranches = append(orphanedBranches, branch.Name)
-			}
+		// Require a full format match, not just the prefix. A human branch that
+		// merely starts with the sync prefix must never be deleted.
+		metadata, err := state.ParseSyncBranchName(branch.Name, syncBranchPrefix)
+		if err != nil {
+			continue
+		}
+
+		// Leave recent branches alone: a concurrent sync run may have pushed its
+		// branch and not yet opened the PR, and deleting it would break that run.
+		if metadata.Timestamp.After(cutoff) {
+			rs.logger.WithFields(logrus.Fields{
+				"branch_name": branch.Name,
+				"age":         time.Since(metadata.Timestamp).String(),
+			}).Debug("Skipping recent sync branch during orphan cleanup")
+
+			continue
+		}
+
+		// Check if there's an existing PR for this branch
+		if existingPR := rs.findExistingPRForBranch(branch.Name); existingPR == nil {
+			orphanedBranches = append(orphanedBranches, branch.Name)
 		}
 	}
 
