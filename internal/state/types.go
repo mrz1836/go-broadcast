@@ -68,7 +68,7 @@ type SyncBranch struct {
 }
 
 // BranchMetadata contains information parsed from sync branch names
-// Format: chore/sync-files-{groupID}-YYYYMMDD-HHMMSS-{commit}
+// Format: chore/sync-files-{scope}-YYYYMMDD-HHMMSS-{commit}
 type BranchMetadata struct {
 	// Timestamp is when this sync branch was created
 	Timestamp time.Time
@@ -79,8 +79,10 @@ type BranchMetadata struct {
 	// Prefix is the branch prefix (e.g., "chore/sync-files")
 	Prefix string
 
-	// GroupID is the group identifier that created this sync
-	GroupID string
+	// Scope identifies the target repository this sync branch belongs to.
+	// Branches created before this segment changed meaning carry the group ID
+	// instead, so treat it as a label rather than a key.
+	Scope string
 }
 
 // SyncStatus represents the status of a sync operation

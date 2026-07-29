@@ -1279,7 +1279,7 @@ func TestProcessCancelTarget_MultiGroupBranchNames(t *testing.T) {
 						Name: "chore/sync-files-vendor-go-20250112-145757-561a06e",
 						Metadata: &state.BranchMetadata{
 							Timestamp: time.Date(2025, time.January, 12, 14, 57, 57, 0, time.UTC),
-							GroupID:   "vendor-go",
+							Scope:     "vendor-go",
 						},
 					},
 				},

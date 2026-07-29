@@ -752,7 +752,7 @@ func TestPerformCancelWithDiscoverer_MultiGroupIntegration(t *testing.T) {
 									Metadata: &state.BranchMetadata{
 										Timestamp: time.Date(2025, time.January, 12, 14, 57, 57, 0, time.UTC),
 										CommitSHA: "561a06e",
-										GroupID:   "vendor-go",
+										Scope:     "vendor-go",
 									},
 								},
 							},

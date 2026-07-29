@@ -759,36 +759,22 @@ func (rs *RepositorySync) processFileDeletion(ctx context.Context, fileMapping c
 
 // createSyncBranch creates a new sync branch or returns existing one
 func (rs *RepositorySync) createSyncBranch(_ context.Context) string {
-	// Generate branch name: chore/sync-files-{groupID}-YYYYMMDD-HHMMSS-{commit}
-	now := time.Now()
-	timestamp := now.Format("20060102-150405")
+	// Generate branch name: chore/sync-files-{targetRepo}-YYYYMMDD-HHMMSS-{commit}
+	//
+	// The scope segment names the target repository rather than the group. Group
+	// names are internal to the configuration and should not leak into branches
+	// published on public repos, and scoping by target also guarantees two targets
+	// synced within the same second cannot produce identical branch names.
+	now := time.Now().UTC()
 	commitSHA := rs.sourceState.LatestCommit
 	if len(commitSHA) > 7 {
 		commitSHA = commitSHA[:7]
 	}
 
-	var branchPrefix string
-	var groupID string
-	if currentGroup := rs.engine.GetCurrentGroup(); currentGroup != nil {
-		branchPrefix = currentGroup.Defaults.BranchPrefix
-		groupID = currentGroup.ID
-	} else {
-		// Get defaults from the first group (since we have a single group in temporary config)
-		if len(rs.engine.config.Groups) > 0 {
-			branchPrefix = rs.engine.config.Groups[0].Defaults.BranchPrefix
-			groupID = rs.engine.config.Groups[0].ID
-		}
-	}
-	if branchPrefix == "" {
-		branchPrefix = "chore/sync-files"
-	}
-	// Group ID is always required
-	if groupID == "" {
-		rs.logger.Warn("No group ID found, using 'default'")
-		groupID = "default"
-	}
+	branchPrefix := rs.getBranchPrefix()
+	scope := state.FormatBranchScope(rs.target.Repo)
 
-	branchName := fmt.Sprintf("%s-%s-%s-%s", branchPrefix, groupID, timestamp, commitSHA)
+	branchName := state.FormatSyncBranchName(branchPrefix, scope, now, commitSHA)
 
 	rs.logger.WithField("branch_name", branchName).Info("Creating sync branch")
 

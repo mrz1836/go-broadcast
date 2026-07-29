@@ -24,7 +24,7 @@ func TestParseSyncBranchName(t *testing.T) {
 				Timestamp: time.Date(2024, 1, 15, 12, 5, 30, 0, time.UTC),
 				CommitSHA: "abc123def",
 				Prefix:    "chore/sync-files",
-				GroupID:   "default",
+				Scope:     "default",
 			},
 		},
 		{
@@ -35,7 +35,7 @@ func TestParseSyncBranchName(t *testing.T) {
 				Timestamp: time.Date(2024, 1, 15, 12, 5, 30, 0, time.UTC),
 				CommitSHA: "abc123def",
 				Prefix:    "chore/sync-files",
-				GroupID:   "ci-cd",
+				Scope:     "ci-cd",
 			},
 		},
 		{
@@ -46,7 +46,7 @@ func TestParseSyncBranchName(t *testing.T) {
 				Timestamp: time.Date(2024, 1, 15, 23, 59, 59, 0, time.UTC),
 				CommitSHA: "1234567890abcdef1234567890abcdef12345678",
 				Prefix:    "chore/sync-files",
-				GroupID:   "platform",
+				Scope:     "platform",
 			},
 		},
 		{
@@ -107,7 +107,7 @@ func TestParseSyncBranchName(t *testing.T) {
 			assert.Equal(t, tt.expected.Timestamp, result.Timestamp)
 			assert.Equal(t, tt.expected.CommitSHA, result.CommitSHA)
 			assert.Equal(t, tt.expected.Prefix, result.Prefix)
-			assert.Equal(t, tt.expected.GroupID, result.GroupID)
+			assert.Equal(t, tt.expected.Scope, result.Scope)
 		})
 	}
 }
@@ -230,7 +230,7 @@ func TestBranchParsingRoundTrip(t *testing.T) {
 
 	// Verify we get the same values
 	assert.Equal(t, prefix, metadata.Prefix)
-	assert.Equal(t, groupID, metadata.GroupID)
+	assert.Equal(t, groupID, metadata.Scope)
 	assert.Equal(t, timestamp, metadata.Timestamp)
 	assert.Equal(t, commitSHA, metadata.CommitSHA)
 }
@@ -254,7 +254,7 @@ func TestParseSyncBranchNameWithPrefix(t *testing.T) {
 				Timestamp: time.Date(2024, 1, 15, 12, 5, 30, 0, time.UTC),
 				CommitSHA: "abc123def",
 				Prefix:    "sync/deploy",
-				GroupID:   "prod",
+				Scope:     "prod",
 			},
 		},
 		{
@@ -266,7 +266,7 @@ func TestParseSyncBranchNameWithPrefix(t *testing.T) {
 				Timestamp: time.Date(2024, 6, 20, 9, 30, 0, 0, time.UTC),
 				CommitSHA: "fedcba987",
 				Prefix:    "feature/sync-config",
-				GroupID:   "staging",
+				Scope:     "staging",
 			},
 		},
 		{
@@ -278,7 +278,7 @@ func TestParseSyncBranchNameWithPrefix(t *testing.T) {
 				Timestamp: time.Date(2024, 1, 15, 12, 5, 30, 0, time.UTC),
 				CommitSHA: "abc123",
 				Prefix:    "sync.files",
-				GroupID:   "test",
+				Scope:     "test",
 			},
 		},
 		{
@@ -317,7 +317,7 @@ func TestParseSyncBranchNameWithPrefix(t *testing.T) {
 			assert.Equal(t, tt.expected.Timestamp, result.Timestamp)
 			assert.Equal(t, tt.expected.CommitSHA, result.CommitSHA)
 			assert.Equal(t, tt.expected.Prefix, result.Prefix)
-			assert.Equal(t, tt.expected.GroupID, result.GroupID)
+			assert.Equal(t, tt.expected.Scope, result.Scope)
 		})
 	}
 }
