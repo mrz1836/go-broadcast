@@ -10,6 +10,7 @@ import (
 
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/logging"
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 )
 
 // errNoNetwork stands in for a failed network/command operation in tests so the
@@ -27,6 +28,10 @@ var errNoNetwork = errors.New("network access disabled in tests")
 // helpers or the newReviewPRClient seam; the real-API integration tests are
 // explicitly t.Skip'd.
 func TestMain(m *testing.M) {
+	// Keep AI credentials in the ambient environment from turning tests into live,
+	// billable provider requests. See testutil.DisableAIEnv.
+	restoreAIEnv := testutil.DisableAIEnv()
+
 	newGHClient = func(context.Context, *logrus.Logger, *logging.LogConfig) (gh.Client, error) {
 		return nil, gh.ErrGHNotFound
 	}
@@ -38,5 +43,8 @@ func TestMain(m *testing.M) {
 		return nil, errNoNetwork
 	}
 
-	os.Exit(m.Run())
+	code := m.Run()
+	restoreAIEnv()
+
+	os.Exit(code)
 }
