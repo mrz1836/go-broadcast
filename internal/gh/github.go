@@ -145,7 +145,40 @@ func (g *githubClient) CreatePR(ctx context.Context, repo string, req PRRequest)
 		return nil, appErrors.WrapWithContext(err, "marshal PR data")
 	}
 
-	output, err := g.runner.RunWithInput(ctx, jsonData, "gh", "api", fmt.Sprintf("repos/%s/pulls", repo), "--method", "POST", "--input", "-")
+	// GitHub intermittently returns 5xx on this endpoint - creating a PR is an
+	// expensive write, especially inside a fork network where the merge base has to
+	// be resolved against the parent - so transient failures are retried with
+	// backoff instead of failing the whole target.
+	//
+	// A 5xx can also mean "the PR was created but the response was lost", so every
+	// retry first reconciles against the live PR list and adopts an existing PR
+	// rather than creating a duplicate.
+	var (
+		output   []byte
+		adopted  *PR
+		attempts int
+	)
+
+	err = rateLimitedDoIf(ctx, 0, isTransientServerError, func() error {
+		attempts++
+
+		if attempts > 1 {
+			if existing := g.findOpenPRByHead(ctx, repo, req.Head); existing != nil {
+				if g.logger != nil {
+					g.logger.WithFields(logrus.Fields{
+						"pr_number": existing.Number,
+						"head":      headRef,
+					}).Warn("PR already exists after transient failure - adopting instead of creating a duplicate")
+				}
+				adopted = existing
+				return nil
+			}
+		}
+
+		var runErr error
+		output, runErr = g.runner.RunWithInput(ctx, jsonData, "gh", "api", fmt.Sprintf("repos/%s/pulls", repo), "--method", "POST", "--input", "-")
+		return runErr
+	})
 	if err != nil {
 		// Log failed repository access
 		auditLogger.LogRepositoryAccess("github_cli", repo, "pr_create_failed")
@@ -161,8 +194,10 @@ func (g *githubClient) CreatePR(ctx context.Context, repo string, req PRRequest)
 		return nil, appErrors.WrapWithContext(fmt.Errorf("failed to create PR with head '%s' and base '%s': %w", headRef, req.Base, err), "create PR")
 	}
 
-	pr, err := jsonutil.UnmarshalJSON[PR](output)
-	if err != nil {
+	var pr PR
+	if adopted != nil {
+		pr = *adopted
+	} else if pr, err = jsonutil.UnmarshalJSON[PR](output); err != nil {
 		return nil, appErrors.WrapWithContext(err, "parse PR response")
 	}
 
@@ -486,6 +521,61 @@ func isNotFoundError(err error) bool {
 	return strings.Contains(errStr, "404") ||
 		strings.Contains(errStr, "Not Found") ||
 		strings.Contains(errStr, "could not resolve")
+}
+
+// isTransientServerError checks if the error is a retryable server-side or network
+// failure rather than a permanent rejection of the request.
+//
+// GitHub returns 502/503/504 for transient backend problems on requests that are
+// otherwise perfectly valid, and gh surfaces them verbatim (e.g. "gh: Server Error
+// (HTTP 502)"). Retrying these is safe as long as the caller reconciles
+// non-idempotent writes - see CreatePR.
+func isTransientServerError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := strings.ToLower(err.Error())
+	return strings.Contains(errStr, "502") ||
+		strings.Contains(errStr, "503") ||
+		strings.Contains(errStr, "504") ||
+		strings.Contains(errStr, "server error") ||
+		strings.Contains(errStr, "bad gateway") ||
+		strings.Contains(errStr, "service unavailable") ||
+		strings.Contains(errStr, "gateway timeout") ||
+		strings.Contains(errStr, "timeout") ||
+		strings.Contains(errStr, "connection reset") ||
+		strings.Contains(errStr, "connection refused")
+}
+
+// findOpenPRByHead returns the open PR whose head branch matches branch, or nil
+// when no such PR exists.
+//
+// A failed lookup is reported as nil rather than an error on purpose: the only
+// caller is mid-retry, and "I could not confirm a PR exists" should fall through
+// to retrying the create rather than aborting.
+func (g *githubClient) findOpenPRByHead(ctx context.Context, repo, branch string) *PR {
+	prs, err := g.ListPRs(ctx, repo, "open")
+	if err != nil {
+		if g.logger != nil {
+			g.logger.WithError(err).Debug("Failed to reconcile existing PRs after transient error")
+		}
+		return nil
+	}
+
+	// Head refs are returned unqualified, so strip any "owner:" prefix before comparing
+	want := branch
+	if idx := strings.LastIndex(want, ":"); idx >= 0 {
+		want = want[idx+1:]
+	}
+
+	for i := range prs {
+		if prs[i].Head.Ref == want {
+			return &prs[i]
+		}
+	}
+
+	return nil
 }
 
 // isValidationFailedError checks if the error is a 422 (validation failed) from GitHub API

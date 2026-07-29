@@ -11,13 +11,28 @@ const (
 	defaultAPIDelay = 300 * time.Millisecond
 	// maxRetries is the maximum number of retry attempts for rate-limited requests
 	maxRetries = 3
-	// initialRetryDelay is the initial backoff delay for retries
-	initialRetryDelay = 2 * time.Second
 )
+
+// initialRetryDelay is the initial backoff delay for retries.
+//
+// Declared as a variable rather than a constant purely so tests can shorten the
+// backoff; production code never reassigns it.
+var initialRetryDelay = 2 * time.Second //nolint:gochecknoglobals // tunable so tests need not sleep through real backoff
 
 // rateLimitedDo executes fn with a configurable pre-call delay and exponential backoff retry.
 // The delay parameter controls the pre-call wait; use 0 to skip the delay.
+// Every error is retried; use rateLimitedDoIf to retry only specific classes of error.
 func rateLimitedDo(ctx context.Context, delay time.Duration, fn func() error) error {
+	return rateLimitedDoIf(ctx, delay, func(error) bool { return true }, fn)
+}
+
+// rateLimitedDoIf behaves like rateLimitedDo but consults shouldRetry before each
+// backoff. When shouldRetry reports false the error is returned unwrapped and
+// immediately, so callers can still match it with errors.Is/errors.As.
+//
+// This matters for non-idempotent calls (e.g. creating a pull request) where
+// blindly retrying a permanent failure such as HTTP 422 is both useless and slow.
+func rateLimitedDoIf(ctx context.Context, delay time.Duration, shouldRetry func(error) bool, fn func() error) error {
 	if delay > 0 {
 		select {
 		case <-ctx.Done():
@@ -38,6 +53,11 @@ func rateLimitedDo(ctx context.Context, delay time.Duration, fn func() error) er
 		// Don't retry on context cancellation
 		if ctx.Err() != nil {
 			return ctx.Err()
+		}
+
+		// Permanent failures surface immediately and unwrapped
+		if !shouldRetry(lastErr) {
+			return lastErr
 		}
 
 		// Don't retry on the last attempt
