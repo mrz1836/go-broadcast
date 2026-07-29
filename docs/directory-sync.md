@@ -152,7 +152,7 @@ default_exclusions:
 
 Directory sync integrates seamlessly with go-broadcast's stateless architecture:
 
-- **Branch names** include directory metadata: `chore/sync-files-20250130-143052-abc123f`
+- **Branch names** include directory metadata: `chore/sync-files-service-name-20250130-143052-abc123f`
 - **PR metadata** includes directory performance metrics and file counts
 - **State discovery** recognizes directory-synced files through GitHub API
 - **Audit trail** maintains complete history of directory operations

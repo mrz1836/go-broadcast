@@ -221,7 +221,7 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 🔍 DRY-RUN: Pull Request Preview
 ┌─────────────────────────────────────────────────────────────────
 │ Repository: company/service-name
-│ Branch: chore/sync-files-20250130-143052-abc123f
+│ Branch: chore/sync-files-service-name-20250130-143052-abc123f
 ├─────────────────────────────────────────────────────────────────
 │ Title: [Sync] Update project files from source repository (abc123f)
 ├─────────────────────────────────────────────────────────────────
@@ -236,7 +236,7 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 
 ✅ DRY-RUN SUMMARY: Repository sync preview completed successfully
    📁 Repository: company/service-name
-   🌿 Branch: chore/sync-files-20250130-143052-abc123f
+   🌿 Branch: chore/sync-files-service-name-20250130-143052-abc123f
    📝 Files: 2 would be changed
    🔗 Commit: dry-run-commit-sha
    💡 Run without --dry-run to execute these changes
