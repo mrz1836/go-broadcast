@@ -57,7 +57,7 @@ concurrency:
 # Note: Configuration variables are loaded from modular .github/env/ files
 
 jobs:
-  # -------------------------------------------------g---------------------------------
+  # ----------------------------------------------------------------------------------
   # Dependabot processing (single consolidated job)
   #
   # Workflow phases (each preserved as a step):
