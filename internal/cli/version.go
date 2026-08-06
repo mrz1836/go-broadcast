@@ -12,6 +12,14 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/output"
 )
 
+const (
+	// devVersionString is the version reported by a build that was not produced
+	// from a release tag.
+	devVersionString = "dev"
+	// unknownString is the placeholder for build metadata that was not stamped.
+	unknownString = "unknown"
+)
+
 // Build information set via ldflags
 //
 //nolint:gochecknoglobals // Build variables are set via ldflags during compilation

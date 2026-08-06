@@ -28,6 +28,10 @@ var (
 	checkAuthMu   sync.RWMutex
 	checkAuth     bool
 	rootCmdMu     sync.RWMutex // Protects rootCmd for thread-safe test access
+
+	// attachUpdateOnce guards registration of the self-update command on the
+	// global root command so a repeated Execute never registers it twice.
+	attachUpdateOnce sync.Once
 )
 
 // getShowVersion returns the showVersion flag (thread-safe)
@@ -111,7 +115,6 @@ func init() {
 	rootCmd.AddCommand(cancelCmd)
 	rootCmd.AddCommand(reviewPRCmd)
 	rootCmd.AddCommand(modulesCmd)
-	rootCmd.AddCommand(newUpgradeCmd())
 	rootCmd.AddCommand(dbCmd)
 	rootCmd.AddCommand(newAnalyticsCmd())
 	rootCmd.AddCommand(metricsCmd)
@@ -171,7 +174,6 @@ state locally. It supports file transformations and provides progress tracking.`
 	cmd.AddCommand(createDiagnoseCmd(flags))
 	cmd.AddCommand(createCancelCmd(flags))
 	cmd.AddCommand(createReviewPRCmd(flags))
-	cmd.AddCommand(newUpgradeCmd())
 
 	return cmd
 }
@@ -216,7 +218,6 @@ state locally. It supports file transformations and provides progress tracking.`
 		DryRun:     logConfig.DryRun,
 		LogLevel:   logConfig.LogLevel,
 	}))
-	cmd.AddCommand(newUpgradeCmd())
 
 	return cmd
 }
@@ -238,6 +239,12 @@ func Execute() {
 // ExecuteWithContext runs the CLI with the provided context
 // This function is more testable as it returns errors instead of calling os.Exit
 func ExecuteWithContext(ctx context.Context) error {
+	// Register the self-update command (alias: upgrade) and the passive update
+	// notice here rather than at package init: the build version is threaded in
+	// from main's init, which runs after this package's, so attaching now reads
+	// the resolved version instead of the development default.
+	attachUpdateOnce.Do(func() { attachUpdateCommand(rootCmd) })
+
 	// Set up context with cancellation
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

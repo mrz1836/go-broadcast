@@ -113,47 +113,89 @@
 Get up and running with go-broadcast in under 5 minutes!
 
 ### Prerequisites
-- [Go 1.25+](https://golang.org/doc/install) ([supported release](https://golang.org/doc/devel/release.html#policy)) and [GitHub CLI](https://cli.github.com/) installed
+- [GitHub CLI](https://cli.github.com/) installed (go-broadcast drives `gh` for its GitHub operations)
 - GitHub authentication: `gh auth login`
-- [MAGE-X](https://github.com/mrz1836/mage-x) (optional, for building from source)
+- [Go 1.25+](https://golang.org/doc/install) ([supported release](https://golang.org/doc/devel/release.html#policy)) and [MAGE-X](https://github.com/mrz1836/mage-x) — only for building from source
 
 <br/>
 
 ### Installation
 
-**Option 1: Pre-built Binary (Recommended)**
+go-broadcast ships as a single static binary for macOS and Linux. Install the latest
+prebuilt release into `~/.local/bin` — a user-writable directory, so no `sudo`, and
+`go-broadcast update` can self-update in place afterward:
 
-Download the latest release for your platform from [GitHub Releases](https://github.com/mrz1836/go-broadcast/releases), or use the GitHub CLI:
+```bash
+# Install the latest go-broadcast release into ~/.local/bin
+VER=$(curl -fsSL https://api.github.com/repos/mrz1836/go-broadcast/releases/latest | grep '"tag_name"' | cut -d'"' -f4 | tr -d v)
+OS=$(uname -s | tr '[:upper:]' '[:lower:]'); ARCH=$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')
+mkdir -p ~/.local/bin
+curl -fsSL "https://github.com/mrz1836/go-broadcast/releases/download/v${VER}/go-broadcast_${VER}_${OS}_${ARCH}.tar.gz" | tar -xzf - -C ~/.local/bin go-broadcast
+go-broadcast --version
+```
+
+If `go-broadcast` isn't found afterward, add `~/.local/bin` to your `PATH` (put
+`export PATH="$HOME/.local/bin:$PATH"` in your `~/.zshrc` or `~/.bashrc`).
+
+Prefer the [GitHub CLI](https://cli.github.com/)? Download the asset for your platform
+directly — the tarball also carries `LICENSE` and `README.md`, so extract only the binary:
 
 ```bash
 # macOS (Apple Silicon)
 gh release download --repo mrz1836/go-broadcast --pattern '*darwin*arm64*' -D /tmp && \
-  tar -xzf /tmp/go-broadcast_*_darwin_arm64.tar.gz -C /tmp && \
-  sudo mv /tmp/go-broadcast /usr/local/bin/
-
-# macOS (Intel)
-gh release download --repo mrz1836/go-broadcast --pattern '*darwin*amd64*' -D /tmp && \
-  tar -xzf /tmp/go-broadcast_*_darwin_amd64.tar.gz -C /tmp && \
-  sudo mv /tmp/go-broadcast /usr/local/bin/
+  tar -xzf /tmp/go-broadcast_*_darwin_arm64.tar.gz -C ~/.local/bin go-broadcast
 
 # Linux (x86_64)
 gh release download --repo mrz1836/go-broadcast --pattern '*linux*amd64*' -D /tmp && \
-  tar -xzf /tmp/go-broadcast_*_linux_amd64.tar.gz -C /tmp && \
-  sudo mv /tmp/go-broadcast /usr/local/bin/
+  tar -xzf /tmp/go-broadcast_*_linux_amd64.tar.gz -C ~/.local/bin go-broadcast
 ```
 
-**Option 2: Build from Source**
+You can also grab any release for your platform from
+[GitHub Releases](https://github.com/mrz1836/go-broadcast/releases).
+
+<details>
+<summary><strong>Build from source (contributors)</strong></summary>
+
+Requires a [supported release of Go](https://golang.org/doc/devel/release.html#policy) (Go 1.25+).
+Install into `~/.local/bin` so `go-broadcast update` keeps working afterward — a binary in
+the Go toolchain's `~/go/bin` is refused by self-update rather than overwritten.
 
 ```bash
-git clone https://github.com/mrz1836/go-broadcast.git
-cd go-broadcast && go install ./cmd/go-broadcast
+git clone https://github.com/mrz1836/go-broadcast.git && cd go-broadcast
+go build -o ~/.local/bin/go-broadcast ./cmd/go-broadcast
 ```
 
-**Option 3: Upgrade Existing Installation**
+</details>
+
+<br/>
+
+### Keep go-broadcast up to date
+
+`go-broadcast update` (alias `go-broadcast upgrade`) downloads the latest release, verifies
+its SHA-256 checksum against the published `go-broadcast_<ver>_checksums.txt`, and atomically
+replaces the running binary — no `sudo` when it lives in `~/.local/bin`.
 
 ```bash
-go-broadcast upgrade --force
+go-broadcast update            # download & install the latest release
+go-broadcast update --check    # report whether a newer version is available
+go-broadcast update --force    # reinstall the latest even if already current
+go-broadcast update --verbose  # narrate each step
 ```
+
+Every other command also runs a passive, cached background check and prints a one-line
+"a new version is available" notice. It never blocks or fails a command, is skipped for
+development builds, and is silenced by `GO_BROADCAST_NO_UPDATE_CHECK=1` (or the shared
+`NO_UPDATE_CHECK` / `CI`). If you hit GitHub API rate limits, a token is read from
+`GO_BROADCAST_GITHUB_TOKEN`, then `GITHUB_TOKEN`, then `GH_TOKEN`.
+
+The install target is the resolved path of the running binary. When that directory is not
+writable, `go-broadcast update` exits with a clear error naming the directory rather than
+installing elsewhere — install into `~/.local/bin` (above) to keep self-update working
+without `sudo`.
+
+> **Heads up:** a binary that another installer owns — the Go toolchain's `~/go/bin`, or a
+> Homebrew prefix — is **refused** by `go-broadcast update` rather than overwritten (that
+> would break the tool that owns it).
 
 <br/>
 
@@ -415,7 +457,7 @@ magex update:install
 - **Cancel operations** - Abort active syncs with cleanup
 - **Repository scaffolding** - Create new repos with preset settings, labels, and rulesets ([docs →](docs/settings.md))
 - **Settings management** - Apply and audit repository settings against presets
-- **Self-updating** - Built-in upgrade command with version management
+- **Self-updating** - Built-in `update` command with checksum-verified, atomic in-place installs
 
 ### 📊 **Developer Experience**
 - **Rich dry-run mode** - Beautiful previews with exact change details
@@ -1002,12 +1044,11 @@ go-broadcast settings audit owner/repo                       # Audit repo agains
 go-broadcast settings audit --all                            # Audit all repos in database
 go-broadcast settings audit owner/repo --json                # JSON output for CI
 
-# Upgrade go-broadcast
-go-broadcast upgrade                     # Upgrade to latest version
-go-broadcast upgrade --check             # Check for updates without upgrading
-go-broadcast upgrade --force             # Force upgrade even if already on latest
-go-broadcast upgrade --verbose           # Show release notes after upgrade
-go-broadcast upgrade --use-binary        # Install pre-built binary instead of go install
+# Update go-broadcast (alias: upgrade)
+go-broadcast update                      # Download & install the latest release
+go-broadcast update --check              # Check for updates without installing
+go-broadcast update --force              # Reinstall the latest even if already current
+go-broadcast update --verbose            # Narrate each step and show release notes
 ```
 
 ### Configuration Reference

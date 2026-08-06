@@ -16,6 +16,25 @@ import (
 // errPanicRecovered is returned when a panic is recovered during application execution.
 var errPanicRecovered = errors.New("panic recovered")
 
+// Build identification injected at link time via ldflags:
+//
+//	-X main.version=...   -X main.commit=...   -X main.buildDate=...
+//
+// The release tooling targets these main-package variables, so they are copied
+// into the cli package on startup where the rest of the code reads version info.
+//
+//nolint:gochecknoglobals // build-time injected metadata; immutable at runtime
+var (
+	version   string
+	commit    string
+	buildDate string
+)
+
+//nolint:gochecknoinits // ldflags can only target package-level vars in main; copy into cli on startup
+func init() {
+	cli.SetVersionInfo(version, commit, buildDate)
+}
+
 func main() {
 	app := NewApp()
 	if err := app.Run(os.Args[1:]); err != nil {
