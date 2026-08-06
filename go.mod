@@ -33,7 +33,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
-	github.com/glebarez/go-sqlite v1.22.0 // indirect
+	github.com/glebarez/go-sqlite v1.23.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
@@ -74,7 +74,7 @@ require (
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
 	google.golang.org/api v0.292.0 // indirect
-	google.golang.org/genai v1.66.0 // indirect
+	google.golang.org/genai v1.67.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260803160001-6ac0973c030d // indirect
 	google.golang.org/grpc v1.83.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
