@@ -308,6 +308,22 @@ func (c *CICollector) tryRunArtifacts(ctx context.Context, repo string, run gh.W
 		}
 	}
 
+	// Artifact names only prove that files were advertised by GitHub, not that
+	// they downloaded and parsed successfully. Treat an all-zero parse as an
+	// unusable run so collectRepoCI can try an older successful workflow run
+	// instead of persisting a fresh, bogus zero snapshot.
+	if metrics.GoFilesLOC == 0 && metrics.TestFilesLOC == 0 &&
+		metrics.GoFilesCount == 0 && metrics.TestFilesCount == 0 &&
+		metrics.TestCount == 0 && metrics.BenchmarkCount == 0 && metrics.Coverage == nil {
+		if c.logger != nil {
+			c.logger.WithFields(logrus.Fields{
+				"repo":   repo,
+				"run_id": run.ID,
+			}).Warn("CI artifacts produced no usable metrics; trying an older run")
+		}
+		return nil, false
+	}
+
 	return metrics, hasCoverage
 }
 
