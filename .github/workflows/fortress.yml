@@ -183,6 +183,7 @@ jobs:
     permissions:
       contents: read # Read repository content for security scanning
       pull-requests: write # Required: gitleaks needs to create PR comments
+      security-events: write # Required: OSV-Scanner uploads SARIF to GitHub Code Scanning
     uses: ./.github/workflows/fortress-security-scans.yml
     with:
       env-json: ${{ needs.setup.outputs.env-json }}
