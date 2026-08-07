@@ -734,11 +734,57 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 
 		result, err := collector.CollectCIMetrics(ctx, repos)
 		require.NoError(t, err)
-		// Metrics still created, just without LOC data
-		require.Len(t, result, 1)
+		assert.Empty(t, result, "failed artifact downloads must not become fresh zero snapshots")
+
+		mockClient.AssertExpectations(t)
+	})
+
+	t.Run("artifact download failure falls back to older usable run", func(t *testing.T) {
+		mockClient := gh.NewMockClient()
+		collector := NewCICollector(mockClient, logrus.New(), nil)
+
+		repos := []gh.RepoInfo{{FullName: "owner/repo1"}}
+		mockClient.On("ListWorkflows", mock.Anything, "owner/repo1").
+			Return([]gh.Workflow{{ID: 10, Name: "GoFortress"}}, nil)
+		mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), maxWorkflowRunsToCheck).
+			Return([]gh.WorkflowRun{
+				{ID: 200, HeadBranch: "main", HeadSHA: "newer"},
+				{ID: 100, HeadBranch: "main", HeadSHA: "older"},
+			}, nil)
+
+		mockClient.On("GetRunArtifacts", mock.Anything, "owner/repo1", int64(200)).
+			Return([]gh.Artifact{{ID: 300, Name: "loc-stats"}}, nil)
+		mockClient.On("DownloadRunArtifact", mock.Anything, "owner/repo1", int64(200), "loc-stats", mock.AnythingOfType("string")).
+			Return(assert.AnError)
+
+		mockClient.On("GetRunArtifacts", mock.Anything, "owner/repo1", int64(100)).
+			Return([]gh.Artifact{
+				{ID: 400, Name: "loc-stats"},
+				{ID: 401, Name: "coverage-stats-internal"},
+			}, nil)
+		mockClient.On("DownloadRunArtifact", mock.Anything, "owner/repo1", int64(100), "loc-stats", mock.AnythingOfType("string")).
+			Run(func(args mock.Arguments) {
+				destDir := args.String(4)
+				_ = os.MkdirAll(destDir, 0o750)
+				locJSON := `{"go_files_loc": 1500, "test_files_loc": 5500, "go_files_count": 20, "test_files_count": 50}`
+				_ = os.WriteFile(filepath.Join(destDir, "loc-stats.json"), []byte(locJSON), 0o600)
+			}).Return(nil)
+		mockClient.On("DownloadRunArtifact", mock.Anything, "owner/repo1", int64(100), "coverage-stats-internal", mock.AnythingOfType("string")).
+			Run(func(args mock.Arguments) {
+				destDir := args.String(4)
+				_ = os.MkdirAll(destDir, 0o750)
+				_ = os.WriteFile(filepath.Join(destDir, "coverage-stats-internal.json"), []byte(`{"coverage_percentage":67.5}`), 0o600)
+			}).Return(nil)
+
+		result, err := collector.CollectCIMetrics(ctx, repos)
+		require.NoError(t, err)
+		require.Contains(t, result, "owner/repo1")
 		metrics := result["owner/repo1"]
-		require.NotNil(t, metrics)
-		assert.Equal(t, 0, metrics.GoFilesLOC)
+		assert.Equal(t, int64(100), metrics.WorkflowRunID)
+		assert.Equal(t, 1500, metrics.GoFilesLOC)
+		assert.Equal(t, 5500, metrics.TestFilesLOC)
+		require.NotNil(t, metrics.Coverage)
+		assert.InDelta(t, 67.5, *metrics.Coverage, 0.01)
 
 		mockClient.AssertExpectations(t)
 	})
