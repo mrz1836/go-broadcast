@@ -370,6 +370,7 @@ func GetToolDefinitions() map[string]*ToolInfo {
 		{"govulncheck", []string{"MAGE_X_GOVULNCHECK_VERSION", "GOVULNCHECK_VERSION"}, "golang", "vuln", ""},
 		{"mockgen", []string{"MAGE_X_MOCKGEN_VERSION"}, "uber-go", "mock", ""},
 		{"nancy", []string{"MAGE_X_NANCY_VERSION", "NANCY_VERSION"}, "sonatype-nexus-community", "nancy", ""},
+		{"osv-scanner", []string{"MAGE_X_OSV_SCANNER_VERSION", "OSV_SCANNER_VERSION"}, "google", "osv-scanner", ""},
 		{"staticcheck", []string{"MAGE_X_STATICCHECK_VERSION"}, "dominikh", "go-tools", ""},
 		{"swag", []string{"MAGE_X_SWAG_VERSION"}, "swaggo", "swag", ""},
 		{"yamlfmt", []string{"MAGE_X_YAMLFMT_VERSION"}, "google", "yamlfmt", ""},

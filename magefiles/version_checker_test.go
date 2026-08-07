@@ -201,6 +201,7 @@ func TestGetToolDefinitions(t *testing.T) {
 		"govulncheck",
 		"mockgen",
 		"nancy",
+		"osv-scanner",
 		"staticcheck",
 		"swag",
 		"yamlfmt",
@@ -242,6 +243,14 @@ func TestGetToolDefinitions(t *testing.T) {
 		assert.Contains(t, tool.EnvVars, "MAGE_X_GOLANGCI_LINT_VERSION")
 		assert.Contains(t, tool.EnvVars, "GO_PRE_COMMIT_GOLANGCI_LINT_VERSION")
 	})
+
+	t.Run("osv-scanner has multiple env vars", func(t *testing.T) {
+		tool := tools["osv-scanner"]
+		assert.Contains(t, tool.EnvVars, "MAGE_X_OSV_SCANNER_VERSION")
+		assert.Contains(t, tool.EnvVars, "OSV_SCANNER_VERSION")
+		assert.Equal(t, "google", tool.RepoOwner)
+		assert.Equal(t, "osv-scanner", tool.RepoName)
+	})
 }
 
 func TestVersionUpdateService_ExtractVersions(t *testing.T) {
@@ -257,6 +266,7 @@ MAGE_X_VERSION=v1.8.7
 MAGE_X_GITLEAKS_VERSION=8.29.1
 GITLEAKS_VERSION=8.29.1
 NANCY_VERSION=v1.0.52
+OSV_SCANNER_VERSION=v2.4.0
 `)
 
 		tools := GetToolDefinitions()
@@ -266,6 +276,7 @@ NANCY_VERSION=v1.0.52
 		assert.Equal(t, "v1.8.7", versions["mage-x"])
 		assert.Equal(t, "8.29.1", versions["gitleaks"])
 		assert.Equal(t, "v1.0.52", versions["nancy"])
+		assert.Equal(t, "v2.4.0", versions["osv-scanner"])
 	})
 
 	t.Run("keeps first version when env vars diverge", func(t *testing.T) {
