@@ -181,6 +181,29 @@ jobs:
           echo "✅ govulncheck installed and stored in cache"
 
       # ====================================================================
+      # SHARED VULNERABILITY EXCLUSIONS
+      # ====================================================================
+      # Resolve ONE effective exclusion list for all dependency scanners. Merges the
+      # canonical SECURITY_VULN_EXCLUDES with the legacy per-tool variables
+      # (MAGE_X_CVE_EXCLUDES / NANCY_EXCLUDES) so projects that still set those older
+      # variables keep working (this workflow is synced across many repos). Each scanner
+      # consumes EFFECTIVE_VULN_EXCLUDES and silently ignores IDs outside its namespace.
+      - name: 🚫 Resolve shared vulnerability exclusions
+        if: ${{ inputs.enable-nancy || inputs.enable-govulncheck || inputs.enable-osv }}
+        run: |
+          # Concatenate all sources, split on commas, trim, drop blanks, dedupe
+          # (order-preserving), and re-join. Legacy vars are honored for compatibility.
+          EFFECTIVE="$(printf '%s,%s,%s' \
+            "${SECURITY_VULN_EXCLUDES:-}" "${MAGE_X_CVE_EXCLUDES:-}" "${NANCY_EXCLUDES:-}" \
+            | tr ',' '\n' | sed 's/[[:space:]]//g' | grep -v '^$' | awk '!seen[$0]++' | paste -sd, -)"
+          echo "EFFECTIVE_VULN_EXCLUDES=${EFFECTIVE}" >> "$GITHUB_ENV"
+          if [[ -n "$EFFECTIVE" ]]; then
+            echo "🚫 Effective shared vulnerability exclusions: ${EFFECTIVE}"
+          else
+            echo "ℹ️  No vulnerability exclusions configured."
+          fi
+
+      # ====================================================================
       # NANCY (DEPENDENCY CHECKS)
       # ====================================================================
       - name: 📝 Nancy — Write go list
@@ -243,7 +266,11 @@ jobs:
           # api.github.com on every run and can rate-limit / fail in CI. It is an
           # unrelated network dependency that we don't want influencing the scan outcome.
           # (Flag is supported by both v1.2.0 and v2.x.)
-          nancy sleuth --skip-update-check --loud --exclude-vulnerability ${{ env.NANCY_EXCLUDES }} < go.list 2>&1 | tee nancy-output.log
+          # Exclusions come from the shared, resolved list (EFFECTIVE_VULN_EXCLUDES).
+          # Nancy's --exclude-vulnerability requires a non-empty argument, so fall back to
+          # a harmless placeholder when the list is empty.
+          NANCY_EXCLUDE_ARG="${EFFECTIVE_VULN_EXCLUDES:-CVE-0000-00000}"
+          nancy sleuth --skip-update-check --loud --exclude-vulnerability "$NANCY_EXCLUDE_ARG" < go.list 2>&1 | tee nancy-output.log
           NANCY_EXIT_CODE=${PIPESTATUS[0]}
           set -e
 
@@ -333,7 +360,7 @@ jobs:
             echo ""
             echo "### 🚫 Excluded Vulnerabilities"
             echo "The following vulnerabilities were excluded from the scan:"
-            echo "${{ env.NANCY_EXCLUDES }}"
+            echo "${{ env.EFFECTIVE_VULN_EXCLUDES }}"
           } >> $GITHUB_STEP_SUMMARY
 
           if [[ "$NANCY_STATUS" == "skipped-no-token" ]]; then
@@ -459,12 +486,17 @@ jobs:
         id: run-govulncheck
         if: ${{ inputs.enable-govulncheck }}
         continue-on-error: true
+        env:
+          # govulncheck (via `magex deps:audit`) reads MAGE_X_CVE_EXCLUDES. Feed it the
+          # resolved effective list (shared list merged with any legacy vars) so every
+          # scanner stays in sync.
+          MAGE_X_CVE_EXCLUDES: ${{ env.EFFECTIVE_VULN_EXCLUDES }}
         run: |
           echo "🔍 Running vulnerability analysis..."
           GO_MODULE_DIR="${{ env.GO_MODULE_DIR }}"
 
           if [ -n "${MAGE_X_CVE_EXCLUDES:-}" ]; then
-            echo "🚫 CVE exclusions configured: $MAGE_X_CVE_EXCLUDES"
+            echo "🚫 Shared vulnerability exclusions: $MAGE_X_CVE_EXCLUDES"
           fi
 
           set +e
@@ -523,11 +555,11 @@ jobs:
             echo ""
           } >> $GITHUB_STEP_SUMMARY
 
-          if [ -n "${MAGE_X_CVE_EXCLUDES:-}" ]; then
+          if [ -n "${EFFECTIVE_VULN_EXCLUDES:-}" ]; then
             {
               echo "### 🚫 Excluded Vulnerabilities"
               echo "The following vulnerabilities were excluded from the scan:"
-              echo "\`${MAGE_X_CVE_EXCLUDES}\`"
+              echo "\`${EFFECTIVE_VULN_EXCLUDES}\`"
               echo ""
             } >> $GITHUB_STEP_SUMMARY
           fi
@@ -617,15 +649,35 @@ jobs:
         continue-on-error: true
         run: |
           echo "🔍 Running OSV-Scanner dependency scan..."
+          # Build an OSV-Scanner config from the shared single-source exclusion list.
+          # Each comma-separated advisory ID becomes an [[IgnoredVulns]] entry. IDs are
+          # sanitized to [A-Za-z0-9-] (the advisory-ID charset) to keep the TOML safe.
+          OSV_CONFIG_ARGS=()
+          if [[ -n "${EFFECTIVE_VULN_EXCLUDES:-}" ]]; then
+            OSV_CFG="$(mktemp)"
+            {
+              echo "# Auto-generated from the shared exclusion list — do not edit."
+              IFS=',' read -ra _ids <<< "${EFFECTIVE_VULN_EXCLUDES}" || true
+              for _id in "${_ids[@]}"; do
+                _id="${_id//[^A-Za-z0-9-]/}"
+                [[ -z "$_id" ]] && continue
+                printf '[[IgnoredVulns]]\nid = "%s"\nreason = "Excluded via the shared vulnerability exclusion list"\n' "$_id"
+              done
+            } > "$OSV_CFG"
+            echo "🔕 Applying shared vulnerability exclusions: ${EFFECTIVE_VULN_EXCLUDES}"
+            OSV_CONFIG_ARGS=(--config "$OSV_CFG")
+          fi
           set +e
           # Authoritative scan → SARIF for GitHub Code Scanning; exit code drives status.
           osv-scanner scan source -r . \
+            "${OSV_CONFIG_ARGS[@]}" \
             --format sarif \
             --output-file osv-results.sarif \
             --verbosity error
           OSV_EXIT_CODE=$?
           # Best-effort human-readable summary; its result NEVER affects the status.
           osv-scanner scan source -r . \
+            "${OSV_CONFIG_ARGS[@]}" \
             --format markdown \
             --output-file osv-results.md \
             --verbosity error >/dev/null 2>&1 || true
