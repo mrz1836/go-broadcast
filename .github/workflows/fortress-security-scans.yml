@@ -12,7 +12,8 @@
 #    A final `🚨 Aggregate failures` step exits non-zero if any real failure occurred.
 #    Intentionally inconclusive (never fail the job): Nancy no-token-skip / rate-limit /
 #    402 / network-unreachable, and OSV-Scanner network/database errors. OSV findings
-#    fail the job only when OSV_SCANNER_FAIL_ON_VULNERABILITY=true (report-only by default).
+#    fail the job when OSV_SCANNER_FAIL_ON_VULNERABILITY=true (the shipped default);
+#    set it to false to make OSV report-only.
 #
 # ------------------------------------------------------------------------------------
 
@@ -195,7 +196,7 @@ jobs:
           # (order-preserving), and re-join. Legacy vars are honored for compatibility.
           EFFECTIVE="$(printf '%s,%s,%s' \
             "${SECURITY_VULN_EXCLUDES:-}" "${MAGE_X_CVE_EXCLUDES:-}" "${NANCY_EXCLUDES:-}" \
-            | tr ',' '\n' | sed 's/[[:space:]]//g' | grep -v '^$' | awk '!seen[$0]++' | paste -sd, -)"
+            | tr ',' '\n' | sed 's/[[:space:]]//g' | awk 'NF && !seen[$0]++' | paste -sd, -)"
           echo "EFFECTIVE_VULN_EXCLUDES=${EFFECTIVE}" >> "$GITHUB_ENV"
           if [[ -n "$EFFECTIVE" ]]; then
             echo "🚫 Effective shared vulnerability exclusions: ${EFFECTIVE}"
@@ -281,7 +282,7 @@ jobs:
           elif grep -qiE 'rate limited by OSS Index|Error:.*(429|too many requests)' nancy-output.log; then
             echo "nancy-status=rate-limited" >> $GITHUB_OUTPUT
             echo "⚠️  Nancy scan inconclusive - the backend rate-limited the request (not failing CI)."
-            echo "    Set the OSSI_TOKEN secret to a valid Sonatype Guide token to lift the limit."
+            echo "    Set the GUIDE_TOKEN secret to a valid Sonatype Guide token to lift the limit."
             echo "    Manage tokens at https://guide.sonatype.com/settings/tokens"
           elif grep -qiE '402 Payment Required|Error:.*(402|payment required|out of credits|credit limit|quota exceeded|usage limit|insufficient credit)' nancy-output.log; then
             echo "nancy-status=payment-required" >> $GITHUB_OUTPUT
@@ -387,9 +388,8 @@ jobs:
               echo ""
               echo "**To remediate (recommended):**"
               echo ""
-              echo "1. Register a free account at <https://ossindex.sonatype.org/user/register>."
-              echo "2. Retrieve your username (email) and API token from <https://ossindex.sonatype.org/user/settings>."
-              echo "3. Add them as repository secrets named \`OSSI_USERNAME\` and \`OSSI_TOKEN\`."
+              echo "1. Generate a Personal Access Token at <https://guide.sonatype.com/settings/tokens>."
+              echo "2. Add it as a repository secret named \`GUIDE_TOKEN\` (Nancy v2 reads it as the Bearer token)."
               echo ""
               echo "Authenticated requests have a substantially higher rate limit and avoid this state."
             } >> $GITHUB_STEP_SUMMARY
@@ -419,7 +419,7 @@ jobs:
               echo ""
               echo "1. Check your usage / plan at <https://guide.sonatype.com>."
               echo "2. Generate a Personal Access Token at <https://guide.sonatype.com/settings/tokens>."
-              echo "3. Store it in the \`OSSI_TOKEN\` repository secret (Nancy v2 reads it as \`GUIDE_TOKEN\`)."
+              echo "3. Store it in the \`GUIDE_TOKEN\` repository secret (Nancy v2 reads it as the Bearer token)."
             } >> $GITHUB_STEP_SUMMARY
             if [[ -f nancy-output.log ]]; then
               {
@@ -599,8 +599,9 @@ jobs:
       #
       # Resilience contract (mirrors the other scanners):
       #   exit 0         → success (no known vulnerabilities)
-      #   exit 1         → vulnerabilities found (fails CI only when
-      #                    OSV_SCANNER_FAIL_ON_VULNERABILITY=true; report-only otherwise)
+      #   exit 1         → vulnerabilities found (fails CI when
+      #                    OSV_SCANNER_FAIL_ON_VULNERABILITY=true, the shipped default;
+      #                    report-only when it is set to false)
       #   any other exit → tooling / network / OSV.dev database error → inconclusive,
       #                    NEVER fails CI (same philosophy as Nancy/govulncheck)
       #
