@@ -115,6 +115,43 @@ func TestValidatePRBody(t *testing.T) {
 			input:    "Sync(ci): update workflows\nmore content",
 			expected: "",
 		},
+		{
+			name: "empty-diff meta-commentary rejected",
+			input: `## What Changed
+* The diff provided is empty - no actual code changes are visible in the truncated content
+
+## Why It Was Necessary
+* Unable to determine necessity from empty diff content
+
+## Testing Performed
+* Cannot verify testing from empty diff
+
+## Impact / Risk
+* Risk Level: Unknown - diff content not visible for assessment`,
+			expected: "",
+		},
+		{
+			name: "breaking changes cannot be determined without diff rejected",
+			input: `## What Changed
+* Modified 12 configuration files
+
+## Impact / Risk
+* Breaking Changes: Cannot be determined without viewing actual diff content`,
+			expected: "",
+		},
+		{
+			name: "file-list based description with headers accepted",
+			input: `## What Changed
+* Updated 12 GitHub Actions workflow and configuration files in .github/
+
+## Why It Was Necessary
+* Keeps the target repository aligned with its source repository`,
+			expected: `## What Changed
+* Updated 12 GitHub Actions workflow and configuration files in .github/
+
+## Why It Was Necessary
+* Keeps the target repository aligned with its source repository`,
+		},
 	}
 
 	for _, tt := range tests {

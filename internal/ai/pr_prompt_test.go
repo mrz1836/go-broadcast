@@ -18,7 +18,7 @@ func TestBuildPRPrompt_EmptyContext(t *testing.T) {
 
 	assert.NotEmpty(t, result)
 	assert.Contains(t, result, "Files Changed (0 files)")
-	assert.Contains(t, result, "WARNING: No Diff Content Available")
+	assert.Contains(t, result, "NO DIFF AVAILABLE")
 }
 
 func TestBuildPRPrompt_BasicContext(t *testing.T) {
@@ -78,9 +78,12 @@ func TestBuildPRPrompt_WithoutDiffSummary(t *testing.T) {
 
 	result := BuildPRPrompt(ctx)
 
-	// Without diff, should show warning instead of diff block
+	// Without diff, should switch to the file-list description mode instead of the diff block
 	assert.NotContains(t, result, "ACTUAL DIFF")
-	assert.Contains(t, result, "WARNING: No Diff Content Available")
+	assert.Contains(t, result, "NO DIFF AVAILABLE")
+	// It must instruct the model to still produce a useful description, not complain
+	assert.Contains(t, result, "DESCRIBE FROM THE FILE LIST")
+	assert.Contains(t, result, "Do NOT say the diff is empty")
 }
 
 func TestBuildPRPrompt_WithDiffSummary(t *testing.T) {
@@ -151,10 +154,11 @@ func TestBuildPRPrompt_FilesWithLineStats(t *testing.T) {
 
 	result := BuildPRPrompt(ctx)
 
-	// New template only lists file paths without line stats
-	assert.Contains(t, result, "added.go")
-	assert.Contains(t, result, "modified.go")
-	assert.Contains(t, result, "deleted.go")
+	// File list now annotates each path with change type and +/- line counts so the
+	// model has useful signal even when no diff is available.
+	assert.Contains(t, result, "added.go (added, +50/-0)")
+	assert.Contains(t, result, "modified.go (modified, +20/-10)")
+	assert.Contains(t, result, "deleted.go (deleted, +0/-100)")
 	assert.Contains(t, result, "nochange.go")
 	assert.Contains(t, result, "Files Changed (4 files)")
 }
@@ -177,13 +181,14 @@ func TestBuildPRPrompt_ContainsFormatRequirements(t *testing.T) {
 
 func TestBuildPRPrompt_ContainsHallucinationPrevention(t *testing.T) {
 	ctx := &PRContext{
-		SourceRepo: "owner/source",
-		TargetRepo: "owner/target",
+		SourceRepo:  "owner/source",
+		TargetRepo:  "owner/target",
+		DiffSummary: "diff --git a/x b/x\n+added\n-removed",
 	}
 
 	result := BuildPRPrompt(ctx)
 
-	// Should contain hallucination prevention warnings
+	// Hallucination prevention applies when there IS a diff to anchor against
 	assert.Contains(t, result, "HALLUCINATION PREVENTION")
 	assert.Contains(t, result, "DO NOT")
 }

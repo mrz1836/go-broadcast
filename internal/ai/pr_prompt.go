@@ -38,7 +38,7 @@ type PRContext struct {
 
 // prPromptTemplate is the template for PR body generation prompts.
 // IMPORTANT: The diff is placed FIRST to ensure the AI focuses on actual changes, not patterns.
-const prPromptTemplate = `You are generating a PR description. Your ONLY source of truth is the diff below.
+const prPromptTemplate = `You are generating a PR description for an automated file synchronization.
 
 {{ if .DiffSummary }}## ACTUAL DIFF - THIS IS YOUR ONLY SOURCE OF TRUTH
 Read this diff carefully. You may ONLY describe changes that appear here.
@@ -51,16 +51,6 @@ CRITICAL INSTRUCTIONS:
 - You MUST describe ONLY what you see in this diff
 - If you cannot see a specific version number change in the diff, DO NOT mention it
 - If the diff shows "v1.12.1" changing to "v1.12.2", say exactly that - not "v1.11.0 to v1.12.2"
-{{ else }}
-## WARNING: No Diff Content Available
-The diff is empty. Use ONLY generic descriptions like "Synchronized configuration files".
-Do NOT invent specific changes - you have no information about what changed.
-{{ end }}
-
-## Files Changed ({{ len .ChangedFiles }} files)
-{{ range .ChangedFiles -}}
-- {{ .Path }}
-{{ end }}
 
 ## HALLUCINATION PREVENTION
 You are prone to hallucinating changes that are not in the diff. DO NOT:
@@ -75,14 +65,40 @@ If the diff shows ONLY:
 - permissions: contents: read being added
 
 Then describe ONLY those changes. Nothing else.
+{{ else }}
+## NO DIFF AVAILABLE - DESCRIBE FROM THE FILE LIST BELOW
+No line-level diff is available for this change, but the file list below IS accurate and reliable.
+Write a genuinely useful description based on the file paths, their change types, and line counts:
+- Infer each file's PURPOSE from its path (e.g. ".github/workflows/*.yml" = CI/CD workflow definition,
+  "*.md" = documentation, "*_test.go" = tests, "*.env" = environment/config, "Dockerfile" = container build).
+- Group related files and summarize at a high level (e.g. "Updated 12 GitHub Actions workflow and configuration files").
+- Use the change type (added/modified/deleted) and +/- line counts to convey scale.
 
+Because this is an automated file synchronization, describe the later sections in those terms:
+- Why It Was Necessary: keeping the target repository aligned with its source repository.
+- Testing Performed: sync-level validation (config and file mappings validated, transformations applied,
+  no unintended changes) - do NOT claim you executed or ran the code.
+- Impact / Risk: scope is limited to the synchronized files; assess risk from the file types and counts.
+
+NEVER do the following - they produce a useless description:
+- Do NOT say the diff is empty, missing, truncated, unavailable, or not visible.
+- Do NOT say you cannot determine, verify, assess, or confirm the changes.
+- Do NOT output "Unknown", "N/A", or any apology about missing information.
+- Do NOT invent specific version numbers, variable names, or values you cannot see.
+The reader wants a useful summary of WHAT these files are, not a report about what you could not see.
+{{ end }}
+
+## Files Changed ({{ len .ChangedFiles }} files)
+{{ range .ChangedFiles -}}
+- {{ .Path }} ({{ .ChangeType }}, +{{ .LinesAdded }}/-{{ .LinesRemoved }})
+{{ end }}
 {{ if .PRGuidelines }}## Additional Guidelines
 {{ .PRGuidelines }}
 
 {{ end }}## Output Format
 Generate a PR description with these 4 sections. Start immediately with "## What Changed".
 
-1. **## What Changed** - Describe ONLY what the diff shows. Quote version numbers exactly as they appear.
+1. **## What Changed** - {{ if .DiffSummary }}Describe ONLY what the diff shows. Quote version numbers exactly as they appear.{{ else }}Describe the change concretely from the file paths and change types above.{{ end }}
 2. **## Why It Was Necessary** - Brief explanation (2-3 bullets)
 3. **## Testing Performed** - Validation steps (2-3 bullets)
 4. **## Impact / Risk** - Risk assessment (2-3 bullets)
