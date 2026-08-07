@@ -123,42 +123,53 @@ Get up and running with go-broadcast in under 5 minutes!
 
 go-broadcast ships as a single static binary for macOS and Linux. Install the latest
 prebuilt release into `~/.local/bin` — a user-writable directory, so no `sudo`, and
-`go-broadcast update` can self-update in place afterward:
+`go-broadcast update` can self-update in place afterward.
+
+No `curl … | sudo bash` here — we don't ask you to pipe a mystery script into your shell
+and hope for the best. Every line below is in the open, and the download is checked against
+the release's published SHA-256 checksums before anything lands on your `PATH`:
 
 ```bash
-# Install the latest go-broadcast release into ~/.local/bin
-VER=$(curl -fsSL https://api.github.com/repos/mrz1836/go-broadcast/releases/latest | grep '"tag_name"' | cut -d'"' -f4 | tr -d v)
-OS=$(uname -s | tr '[:upper:]' '[:lower:]'); ARCH=$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')
-mkdir -p ~/.local/bin
-curl -fsSL "https://github.com/mrz1836/go-broadcast/releases/download/v${VER}/go-broadcast_${VER}_${OS}_${ARCH}.tar.gz" | tar -xzf - -C ~/.local/bin go-broadcast
+# Install the latest go-broadcast release into ~/.local/bin, verified against checksums.txt
+VER=$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/mrz1836/go-broadcast/releases/latest | sed 's#.*/v##')
+OS=$(uname -s | tr '[:upper:]' '[:lower:]'); ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+F="go-broadcast_${VER}_${OS}_${ARCH}.tar.gz"; U="https://github.com/mrz1836/go-broadcast/releases/download/v${VER}"
+mkdir -p ~/.local/bin && cd "$(mktemp -d)" && curl -fsSLO "$U/$F" \
+  && WANT=$(curl -fsSL "$U/go-broadcast_${VER}_checksums.txt" | awk -v f="$F" '$2==f{print $1}') \
+  && GOT=$( { command -v sha256sum >/dev/null && sha256sum "$F" || shasum -a 256 "$F"; } | awk '{print $1}') \
+  && [ -n "$WANT" ] && [ "$WANT" = "$GOT" ] \
+  && tar -xzf "$F" -C ~/.local/bin go-broadcast
 go-broadcast --version
 ```
 
-If `go-broadcast` isn't found afterward, add `~/.local/bin` to your `PATH` (put
-`export PATH="$HOME/.local/bin:$PATH"` in your `~/.zshrc` or `~/.bashrc`).
-
-Prefer the [GitHub CLI](https://cli.github.com/)? Download the asset for your platform
-directly — the tarball also carries `LICENSE` and `README.md`, so extract only the binary:
-
-```bash
-# macOS (Apple Silicon)
-gh release download --repo mrz1836/go-broadcast --pattern '*darwin*arm64*' -D /tmp && \
-  tar -xzf /tmp/go-broadcast_*_darwin_arm64.tar.gz -C ~/.local/bin go-broadcast
-
-# Linux (x86_64)
-gh release download --repo mrz1836/go-broadcast --pattern '*linux*amd64*' -D /tmp && \
-  tar -xzf /tmp/go-broadcast_*_linux_amd64.tar.gz -C ~/.local/bin go-broadcast
-```
-
-You can also grab any release for your platform from
-[GitHub Releases](https://github.com/mrz1836/go-broadcast/releases).
+Not on your `PATH`? Add `export PATH="$HOME/.local/bin:$PATH"` to your `~/.zshrc` or `~/.bashrc`.
 
 <details>
-<summary><strong>Build from source (contributors)</strong></summary>
+<summary><strong>Other ways to install</strong></summary>
 
-Requires a [supported release of Go](https://golang.org/doc/devel/release.html#policy) (Go 1.25+).
+<br/>
+
+**GitHub CLI** — auto-detects your platform, then downloads, verifies, and extracts:
+
+```bash
+OS=$(uname -s | tr '[:upper:]' '[:lower:]'); ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+cd "$(mktemp -d)" \
+  && gh release download --repo mrz1836/go-broadcast --pattern "*_${OS}_${ARCH}.tar.gz" --pattern '*_checksums.txt' \
+  && F=$(ls *_${OS}_${ARCH}.tar.gz) \
+  && WANT=$(awk -v f="$F" '$2==f{print $1}' *_checksums.txt) \
+  && GOT=$( { command -v sha256sum >/dev/null && sha256sum "$F" || shasum -a 256 "$F"; } | awk '{print $1}') \
+  && [ -n "$WANT" ] && [ "$WANT" = "$GOT" ] \
+  && mkdir -p ~/.local/bin && tar -xzf "$F" -C ~/.local/bin go-broadcast
+```
+
+**Direct download** — grab any release for your platform from
+[GitHub Releases](https://github.com/mrz1836/go-broadcast/releases). Each ships alongside
+`go-broadcast_<ver>_checksums.txt`, so you can verify it yourself with `shasum -a 256 -c`.
+
+**Build from source** (contributors) — requires a
+[supported release of Go](https://golang.org/doc/devel/release.html#policy) (Go 1.25+).
 Install into `~/.local/bin` so `go-broadcast update` keeps working afterward — a binary in
-the Go toolchain's `~/go/bin` is refused by self-update rather than overwritten.
+the Go toolchain's `~/go/bin` is refused by self-update rather than overwritten:
 
 ```bash
 git clone https://github.com/mrz1836/go-broadcast.git && cd go-broadcast
@@ -1555,11 +1566,18 @@ UPDATE_VERSIONS=true ALLOW_MAJOR_UPGRADES=true magex updateToolVersions
 Set up the Go-Pre-commit System to run the same formatting, linting, and tests defined in [AGENTS.md](.github/AGENTS.md) before every commit:
 
 ```bash
-# Install and set up pre-commit hooks
-go install github.com/mrz1836/go-pre-commit/cmd/go-pre-commit@latest
-go-pre-commit install
+# Install the latest go-pre-commit release into ~/.local/bin, verified against checksums.txt
+VER=$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/mrz1836/go-pre-commit/releases/latest | sed 's#.*/v##')
+OS=$(uname -s | tr '[:upper:]' '[:lower:]'); ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+F="go-pre-commit_${VER}_${OS}_${ARCH}.tar.gz"; U="https://github.com/mrz1836/go-pre-commit/releases/download/v${VER}"
+mkdir -p ~/.local/bin && cd "$(mktemp -d)" && curl -fsSLO "$U/$F" \
+  && WANT=$(curl -fsSL "$U/go-pre-commit_${VER}_checksums.txt" | awk -v f="$F" '$2==f{print $1}') \
+  && GOT=$( { command -v sha256sum >/dev/null && sha256sum "$F" || shasum -a 256 "$F"; } | awk '{print $1}') \
+  && [ -n "$WANT" ] && [ "$WANT" = "$GOT" ] \
+  && tar -xzf "$F" -C ~/.local/bin go-pre-commit
 
-# Run pre-commit hooks manually
+# Set up hooks in your repo, then optionally run them manually
+go-pre-commit install
 go-pre-commit run --all-files
 ```
 
