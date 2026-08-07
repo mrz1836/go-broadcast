@@ -34,11 +34,15 @@ docs(README): improve installation instructions
 To ensure consistent commit messages and code quality, we use the external **go-pre-commit** tool that checks formatting, linting, and other standards before allowing a commit. The system is configured via `.github/env/` and can be installed with:
 
 ```bash
-# Install the latest release binary into ~/.local/bin
-VER=$(curl -fsSL https://api.github.com/repos/mrz1836/go-pre-commit/releases/latest | grep '"tag_name"' | cut -d'"' -f4 | tr -d v)
-OS=$(uname -s | tr '[:upper:]' '[:lower:]'); ARCH=$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')
-mkdir -p ~/.local/bin
-curl -fsSL "https://github.com/mrz1836/go-pre-commit/releases/download/v${VER}/go-pre-commit_${VER}_${OS}_${ARCH}.tar.gz" | tar -xzf - -C ~/.local/bin go-pre-commit
+# Install the latest release binary into ~/.local/bin, verified against checksums.txt
+VER=$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/mrz1836/go-pre-commit/releases/latest | sed 's#.*/v##')
+OS=$(uname -s | tr '[:upper:]' '[:lower:]'); ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+F="go-pre-commit_${VER}_${OS}_${ARCH}.tar.gz"; U="https://github.com/mrz1836/go-pre-commit/releases/download/v${VER}"
+mkdir -p ~/.local/bin && cd "$(mktemp -d)" && curl -fsSLO "$U/$F" \
+  && WANT=$(curl -fsSL "$U/go-pre-commit_${VER}_checksums.txt" | awk -v f="$F" '$2==f{print $1}') \
+  && GOT=$( { command -v sha256sum >/dev/null && sha256sum "$F" || shasum -a 256 "$F"; } | awk '{print $1}') \
+  && [ -n "$WANT" ] && [ "$WANT" = "$GOT" ] \
+  && tar -xzf "$F" -C ~/.local/bin go-pre-commit
 
 # Install hooks in your repository
 go-pre-commit install
