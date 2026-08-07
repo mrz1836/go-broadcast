@@ -1,16 +1,18 @@
 # ------------------------------------------------------------------------------------
 #  Security Scans (Reusable Workflow) (GoFortress)
 #
-#  Purpose: Run all security scanning tools including Nancy (dependency checks),
-#  Govulncheck (Go vulnerability scanning), and Gitleaks (secret scanning).
+#  Purpose: Run all security scanning tools: Govulncheck (Go vulnerability scanning),
+#  OSV-Scanner (multi-source dependency scanning via OSV.dev), Gitleaks (secret
+#  scanning), and Nancy (legacy dependency checks; disabled by default).
 #
 #  Maintainer: @mrz1836
 #
 #  FAILURE HANDLING:
 #  - Each scan keeps `continue-on-error: true` so one failure does not mask another.
-#    A final `🚨 Aggregate failures` step exits non-zero if any real failure occurred
-#    (Nancy no-token-skip / rate-limit / 402 / network-unreachable are intentionally
-#    inconclusive and do NOT fail the job).
+#    A final `🚨 Aggregate failures` step exits non-zero if any real failure occurred.
+#    Intentionally inconclusive (never fail the job): Nancy no-token-skip / rate-limit /
+#    402 / network-unreachable, and OSV-Scanner network/database errors. OSV findings
+#    fail the job only when OSV_SCANNER_FAIL_ON_VULNERABILITY=true (report-only by default).
 #
 # ------------------------------------------------------------------------------------
 
@@ -35,6 +37,11 @@ on:
         default: true
       enable-gitleaks:
         description: "Enable Gitleaks security scan"
+        required: false
+        type: boolean
+        default: true
+      enable-osv:
+        description: "Enable OSV-Scanner dependency scan"
         required: false
         type: boolean
         default: true
@@ -81,6 +88,7 @@ jobs:
   #
   #   🛡️ Nancy:        write go list → install → run → annotations → summary → upload
   #   🔐 Govulncheck:  run → annotations → summary → upload
+  #   🛰️ OSV-Scanner:  cache/install → run → annotations → summary → SARIF upload → artifact
   #   🕵️ Gitleaks:     repo check → run → annotations → summary/fork notice
   #
   #   📊 Collect + upload cache statistics (single entry for merged job)
@@ -90,10 +98,11 @@ jobs:
     name: 🔒 Security Scans
     runs-on: ${{ inputs.primary-runner }}
     timeout-minutes: 10
-    if: ${{ inputs.enable-nancy || inputs.enable-govulncheck || inputs.enable-gitleaks }}
+    if: ${{ inputs.enable-nancy || inputs.enable-govulncheck || inputs.enable-gitleaks || inputs.enable-osv }}
     permissions:
       contents: read # All scans
       pull-requests: write # Gitleaks needs to create PR comments
+      security-events: write # OSV-Scanner uploads SARIF results to GitHub Code Scanning
     steps:
       # ====================================================================
       # SHARED SETUP
@@ -549,6 +558,180 @@ jobs:
           if-no-files-found: ignore
 
       # ====================================================================
+      # OSV-SCANNER (MULTI-SOURCE DEPENDENCY SCANNING)
+      # ====================================================================
+      # OSV-Scanner (google/osv-scanner) checks Go dependencies against the OSV.dev
+      # database (GHSA, the Go vuln DB, and 30+ other advisory sources). It replaces
+      # Nancy, which now requires the credit-metered Sonatype Guide backend. Free, no
+      # account or API key. Findings are published to GitHub Code Scanning as SARIF.
+      #
+      # Resilience contract (mirrors the other scanners):
+      #   exit 0         → success (no known vulnerabilities)
+      #   exit 1         → vulnerabilities found (fails CI only when
+      #                    OSV_SCANNER_FAIL_ON_VULNERABILITY=true; report-only otherwise)
+      #   any other exit → tooling / network / OSV.dev database error → inconclusive,
+      #                    NEVER fails CI (same philosophy as Nancy/govulncheck)
+      #
+      # The binary is version-pinned and cached exactly like govulncheck.
+      - name: 💾 Restore OSV-Scanner binary cache
+        id: osv-cache
+        if: ${{ inputs.enable-osv }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/osv-scanner-bin
+          key: ${{ inputs.primary-runner }}-osv-scanner-${{ env.OSV_SCANNER_VERSION }}-go${{ env.GOVULNCHECK_GO_VERSION }}
+
+      - name: 🛠️ Make cached OSV-Scanner usable
+        if: ${{ inputs.enable-osv }}
+        run: |
+          set -euo pipefail
+          BIN_DIR="$HOME/.cache/osv-scanner-bin"
+          OSV_BIN="$BIN_DIR/osv-scanner"
+          if [[ -f "$OSV_BIN" ]]; then
+            echo "✅ Using cached OSV-Scanner binary"
+            mkdir -p "$(go env GOPATH)/bin"
+            cp "$OSV_BIN" "$(go env GOPATH)/bin/"
+          fi
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: 📥 Install OSV-Scanner (cache miss)
+        if: ${{ inputs.enable-osv && steps.osv-cache.outputs.cache-hit != 'true' }}
+        env:
+          # Config value (from committed env files) routed through env rather than
+          # interpolated into the shell body — script-injection-safe by convention.
+          OSV_SCANNER_VERSION: ${{ env.OSV_SCANNER_VERSION }}
+        run: |
+          set -euo pipefail
+          echo "⬇️ Cache miss – installing OSV-Scanner ${OSV_SCANNER_VERSION}..."
+          # Pinned module path (v2 semantic-import versioning); go install verifies the
+          # download against the Go checksum database for supply-chain integrity.
+          go install "github.com/google/osv-scanner/v2/cmd/osv-scanner@${OSV_SCANNER_VERSION}"
+          mkdir -p ~/.cache/osv-scanner-bin
+          cp "$(go env GOPATH)/bin/osv-scanner" ~/.cache/osv-scanner-bin/
+          echo "✅ OSV-Scanner installed and stored in cache"
+
+      - name: 🛰️ OSV-Scanner — Run scan
+        id: run-osv
+        if: ${{ inputs.enable-osv }}
+        continue-on-error: true
+        run: |
+          echo "🔍 Running OSV-Scanner dependency scan..."
+          set +e
+          # Authoritative scan → SARIF for GitHub Code Scanning; exit code drives status.
+          osv-scanner scan source -r . \
+            --format sarif \
+            --output-file osv-results.sarif \
+            --verbosity error
+          OSV_EXIT_CODE=$?
+          # Best-effort human-readable summary; its result NEVER affects the status.
+          osv-scanner scan source -r . \
+            --format markdown \
+            --output-file osv-results.md \
+            --verbosity error >/dev/null 2>&1 || true
+          set -e
+
+          echo "osv-exit-code=$OSV_EXIT_CODE" >> $GITHUB_OUTPUT
+          if [[ $OSV_EXIT_CODE -eq 0 ]]; then
+            echo "osv-status=success" >> $GITHUB_OUTPUT
+            echo "✅ OSV-Scanner completed - no known vulnerabilities found"
+          elif [[ $OSV_EXIT_CODE -eq 1 ]]; then
+            echo "osv-status=vulnerabilities" >> $GITHUB_OUTPUT
+            echo "⚠️  OSV-Scanner found known vulnerabilities - see Code Scanning / job summary"
+          else
+            # 127/128/etc. → tooling, network, or OSV.dev/database error. Inconclusive.
+            echo "osv-status=error" >> $GITHUB_OUTPUT
+            echo "⚠️  OSV-Scanner did not complete (exit $OSV_EXIT_CODE) - inconclusive, not failing CI"
+          fi
+
+      - name: 📋 OSV-Scanner — Annotations (vulnerabilities)
+        if: always() && steps.run-osv.outputs.osv-status == 'vulnerabilities'
+        env:
+          OSV_FAIL: ${{ env.OSV_SCANNER_FAIL_ON_VULNERABILITY }}
+        run: |
+          if [[ "${OSV_FAIL}" == "true" ]]; then
+            echo "::error title=OSV-Scanner::Known vulnerabilities found in dependencies — see the Security tab (Code Scanning) and job summary."
+          else
+            echo "::warning title=OSV-Scanner::Known vulnerabilities found in dependencies (report-only mode) — see the Security tab (Code Scanning) and job summary."
+          fi
+
+      - name: 📋 OSV-Scanner — Annotations (inconclusive)
+        if: always() && steps.run-osv.outputs.osv-status == 'error'
+        run: |
+          echo "::warning title=OSV-Scanner Inconclusive::OSV-Scanner did not complete (network / OSV.dev / tooling error). Results inconclusive; CI was not failed. Usually transient."
+
+      - name: 📊 OSV-Scanner — Job Summary
+        if: always() && inputs.enable-osv
+        env:
+          OSV_STATUS: ${{ steps.run-osv.outputs.osv-status }}
+          OSV_FAIL: ${{ env.OSV_SCANNER_FAIL_ON_VULNERABILITY }}
+        run: |
+          {
+            echo "## 🛰️ OSV-Scanner Summary"
+            echo ""
+            echo "| Scan Details | Status |"
+            echo "|---|---|"
+            echo "| **Tool** | OSV-Scanner (google/osv-scanner) |"
+            echo "| **Database** | OSV.dev (GHSA, Go vuln DB, +30 sources) |"
+            echo "| **Scope** | Go modules (recursive source scan) |"
+            echo "| **Version** | ${{ env.OSV_SCANNER_VERSION }} |"
+          } >> $GITHUB_STEP_SUMMARY
+
+          # Precompute presentation values in plain variables (avoids fragile nested
+          # quoting inside echo/command-substitution).
+          if [[ "${OSV_FAIL}" == "true" ]]; then
+            ENFORCEMENT="Blocking (fail on findings)"
+            VULN_ICON="❌"
+          else
+            ENFORCEMENT="Report-only (warn)"
+            VULN_ICON="⚠️"
+          fi
+          echo "| **Enforcement** | ${ENFORCEMENT} |" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "$OSV_STATUS" == "success" ]]; then
+            echo "| **Result** | ✅ No known vulnerabilities found |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "$OSV_STATUS" == "vulnerabilities" ]]; then
+            echo "| **Result** | ${VULN_ICON} Known vulnerabilities found — details in Code Scanning |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| **Result** | ⚠️ Inconclusive — scanner/network error (CI not failed) |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [[ "$OSV_STATUS" == "vulnerabilities" ]] && [[ -f osv-results.md ]]; then
+            {
+              echo ""
+              echo "### 🚨 Vulnerability Details"
+              echo ""
+              echo "<details>"
+              echo "<summary>Click to expand OSV-Scanner findings</summary>"
+              echo ""
+              cat osv-results.md
+              echo ""
+              echo "</details>"
+            } >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: 📤 OSV-Scanner — Upload SARIF to Code Scanning
+        # Publishes findings to the repository's Security tab. Resilient: a Code
+        # Scanning hiccup must not fail the security job.
+        if: always() && inputs.enable-osv && hashFiles('osv-results.sarif') != ''
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          sarif_file: osv-results.sarif
+          category: osv-scanner
+
+      - name: 📤 OSV-Scanner — Upload scan artifacts
+        if: always() && inputs.enable-osv
+        uses: ./.github/actions/upload-artifact-resilient
+        with:
+          artifact-name: osv-scanner-results
+          artifact-path: |
+            osv-results.sarif
+            osv-results.md
+          retention-days: "7"
+          if-no-files-found: ignore
+
+      # ====================================================================
       # GITLEAKS (SECRET SCANNING)
       # ====================================================================
       - name: 🔍 Gitleaks — Check repository security conditions
@@ -696,10 +879,13 @@ jobs:
           ENABLE_NANCY: ${{ inputs.enable-nancy }}
           ENABLE_GOVULNCHECK: ${{ inputs.enable-govulncheck }}
           ENABLE_GITLEAKS: ${{ inputs.enable-gitleaks }}
+          ENABLE_OSV: ${{ inputs.enable-osv }}
           NANCY_STATUS: ${{ steps.run-nancy.outputs.nancy-status }}
           GOVULN_STATUS: ${{ steps.run-govulncheck.outputs.govuln-status }}
           GITLEAKS_OUTCOME: ${{ steps.run-gitleaks.outcome }}
           GITLEAKS_SAME_REPO: ${{ steps.gitleaks-repo-check.outputs.is_same_repo }}
+          OSV_STATUS: ${{ steps.run-osv.outputs.osv-status }}
+          OSV_FAIL_ON_VULN: ${{ env.OSV_SCANNER_FAIL_ON_VULNERABILITY }}
         run: |
           FAILED=0
 
@@ -718,6 +904,18 @@ jobs:
               && [[ "${GITLEAKS_OUTCOME}" == "failure" ]]; then
             echo "❌ Gitleaks detected secrets in the repository"
             FAILED=1
+          fi
+
+          # OSV-Scanner fails the job ONLY when it found vulnerabilities AND enforcement
+          # is enabled. Inconclusive states (network / OSV.dev / database errors) never
+          # fail CI — same resilience contract as the other dependency scanners.
+          if [[ "${ENABLE_OSV}" == "true" ]] \
+              && [[ "${OSV_STATUS}" == "vulnerabilities" ]] \
+              && [[ "${OSV_FAIL_ON_VULN}" == "true" ]]; then
+            echo "❌ OSV-Scanner detected known vulnerabilities in dependencies"
+            FAILED=1
+          elif [[ "${ENABLE_OSV}" == "true" ]] && [[ "${OSV_STATUS}" == "vulnerabilities" ]]; then
+            echo "⚠️  OSV-Scanner found vulnerabilities (report-only mode; not failing CI)"
           fi
 
           if [[ $FAILED -ne 0 ]]; then

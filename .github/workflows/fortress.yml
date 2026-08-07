@@ -189,6 +189,7 @@ jobs:
       enable-nancy: ${{ needs.setup.outputs.nancy-enabled == 'true' }}
       enable-govulncheck: ${{ needs.setup.outputs.govulncheck-enabled == 'true' }}
       enable-gitleaks: ${{ needs.setup.outputs.gitleaks-enabled == 'true' }}
+      enable-osv: ${{ needs.setup.outputs.osv-enabled == 'true' }}
       go-primary-version: ${{ needs.setup.outputs.go-primary-version }}
       primary-runner: ${{ needs.setup.outputs.primary-runner }}
       go-sum-file: ${{ needs.setup.outputs.go-sum-file }}
