@@ -195,6 +195,7 @@ jobs:
     secrets:
       github-token: ${{ github.event.pull_request.head.repo.fork != true && (secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN) || '' }}
       gitleaks-license: ${{ secrets.GITLEAKS_LICENSE }}
+      guide-token: ${{ secrets.GUIDE_TOKEN }}
       ossi-token: ${{ secrets.OSSI_TOKEN }}
       ossi-username: ${{ secrets.OSSI_USERNAME }}
   # ----------------------------------------------------------------------------------
