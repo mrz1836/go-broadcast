@@ -3,6 +3,8 @@ package cli
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -269,9 +271,16 @@ func TestCollectCIMetrics(t *testing.T) {
 			Return([]gh.Workflow{{ID: 99, Name: "GoFortress"}}, nil)
 		ghMock.On("GetWorkflowRuns", mock.Anything, "org/repo", int64(99), mock.Anything).
 			Return([]gh.WorkflowRun{{ID: 1234, HeadBranch: "master", HeadSHA: "abc"}}, nil)
-		// No artifacts -> metrics returned without coverage (fallback) -> snapshot created.
+		// A usable loc-stats artifact -> non-zero metrics -> snapshot created.
 		ghMock.On("GetRunArtifacts", mock.Anything, "org/repo", int64(1234)).
-			Return([]gh.Artifact{}, nil)
+			Return([]gh.Artifact{{ID: 1, Name: "loc-stats"}}, nil)
+		ghMock.On("DownloadRunArtifact", mock.Anything, "org/repo", int64(1234), "loc-stats", mock.AnythingOfType("string")).
+			Run(func(args mock.Arguments) {
+				destDir := args.String(4)
+				_ = os.MkdirAll(destDir, 0o750)
+				locJSON := `{"go_files_loc": 1500, "test_files_loc": 5500, "go_files_count": 20, "test_files_count": 50}`
+				_ = os.WriteFile(filepath.Join(destDir, "loc-stats.json"), []byte(locJSON), 0o600)
+			}).Return(nil)
 
 		mockRepo := new(mockAnalyticsRepo)
 		mockRepo.On("CreateCISnapshot", ctx, mock.Anything).Return(nil)
@@ -279,6 +288,24 @@ func TestCollectCIMetrics(t *testing.T) {
 		err := collectCIMetrics(ctx, pipe, mockRepo, 1, "org/repo")
 		require.NoError(t, err)
 		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("run with no usable artifacts skips snapshot", func(t *testing.T) {
+		t.Parallel()
+		ghMock := gh.NewMockClient()
+		ghMock.On("ListWorkflows", mock.Anything, "org/repo").
+			Return([]gh.Workflow{{ID: 99, Name: "GoFortress"}}, nil)
+		ghMock.On("GetWorkflowRuns", mock.Anything, "org/repo", int64(99), mock.Anything).
+			Return([]gh.WorkflowRun{{ID: 1234, HeadBranch: "master", HeadSHA: "abc"}}, nil)
+		// No artifacts -> all-zero parse is rejected -> no snapshot is persisted.
+		ghMock.On("GetRunArtifacts", mock.Anything, "org/repo", int64(1234)).
+			Return([]gh.Artifact{}, nil)
+
+		mockRepo := new(mockAnalyticsRepo)
+		pipe := newTestPipeline(ghMock, mockRepo)
+		err := collectCIMetrics(ctx, pipe, mockRepo, 1, "org/repo")
+		require.NoError(t, err)
+		mockRepo.AssertNotCalled(t, "CreateCISnapshot", mock.Anything, mock.Anything)
 	})
 }
 
