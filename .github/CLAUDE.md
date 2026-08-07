@@ -122,7 +122,15 @@ Custom commands (`benchheavy`, `benchall`) are defined in `magefile.go`.
 Fast Go-native pre-commit hooks (17x faster than Python alternatives).
 
 ```bash
-go install github.com/mrz1836/go-pre-commit/cmd/go-pre-commit@latest
+# Install the latest go-pre-commit release into ~/.local/bin, verified against checksums.txt
+VER=$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/mrz1836/go-pre-commit/releases/latest | sed 's#.*/v##')
+OS=$(uname -s | tr '[:upper:]' '[:lower:]'); ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+F="go-pre-commit_${VER}_${OS}_${ARCH}.tar.gz"; U="https://github.com/mrz1836/go-pre-commit/releases/download/v${VER}"
+mkdir -p ~/.local/bin && cd "$(mktemp -d)" && curl -fsSLO "$U/$F" \
+  && WANT=$(curl -fsSL "$U/go-pre-commit_${VER}_checksums.txt" | awk -v f="$F" '$2==f{print $1}') \
+  && GOT=$( { command -v sha256sum >/dev/null && sha256sum "$F" || shasum -a 256 "$F"; } | awk '{print $1}') \
+  && [ -n "$WANT" ] && [ "$WANT" = "$GOT" ] \
+  && tar -xzf "$F" -C ~/.local/bin go-pre-commit
 go-pre-commit install
 ```
 
