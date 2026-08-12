@@ -40,6 +40,9 @@ on:
       github-token:
         description: "GitHub token for authentication"
         required: true
+      slack-webhook:
+        description: "Slack webhook URL for GoReleaser release announcements (optional; drives announce.slack in .goreleaser.yml)"
+        required: false
 
 # Security: Restrict default permissions (jobs must explicitly request what they need)
 permissions: {}
@@ -322,6 +325,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SKIP_GORELEASER_TESTS: "true"
+          # GoReleaser's announce.slack integration reads SLACK_WEBHOOK from the environment.
+          # Wired through here so a repo that flips announce.slack.enabled: true in its
+          # .goreleaser.yml (and sets the SLACK_WEBHOOK secret) gets release announcements.
+          # Harmless when unset or when announce.slack is disabled — GoReleaser no-ops it.
+          SLACK_WEBHOOK: ${{ secrets.slack-webhook }}
         run: |
           echo "🚀 Building and publishing release with GoReleaser..."
 

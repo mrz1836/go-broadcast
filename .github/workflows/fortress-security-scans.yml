@@ -803,10 +803,10 @@ jobs:
           echo "Repository: $GITHUB_REPOSITORY"
           echo "Head Ref: $GITHUB_HEAD_REF"
 
-          # Note: for reusable workflows github.event_name is the CALLER's event (push /
-          # pull_request), never "workflow_call", so no special-case for it is needed — the
-          # PR_HEAD_REPO check below classifies same-repo/push vs fork correctly either way.
-          if [[ "$PR_HEAD_REPO" == "$GITHUB_REPOSITORY" ]] || [[ -z "$PR_HEAD_REPO" ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_call" ]]; then
+            echo "✅ Workflow call from same repository - security scans allowed"
+            echo "is_same_repo=true" >> $GITHUB_OUTPUT
+          elif [[ "$PR_HEAD_REPO" == "$GITHUB_REPOSITORY" ]] || [[ -z "$PR_HEAD_REPO" ]]; then
             echo "✅ Same repository or push event - security scans allowed"
             echo "is_same_repo=true" >> $GITHUB_OUTPUT
           else

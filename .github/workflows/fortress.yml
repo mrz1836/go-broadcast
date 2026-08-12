@@ -524,6 +524,7 @@ jobs:
       go-sum-file: ${{ needs.setup.outputs.go-sum-file }}
     secrets:
       github-token: ${{ github.event.pull_request.head.repo.fork != true && secrets.GITHUB_TOKEN || '' }}
+      slack-webhook: ${{ secrets.SLACK_WEBHOOK || '' }}
     permissions:
       contents: write # Required: goreleaser needs to create GitHub releases
   # ----------------------------------------------------------------------------------
