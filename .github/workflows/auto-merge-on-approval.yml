@@ -167,8 +167,14 @@ jobs:
       - name: 🔍 Check conditions and enable auto-merge
         id: process
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          # actions/github-script only wires the token into the injected `github`
+          # Octokit client — it never sets process.env.GITHUB_TOKEN. The script
+          # below shells out to `gh pr merge` via execSync and reads
+          # process.env.GITHUB_TOKEN directly, so it must be set explicitly here.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          github-token: ${{ secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
             const prNumber = context.payload.pull_request.number;

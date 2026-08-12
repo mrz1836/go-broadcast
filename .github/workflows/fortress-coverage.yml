@@ -55,9 +55,6 @@ on:
       CODECOV_TOKEN:
         description: "Codecov token for uploading coverage (required when coverage-provider is codecov)"
         required: false
-      GH_PAT_TOKEN:
-        description: "Personal access token for enhanced GitHub API access (optional, falls back to github-token)"
-        required: false
 
 # Security: Restrict default permissions (jobs must explicitly request what they need)
 permissions: {}
@@ -107,7 +104,8 @@ jobs:
       contents: write # Required: Push coverage data to gh-pages branch
       pages: write # Required: Deploy to GitHub Pages
       id-token: write # Required: GitHub Pages authentication
-      pull-requests: write # Required: Create PR comments with coverage
+      pull-requests: write # Required: Read PR metadata for coverage comparison
+      issues: write # Required: go-coverage posts/updates PR comments via the issues comments API
       statuses: write # Required: Create commit status checks
       actions: read # Required: Download artifacts from workflow runs
 
@@ -332,7 +330,7 @@ jobs:
         # Download history for all branches to enable trend analysis
         if: github.event_name == 'push'
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.github-token }}
         run: |
           echo "📥 Downloading previous coverage history using GitHub API..."
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -593,7 +591,7 @@ jobs:
           continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
       - name: 📊 Process coverage data
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.github-token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
           GITHUB_PR_NUMBER: ${{ inputs.pr-number || github.event.pull_request.number }}
