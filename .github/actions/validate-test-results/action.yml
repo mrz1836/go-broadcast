@@ -215,7 +215,9 @@ runs:
           local v="${1//[[:space:]]/}"
           if [[ "$v" =~ ^[0-9]+$ ]]; then printf '%s' "$v"; else printf '0'; fi
         }
-        strip_bt() { printf '%s' "${1//\`/}"; }
+        # Strip backticks AND control chars (except tab/newline) from artifact-derived text:
+        # prevents code-span/fenced-block breakout and control-character (ANSI/NUL) spoofing.
+        strip_bt() { printf '%s' "$1" | LC_ALL=C tr -d '\000-\010\013-\037\140\177'; }
 
         echo "## 🔍 Test Validation Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY

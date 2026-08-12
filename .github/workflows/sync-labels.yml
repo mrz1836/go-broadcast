@@ -601,9 +601,14 @@ jobs:
           echo "## 📋 Commit Source (Audit Trail)" >> $GITHUB_STEP_SUMMARY
           echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          # Commit author/committer names are attacker-influenceable; sanitize before writing
+          # them into the markdown table (strip control chars, neutralize | and ` so they
+          # cannot break out of the table column or open a code span).
+          SAFE_COMMITTER=$(printf '%s' "$COMMITTER_NAME" | LC_ALL=C tr -d '\000-\037\177' | tr '|`' '  ')
+          SAFE_AUTHOR=$(printf '%s' "$AUTHOR_NAME" | LC_ALL=C tr -d '\000-\037\177' | tr '|`' '  ')
           echo "| Commit SHA | \`$COMMIT_SHA\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Committer | $COMMITTER_NAME |" >> $GITHUB_STEP_SUMMARY
-          echo "| Author | $AUTHOR_NAME |" >> $GITHUB_STEP_SUMMARY
+          echo "| Committer | $SAFE_COMMITTER |" >> $GITHUB_STEP_SUMMARY
+          echo "| Author | $SAFE_AUTHOR |" >> $GITHUB_STEP_SUMMARY
           if [ "$IS_MERGE" = "true" ]; then
             echo "| Type | 🔀 Merge commit (from PR) |" >> $GITHUB_STEP_SUMMARY
             if [ -n "$PR_NUMBER" ]; then
