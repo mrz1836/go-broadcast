@@ -213,11 +213,14 @@ jobs:
     needs: [execute-test-matrix, validate-test-results]
     if: inputs.go-tests-enabled == 'true' && inputs.code-coverage-enabled == 'true' && !startsWith(github.ref, 'refs/tags/')
     permissions:
+      # Mirror of fortress-coverage.yml's process-coverage job perms. gh-pages is deployed
+      # via a plain `git push` (contents: write) — no actions/deploy-pages or OIDC is used,
+      # so pages:write and id-token:write are intentionally NOT granted here (removing them
+      # from the caller ensures the token minted for the reusable workflow never carries
+      # those scopes).
       contents: write # Write repository content and push to gh-pages branch for coverage processing
       pull-requests: write # Required: Coverage workflow needs to create PR comments
       issues: write # Required: go-coverage posts/updates PR comments via the issues comments API
-      pages: write # Required: Coverage workflow needs to deploy to GitHub Pages
-      id-token: write # Required: Coverage workflow needs GitHub Pages authentication
       statuses: write # Required: Coverage workflow needs to create commit status checks
       actions: read # Required: Coverage workflow needs to access artifacts from workflow runs
     uses: ./.github/workflows/fortress-coverage.yml

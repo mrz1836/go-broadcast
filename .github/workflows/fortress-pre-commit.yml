@@ -668,6 +668,12 @@ jobs:
       - name: 🚀 Run pre-commit checks
         if: steps.install-pre-commit.outputs.install_success == 'true' || steps.install-pre-commit-cached.outputs.install_success == 'true'
         id: run-checks
+        env:
+          # Route detect-files outputs through env: to keep attacker-controlled data
+          # (git diff --name-only filenames on a fork PR) out of the shell parser.
+          # A file literally named "$(cmd).go" must be treated as data, never code.
+          CHANGED_FILES: ${{ steps.detect-files.outputs.changed_files }}
+          DETECTION_METHOD: ${{ steps.detect-files.outputs.detection_method }}
         run: |
           set -euo pipefail  # Enable strict error handling
           echo "🚀 Running pre-commit checks..."
@@ -698,9 +704,7 @@ jobs:
             echo ""
             CHECKS_OUTPUT=$("${{ env.GO_PRE_COMMIT_BINARY }}" run --skip lint --all-files 2>&1) || CHECKS_EXIT=$?
           elif [[ "${{ steps.detect-files.outputs.files_found }}" == "true" ]]; then
-            CHANGED_FILES="${{ steps.detect-files.outputs.changed_files }}"
-            DETECTION_METHOD="${{ steps.detect-files.outputs.detection_method }}"
-
+            # CHANGED_FILES / DETECTION_METHOD are provided via env: (see step header)
             echo "🔍 Mode: Changed Files Only"
             echo "  • Detection method: $DETECTION_METHOD"
 
@@ -875,6 +879,10 @@ jobs:
       # --------------------------------------------------------------------
       - name: 📊 Job Summary
         if: always()
+        env:
+          # Route attacker-controllable detect-files outputs through env: (see run-checks step)
+          CHANGED_FILES: ${{ steps.detect-files.outputs.changed_files }}
+          DETECTION_METHOD: ${{ steps.detect-files.outputs.detection_method }}
         run: |
           set -euo pipefail  # Enable strict error handling
           echo "## 🪝 Pre-commit Checks Summary" >> $GITHUB_STEP_SUMMARY
@@ -895,7 +903,7 @@ jobs:
           if [[ "${{ env.GO_PRE_COMMIT_ALL_FILES }}" == "true" ]]; then
             echo "| **File Detection** | 🗂️ All Files (GO_PRE_COMMIT_ALL_FILES=true) |" >> $GITHUB_STEP_SUMMARY
           elif [[ "${{ steps.detect-files.outputs.files_found }}" == "true" ]]; then
-            DETECTION_METHOD="${{ steps.detect-files.outputs.detection_method }}"
+            # DETECTION_METHOD provided via env: (see step header)
             echo "| **File Detection** | 🎯 Changed Files Only (method: $DETECTION_METHOD) |" >> $GITHUB_STEP_SUMMARY
           else
             echo "| **File Detection** | ⚠️ Fallback to Staged Files (no changes detected) |" >> $GITHUB_STEP_SUMMARY
@@ -906,7 +914,7 @@ jobs:
             # Add file detection details if changed files were detected
             if [[ "${{ env.GO_PRE_COMMIT_ALL_FILES }}" != "true" && "${{ steps.detect-files.outputs.files_found }}" == "true" ]]; then
               echo "### 📁 Files Processed" >> $GITHUB_STEP_SUMMARY
-              CHANGED_FILES="${{ steps.detect-files.outputs.changed_files }}"
+              # CHANGED_FILES provided via env: (see step header)
               FILE_COUNT=$(echo "$CHANGED_FILES" | wc -l | tr -d ' ')
               echo "**$FILE_COUNT changed files detected and processed:**" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
@@ -948,7 +956,7 @@ jobs:
               if [[ "${{ env.GO_PRE_COMMIT_ALL_FILES }}" == "true" ]]; then
                 echo "🎯 **All pre-commit checks passed successfully on all repository files.**" >> $GITHUB_STEP_SUMMARY
               elif [[ "${{ steps.detect-files.outputs.files_found }}" == "true" ]]; then
-                FILE_COUNT=$(echo "${{ steps.detect-files.outputs.changed_files }}" | wc -l | tr -d ' ')
+                FILE_COUNT=$(echo "$CHANGED_FILES" | wc -l | tr -d ' ')
                 echo "🎯 **All pre-commit checks passed successfully on $FILE_COUNT changed files.**" >> $GITHUB_STEP_SUMMARY
                 echo "" >> $GITHUB_STEP_SUMMARY
                 echo "⚡ **Performance**: Fast CI execution by checking only changed files instead of entire repository." >> $GITHUB_STEP_SUMMARY
