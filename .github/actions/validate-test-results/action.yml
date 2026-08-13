@@ -151,7 +151,9 @@ runs:
             else
               echo "  ⚠️ No summary found in JSONL file"
 
-              FAILURE_COUNT=$(to_int "$(grep -c '"type":"failure"' "$jsonl_file" 2>/dev/null | head -1)")
+              # grep -c exits 1 on zero matches; ignore its status (it still prints 0) so
+              # the step can't hard-fail under bash -e/pipefail when there are no failures.
+              FAILURE_COUNT=$(to_int "$(grep -c '"type":"failure"' "$jsonl_file" 2>/dev/null || true)")
               if [[ "$FAILURE_COUNT" -gt 0 ]]; then
                 echo "  • Found $FAILURE_COUNT failure entries"
                 VALIDATION_FAILED=true
@@ -169,7 +171,8 @@ runs:
             if grep -q "^FAIL" "$log_file" 2>/dev/null || grep -q "--- FAIL:" "$log_file" 2>/dev/null; then
               echo "  ❌ Found test failures in log file"
               VALIDATION_FAILED=true
-              FAIL_COUNT=$(to_int "$(grep -c "^--- FAIL:" "$log_file" 2>/dev/null | head -1)")
+              # grep -c exits 1 on zero matches; ignore its status (it still prints 0).
+              FAIL_COUNT=$(to_int "$(grep -c "^--- FAIL:" "$log_file" 2>/dev/null || true)")
               [[ "$FAIL_COUNT" -gt 0 ]] || FAIL_COUNT=1 # we already matched a FAIL above
               TOTAL_FAILURES=$((TOTAL_FAILURES + FAIL_COUNT))
             fi
