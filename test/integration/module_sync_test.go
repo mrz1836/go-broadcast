@@ -85,7 +85,9 @@ func commitFiles(t *testing.T, dir, message string) {
 func createGitTag(t *testing.T, dir, tag string) {
 	t.Helper()
 	ctx := context.Background()
-	cmd := exec.CommandContext(ctx, "git", "tag", tag) //nolint:gosec // G204: exec uses trusted git command with controlled arguments
+	// Disable tag signing so this lightweight tag is created regardless of the
+	// developer's global git config (e.g. tag.gpgSign/tag.forceSignAnnotated).
+	cmd := exec.CommandContext(ctx, "git", "-c", "tag.gpgSign=false", "-c", "tag.forceSignAnnotated=false", "tag", tag) //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 	cmd.Dir = dir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to create git tag %s: %v", tag, err)
