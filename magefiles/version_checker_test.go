@@ -251,6 +251,47 @@ func TestGetToolDefinitions(t *testing.T) {
 		assert.Equal(t, "google", tool.RepoOwner)
 		assert.Equal(t, "osv-scanner", tool.RepoName)
 	})
+
+	// The version source must match how each tool is installed: go-install tools
+	// resolve versions via the Go module proxy (git tags), so they carry a
+	// GoModulePath; binary-download and CalVer tools resolve via GitHub Releases and
+	// must leave GoModulePath empty. Regressing these silently drifts "latest" away
+	// from what the pinned installer actually resolves (see govulncheck/swag).
+	t.Run("go-install tools resolve via Go module proxy (git tags)", func(t *testing.T) {
+		proxyTools := map[string]string{
+			"go-coverage": "github.com/mrz1836/go-coverage",
+			"gofumpt":     "mvdan.cc/gofumpt",
+			// govulncheck: golang.org/x/vuln is tagged to v1.7.0 while its newest
+			// GitHub Release is a stale v1.1.4 — the proxy is the only correct source.
+			"govulncheck": "golang.org/x/vuln",
+			"mockgen":     "go.uber.org/mock",
+			// nancy/osv-scanner are /v2 modules installed via `go install .../v2/...`.
+			"nancy":       "github.com/sonatype-nexus-community/nancy/v2",
+			"osv-scanner": "github.com/google/osv-scanner/v2",
+			// swag's "latest" GitHub Release is a pre-release (v2.0.0-rc5); the proxy
+			// correctly resolves to the stable v1.16.6 that `go install @latest` uses.
+			"swag":      "github.com/swaggo/swag",
+			"yamlfmt":   "github.com/google/yamlfmt",
+			"mage":      "github.com/magefile/mage",
+			"benchstat": "golang.org/x/perf",
+		}
+		for name, wantModule := range proxyTools {
+			assert.Equal(t, wantModule, tools[name].GoModulePath, "tool %s must resolve via the Go module proxy", name)
+		}
+	})
+
+	t.Run("binary-download and CalVer tools resolve via GitHub Releases", func(t *testing.T) {
+		// staticcheck ships CalVer tags (2026.1); its module semver (v0.7.0) diverges,
+		// so it must use GitHub Releases, not the proxy. The rest are release binaries.
+		releaseTools := []string{
+			"staticcheck", "mage-x", "go-pre-commit", "gitleaks",
+			"golangci-lint", "goreleaser", "act", "actionlint", "go-sarif",
+		}
+		for _, name := range releaseTools {
+			assert.Empty(t, tools[name].GoModulePath, "tool %s must resolve via GitHub Releases", name)
+			assert.NotEmpty(t, tools[name].RepoURL, "tool %s should have a GitHub repo URL", name)
+		}
+	})
 }
 
 func TestVersionUpdateService_ExtractVersions(t *testing.T) {
@@ -715,7 +756,8 @@ func TestVersionUpdateService_Run_DryRun(t *testing.T) {
 
 	updater.SetContent(coverageFile, []byte("GO_COVERAGE_VERSION=v1.1.15\n"))
 	updater.SetContent(mageXFile, []byte("MAGE_X_VERSION=v1.8.7\n"))
-	checker.SetVersion("https://github.com/mrz1836/go-coverage", "v1.1.16")
+	// go-coverage is a go-install tool, so the checker is keyed by its Go module path.
+	checker.SetVersion("github.com/mrz1836/go-coverage", "v1.1.16")
 	checker.SetVersion("https://github.com/mrz1836/mage-x", "v1.8.8")
 
 	ctx := context.Background()
@@ -742,7 +784,8 @@ func TestVersionUpdateService_Run_ActualUpdate(t *testing.T) {
 
 	updater.SetContent(coverageFile, []byte("GO_COVERAGE_VERSION=v1.1.15\n"))
 	updater.SetContent(mageXFile, []byte("MAGE_X_VERSION=v1.8.7\n"))
-	checker.SetVersion("https://github.com/mrz1836/go-coverage", "v1.1.16")
+	// go-coverage is a go-install tool, so the checker is keyed by its Go module path.
+	checker.SetVersion("github.com/mrz1836/go-coverage", "v1.1.16")
 	checker.SetVersion("https://github.com/mrz1836/mage-x", "v1.8.8")
 
 	ctx := context.Background()
@@ -794,8 +837,8 @@ func TestVersionUpdateService_Run_MultiFile(t *testing.T) {
 	updater.SetContent(mageXFile, []byte("MAGE_X_VERSION=v1.19.0\nMAGE_X_GITLEAKS_VERSION=8.29.0\n"))
 	updater.SetContent(securityFile, []byte("GITLEAKS_VERSION=8.29.0\n"))
 
-	checker.SetVersion("https://go.dev", "go1.25.7") // up-to-date
-	checker.SetVersion("https://github.com/mrz1836/go-coverage", "v1.3.0")
+	checker.SetVersion("https://go.dev", "go1.25.7")               // up-to-date
+	checker.SetVersion("github.com/mrz1836/go-coverage", "v1.3.0") // go-install tool: keyed by module path
 	checker.SetVersion("https://github.com/mrz1836/mage-x", "v1.20.0")
 	checker.SetVersion("https://github.com/gitleaks/gitleaks", "v8.30.0")
 
@@ -1319,8 +1362,8 @@ func TestVersionUpdateService_Run_WithMajorUpgradesAllowed(t *testing.T) {
 
 	mageXFile := ".github/env/10-mage-x.env"
 	updater.SetContent(mageXFile, []byte("MAGE_X_SWAG_VERSION=v1.16.6\nMAGE_X_VERSION=v1.15.5\n"))
-	// Major upgrade
-	checker.SetVersion("https://github.com/swaggo/swag", "v2.0.0")
+	// Major upgrade (swag is a go-install tool, so the checker is keyed by module path)
+	checker.SetVersion("github.com/swaggo/swag", "v2.0.0")
 	// Minor upgrade
 	checker.SetVersion("https://github.com/mrz1836/mage-x", "v1.15.6")
 

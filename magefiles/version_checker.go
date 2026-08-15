@@ -353,32 +353,59 @@ func NewVersionUpdateService(checker VersionChecker, updater FileUpdater, logger
 func GetToolDefinitions() map[string]*ToolInfo {
 	tools := make(map[string]*ToolInfo)
 
-	// Define unique tools with their GitHub repos (from .env.base comments)
+	// Define unique tools with their version-resolution source.
+	//
+	// IMPORTANT: the version source MUST match how each tool is actually installed,
+	// otherwise "latest" is checked against the wrong list and drifts from what the
+	// pinned installer resolves:
+	//
+	//   - go-install tools ("go install <module>@<version>") resolve versions through
+	//     the Go module proxy against git *tags* — they never consult GitHub Releases.
+	//     Set goModulePath so we query proxy.golang.org/<module>/@latest, which mirrors
+	//     `go install @latest` exactly (highest *stable* semver tag; pre-releases and
+	//     pseudo-versions excluded). This is the only correct source. Examples that
+	//     prove why GitHub Releases is wrong for these:
+	//       * golang.org/x/vuln (govulncheck) is tagged through v1.7.0, but the newest
+	//         GitHub Release is a stale v1.1.4 (the team stopped cutting Release pages
+	//         after Jan 2025 while continuing to tag).
+	//       * swaggo/swag marks a pre-release v2.0.0-rc5 as its "latest" GitHub Release,
+	//         while `go install ...@latest` resolves to the stable v1.16.6.
+	//     For /vN modules the goModulePath includes the major suffix (e.g. .../v2) so
+	//     @latest stays within the major the pinned `go install .../v2/...` uses.
+	//
+	//   - binary-download tools (release tarballs, install.sh, brew) and CalVer-tagged
+	//     tools must use GitHub Releases (goModulePath left empty):
+	//       * staticcheck ships CalVer product tags (2026.1); its Go module semver is
+	//         only v0.7.0, so the proxy would report the wrong value.
+	//       * release binaries (mage-x, go-pre-commit, gitleaks, golangci-lint,
+	//         goreleaser, guardian tools) only exist as assets on GitHub Releases.
 	definitions := []struct {
 		key          string
 		envVars      []string
 		repoOwner    string
 		repoName     string
-		goModulePath string // Go module path for proxy.golang.org lookup (optional)
+		goModulePath string // Go module path for proxy.golang.org lookup (git tags); empty = use GitHub Releases
 	}{
-		{"go-coverage", []string{"GO_COVERAGE_VERSION"}, "mrz1836", "go-coverage", ""},
-		{"mage-x", []string{"MAGE_X_VERSION"}, "mrz1836", "mage-x", ""},
-		{"gitleaks", []string{"MAGE_X_GITLEAKS_VERSION", "GITLEAKS_VERSION", "GO_PRE_COMMIT_GITLEAKS_VERSION"}, "gitleaks", "gitleaks", ""},
-		{"gofumpt", []string{"MAGE_X_GOFUMPT_VERSION", "GO_PRE_COMMIT_FUMPT_VERSION"}, "mvdan", "gofumpt", ""},
-		{"golangci-lint", []string{"MAGE_X_GOLANGCI_LINT_VERSION", "GO_PRE_COMMIT_GOLANGCI_LINT_VERSION"}, "golangci", "golangci-lint", ""},
-		{"goreleaser", []string{"MAGE_X_GORELEASER_VERSION"}, "goreleaser", "goreleaser", ""},
-		{"govulncheck", []string{"MAGE_X_GOVULNCHECK_VERSION", "GOVULNCHECK_VERSION"}, "golang", "vuln", ""},
-		{"mockgen", []string{"MAGE_X_MOCKGEN_VERSION"}, "uber-go", "mock", ""},
-		{"nancy", []string{"MAGE_X_NANCY_VERSION", "NANCY_VERSION"}, "sonatype-nexus-community", "nancy", ""},
-		{"osv-scanner", []string{"MAGE_X_OSV_SCANNER_VERSION", "OSV_SCANNER_VERSION"}, "google", "osv-scanner", ""},
-		{"staticcheck", []string{"MAGE_X_STATICCHECK_VERSION"}, "dominikh", "go-tools", ""},
-		{"swag", []string{"MAGE_X_SWAG_VERSION"}, "swaggo", "swag", ""},
-		{"yamlfmt", []string{"MAGE_X_YAMLFMT_VERSION"}, "google", "yamlfmt", ""},
-		{"go-pre-commit", []string{"GO_PRE_COMMIT_VERSION"}, "mrz1836", "go-pre-commit", ""},
-		{"mage", []string{"MAGE_X_MAGE_VERSION"}, "magefile", "mage", ""},
-		// Go proxy-based tools (use pseudo-versions like v0.0.0-YYYYMMDDHHMMSS-commitSHA)
+		// --- go-install tools: version resolved via the Go module proxy (git tags) ---
+		{"go-coverage", []string{"GO_COVERAGE_VERSION"}, "mrz1836", "go-coverage", "github.com/mrz1836/go-coverage"},
+		{"gofumpt", []string{"MAGE_X_GOFUMPT_VERSION", "GO_PRE_COMMIT_FUMPT_VERSION"}, "mvdan", "gofumpt", "mvdan.cc/gofumpt"},
+		{"govulncheck", []string{"MAGE_X_GOVULNCHECK_VERSION", "GOVULNCHECK_VERSION"}, "golang", "vuln", "golang.org/x/vuln"},
+		{"mockgen", []string{"MAGE_X_MOCKGEN_VERSION"}, "uber-go", "mock", "go.uber.org/mock"},
+		{"nancy", []string{"MAGE_X_NANCY_VERSION", "NANCY_VERSION"}, "sonatype-nexus-community", "nancy", "github.com/sonatype-nexus-community/nancy/v2"},
+		{"osv-scanner", []string{"MAGE_X_OSV_SCANNER_VERSION", "OSV_SCANNER_VERSION"}, "google", "osv-scanner", "github.com/google/osv-scanner/v2"},
+		{"swag", []string{"MAGE_X_SWAG_VERSION"}, "swaggo", "swag", "github.com/swaggo/swag"},
+		{"yamlfmt", []string{"MAGE_X_YAMLFMT_VERSION"}, "google", "yamlfmt", "github.com/google/yamlfmt"},
+		{"mage", []string{"MAGE_X_MAGE_VERSION"}, "magefile", "mage", "github.com/magefile/mage"},
+		// Go proxy-based tool with no semver tags (pseudo-versions like v0.0.0-YYYYMMDDHHMMSS-commitSHA)
 		{"benchstat", []string{"MAGE_X_BENCHSTAT_VERSION"}, "", "", "golang.org/x/perf"},
-		// Guardian CI tools
+		// --- binary-download / CalVer tools: version resolved via GitHub Releases ---
+		{"mage-x", []string{"MAGE_X_VERSION"}, "mrz1836", "mage-x", ""},                                                                     // release tarball asset
+		{"go-pre-commit", []string{"GO_PRE_COMMIT_VERSION"}, "mrz1836", "go-pre-commit", ""},                                                // release tarball asset
+		{"gitleaks", []string{"MAGE_X_GITLEAKS_VERSION", "GITLEAKS_VERSION", "GO_PRE_COMMIT_GITLEAKS_VERSION"}, "gitleaks", "gitleaks", ""}, // release binary
+		{"golangci-lint", []string{"MAGE_X_GOLANGCI_LINT_VERSION", "GO_PRE_COMMIT_GOLANGCI_LINT_VERSION"}, "golangci", "golangci-lint", ""}, // install.sh binary
+		{"goreleaser", []string{"MAGE_X_GORELEASER_VERSION"}, "goreleaser", "goreleaser", ""},                                               // install script / brew binary
+		{"staticcheck", []string{"MAGE_X_STATICCHECK_VERSION"}, "dominikh", "go-tools", ""},                                                 // CalVer tags (2026.1); module semver (v0.7.0) diverges
+		// Guardian CI tools (release binaries; releases track tags)
 		{"act", []string{"GUARDIAN_ACT_VERSION"}, "nektos", "act", ""},
 		{"actionlint", []string{"GUARDIAN_ACTIONLINT_VERSION"}, "rhysd", "actionlint", ""},
 		{"go-sarif", []string{"GUARDIAN_GO_SARIF_VERSION"}, "owenrumney", "go-sarif", ""},
