@@ -9,14 +9,33 @@ import "github.com/mrz1836/go-broadcast/internal/config"
 // rate limit mid-run. They are derived from the audited happy-path `gh` calls a
 // single target sync performs in internal/sync/repository.go.
 const (
-	// readsPerTarget is a conservative count of GET (read) requests a single
-	// target sync performs against GitHub. Audited read calls per target include
-	// branch discovery (ListBranches), existing-PR discovery (ListPRs),
-	// base-branch verification (GetBranch) and existing-file/current-user reads
-	// (GetFile / GetCurrentUser). These are primary-bucket requests costing
-	// PointCostRead (1 point) each; they do NOT count against the secondary
-	// content-creation cap.
-	readsPerTarget = 4
+	// baseReadsPerTarget is a conservative count of the fixed GET (read) requests
+	// a single target sync performs regardless of how many files or directories
+	// it syncs. Audited fixed read calls per target include branch discovery
+	// (ListBranches), existing-PR discovery (ListPRs), base-branch verification
+	// (GetBranch) and current-user resolution (GetCurrentUser). These are
+	// primary-bucket requests costing PointCostRead (1 point) each; they do NOT
+	// count against the secondary content-creation cap.
+	//
+	// Per-file and per-directory content reads are NOT included here — they scale
+	// with the target's mapping and are added separately by EstimateRun. See the
+	// estimateTargetReads helper.
+	baseReadsPerTarget = 4
+
+	// treeReadsPerTargetWithDirectories is the git-tree fetch a target performs
+	// when it syncs one or more directories. GetTree is cached per repo:ref and
+	// shared across all of a target's directory mappings, so it is counted once
+	// per target that has any directories (not once per directory).
+	treeReadsPerTargetWithDirectories = 1
+
+	// estimatedFilesPerDirectory is a conservative over-estimate of how many
+	// files a single directory mapping expands to. The real count is only known
+	// after the repo tree is fetched at runtime, so the preflight assumes this
+	// many Contents-API reads (one GetFile per file, for content diffing and
+	// deletion tracking) per directory mapping. Deliberately high so the gate
+	// over-estimates and halts safely rather than under-counting and tripping the
+	// live rate limit mid-run.
+	estimatedFilesPerDirectory = 20
 
 	// contentWritesPerTarget is a conservative count of content-generating
 	// (mutating) gh API calls a single target sync performs. The dominant write
@@ -25,8 +44,10 @@ const (
 	// not add separate content-creation calls.
 	//
 	// File content is pushed via git (git.Push), NOT through the GitHub Contents
-	// API, so synced files are intentionally EXCLUDED from this count — they do
-	// not consume the secondary content-creation budget.
+	// API, so synced files do not consume the secondary content-creation (write)
+	// budget and are intentionally EXCLUDED from this count. Note they DO still
+	// consume the primary read budget when their current content is fetched for
+	// diffing — that read cost is accounted for separately in EstimateRun.
 	contentWritesPerTarget = 1
 )
 
@@ -69,12 +90,15 @@ func EstimateRun(cfg *config.Config, options *Options) RunEstimate {
 	groups := resolveEstimateGroups(cfg, options)
 
 	targets := 0
+	reads := 0
 	for i := range groups {
-		targets += len(groups[i].Targets)
+		for j := range groups[i].Targets {
+			targets++
+			reads += estimateTargetReads(&groups[i].Targets[j])
+		}
 	}
 
 	contentWrites := targets * contentWritesPerTarget
-	reads := targets * readsPerTarget
 
 	return RunEstimate{
 		Targets:              targets,
@@ -82,6 +106,27 @@ func EstimateRun(cfg *config.Config, options *Options) RunEstimate {
 		ContentWriteRequests: contentWrites,
 		PRCreatePoints:       contentWrites * PRCreatePointCost,
 	}
+}
+
+// estimateTargetReads returns the conservative primary-bucket read count for a
+// single target sync. It combines the fixed discovery reads with the per-file
+// and per-directory Contents-API reads the sync performs to diff each mapped
+// file against the source — the traffic that dominates a many-file sync and was
+// previously invisible to the preflight estimate.
+//
+// Files map 1:1 to a GetFile (Contents API GET). Directories share one cached
+// git-tree fetch per target and then read each discovered file individually;
+// since the real file count is unknown until runtime, each directory mapping is
+// charged a conservative estimatedFilesPerDirectory reads.
+func estimateTargetReads(t *config.TargetConfig) int {
+	reads := baseReadsPerTarget + len(t.Files)
+
+	if len(t.Directories) > 0 {
+		reads += treeReadsPerTargetWithDirectories
+		reads += len(t.Directories) * estimatedFilesPerDirectory
+	}
+
+	return reads
 }
 
 // resolveEstimateGroups returns the groups that would actually be synced. It

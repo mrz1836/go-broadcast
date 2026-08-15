@@ -24,9 +24,11 @@ func makeGroup(name, id string, enabled *bool, n int) config.Group {
 
 // expectedEstimate computes the expected RunEstimate for a given resolved target
 // count using the same conservative per-target constants as the implementation.
+// It assumes targets with no file or directory mappings (the makeGroup default),
+// so each target contributes exactly baseReadsPerTarget reads.
 func expectedEstimate(targets int) RunEstimate {
 	contentWrites := targets * contentWritesPerTarget
-	reads := targets * readsPerTarget
+	reads := targets * baseReadsPerTarget
 	return RunEstimate{
 		Targets:              targets,
 		PrimaryRequests:      reads + contentWrites,
@@ -128,6 +130,78 @@ func TestEstimateRun(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got := EstimateRun(tc.cfg, tc.options)
 			assert.Equal(t, expectedEstimate(tc.expectedTargets), got)
+		})
+	}
+}
+
+// TestEstimateRunCountsFileAndDirectoryReads verifies the estimate scales with
+// the per-target file and directory mappings — the Contents-API read traffic
+// that a many-file sync generates and that the estimate previously ignored,
+// letting the preflight gate wave through runs that then tripped the live limit.
+func TestEstimateRunCountsFileAndDirectoryReads(t *testing.T) {
+	files := func(n int) []config.FileMapping {
+		out := make([]config.FileMapping, n)
+		for i := 0; i < n; i++ {
+			out[i] = config.FileMapping{Src: "s", Dest: "d"}
+		}
+		return out
+	}
+	dirs := func(n int) []config.DirectoryMapping {
+		out := make([]config.DirectoryMapping, n)
+		for i := 0; i < n; i++ {
+			out[i] = config.DirectoryMapping{Src: "s", Dest: "d"}
+		}
+		return out
+	}
+
+	tests := []struct {
+		name          string
+		target        config.TargetConfig
+		expectedReads int
+	}{
+		{
+			name:          "bare target counts only base discovery reads",
+			target:        config.TargetConfig{Repo: "org/repo"},
+			expectedReads: baseReadsPerTarget,
+		},
+		{
+			name:          "files add one read each",
+			target:        config.TargetConfig{Repo: "org/repo", Files: files(30)},
+			expectedReads: baseReadsPerTarget + 30,
+		},
+		{
+			name:          "directories add a tree fetch plus a per-directory file estimate",
+			target:        config.TargetConfig{Repo: "org/repo", Directories: dirs(2)},
+			expectedReads: baseReadsPerTarget + treeReadsPerTargetWithDirectories + 2*estimatedFilesPerDirectory,
+		},
+		{
+			name: "files and directories combine",
+			target: config.TargetConfig{
+				Repo:        "org/repo",
+				Files:       files(10),
+				Directories: dirs(3),
+			},
+			expectedReads: baseReadsPerTarget + 10 + treeReadsPerTargetWithDirectories + 3*estimatedFilesPerDirectory,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &config.Config{
+				Groups: []config.Group{{
+					Name:    "g",
+					ID:      "g",
+					Targets: []config.TargetConfig{tc.target},
+				}},
+			}
+
+			est := EstimateRun(cfg, nil)
+
+			assert.Equal(t, 1, est.Targets)
+			assert.Equal(t, tc.expectedReads+contentWritesPerTarget, est.PrimaryRequests,
+				"primary requests should be per-target reads plus the content write")
+			assert.Equal(t, contentWritesPerTarget, est.ContentWriteRequests,
+				"file/directory reads must not inflate the secondary content-write count")
 		})
 	}
 }

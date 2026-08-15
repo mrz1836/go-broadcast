@@ -1157,11 +1157,18 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 		// Use configured target branch but validate it exists
 		baseBranch = rs.targetState.Branch
 
-		// Validate that the target branch actually exists
+		// Validate that the target branch actually exists. Only a genuine
+		// not-found (HTTP 404) means the branch is missing; any other error
+		// (rate-limit 403, context cancellation, network failure) means the
+		// verification call itself failed and must not be reported as a missing
+		// branch — that misdiagnosis is exactly what a rate-limited run produced.
 		rs.TrackAPIRequest()
 		_, err := rs.engine.gh.GetBranch(ctx, rs.target.Repo, baseBranch)
-		if err != nil {
+		switch {
+		case errors.Is(err, gh.ErrBranchNotFound):
 			return fmt.Errorf("configured target branch %q does not exist in repository %s: %w", baseBranch, rs.target.Repo, err)
+		case err != nil:
+			return fmt.Errorf("failed to verify configured target branch %q in repository %s: %w", baseBranch, rs.target.Repo, err)
 		}
 
 		rs.logger.WithFields(logrus.Fields{
