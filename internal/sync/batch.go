@@ -57,21 +57,18 @@ func NewBatchProcessor(engine *Engine, target config.TargetConfig, sourceState *
 	}
 }
 
-// ProcessFiles processes multiple files concurrently with error resilience
-func (bp *BatchProcessor) ProcessFiles(ctx context.Context, sourcePath string, jobs []FileJob) ([]FileChange, error) {
-	if len(jobs) == 0 {
-		return nil, nil
-	}
+// workerFunc launches a single batch worker bound to the shared job/result channels.
+type workerFunc func(ctx context.Context, workerID int, jobChan <-chan FileJob, resultChan chan<- fileProcessResult) error
 
-	bp.logger.WithField("job_count", len(jobs)).Info("Starting batch file processing")
-
+// runBatch executes the shared concurrent batch-processing scaffolding: it caps the
+// job/result channel buffers, launches workerCount workers via launchWorker, feeds
+// jobs, and collects results. The provided ctx is derived through errgroup so all
+// workers observe cancellation. Returns nil changes on error.
+func (bp *BatchProcessor) runBatch(ctx context.Context, jobs []FileJob, launchWorker workerFunc) ([]FileChange, error) {
 	// Create channels for job distribution.
 	// Cap buffer to prevent unbounded allocation for large job lists (CWE-400).
 	const maxChanBuf = 1000
-	chanBuf := len(jobs)
-	if chanBuf > maxChanBuf {
-		chanBuf = maxChanBuf
-	}
+	chanBuf := min(len(jobs), maxChanBuf)
 	jobChan := make(chan FileJob, chanBuf)
 	resultChan := make(chan fileProcessResult, chanBuf)
 
@@ -85,7 +82,7 @@ func (bp *BatchProcessor) ProcessFiles(ctx context.Context, sourcePath string, j
 	for i := range bp.workerCount {
 		workerID := i
 		g.Go(func() error {
-			return bp.worker(ctx, workerID, sourcePath, jobChan, resultChan)
+			return launchWorker(ctx, workerID, jobChan, resultChan)
 		})
 	}
 
@@ -119,6 +116,19 @@ func (bp *BatchProcessor) ProcessFiles(ctx context.Context, sourcePath string, j
 
 	// Collect results
 	return bp.collectResults(resultChan), nil
+}
+
+// ProcessFiles processes multiple files concurrently with error resilience
+func (bp *BatchProcessor) ProcessFiles(ctx context.Context, sourcePath string, jobs []FileJob) ([]FileChange, error) {
+	if len(jobs) == 0 {
+		return nil, nil
+	}
+
+	bp.logger.WithField("job_count", len(jobs)).Info("Starting batch file processing")
+
+	return bp.runBatch(ctx, jobs, func(ctx context.Context, workerID int, jobChan <-chan FileJob, resultChan chan<- fileProcessResult) error {
+		return bp.worker(ctx, workerID, sourcePath, jobChan, resultChan)
+	})
 }
 
 // fileProcessResult represents the result of processing a single file
@@ -660,63 +670,20 @@ func (bp *BatchProcessor) ProcessFilesWithProgress(ctx context.Context, sourcePa
 
 	bp.logger.WithField("job_count", len(jobs)).Info("Starting batch file processing with progress reporting")
 
-	// Create channels for job distribution.
-	// Cap buffer to prevent unbounded allocation for large job lists (CWE-400).
-	const maxChanBuf = 1000
-	chanBuf := len(jobs)
-	if chanBuf > maxChanBuf {
-		chanBuf = maxChanBuf
-	}
-	jobChan := make(chan FileJob, chanBuf)
-	resultChan := make(chan fileProcessResult, chanBuf)
-
 	// Initialize progress
 	if progressReporter != nil {
 		progressReporter.UpdateProgress(0, len(jobs), "Starting file processing...")
 	}
 
-	// Start worker goroutines
-	g, ctx := errgroup.WithContext(ctx)
-	g.SetLimit(bp.workerCount)
-
 	// Progress tracking
 	var processed int32
 	var mu sync.Mutex
 
-	// Start workers with progress tracking
-	for i := range bp.workerCount {
-		workerID := i
-		g.Go(func() error {
-			return bp.workerWithProgress(ctx, workerID, sourcePath, jobChan, resultChan, &processed, &mu, len(jobs), progressReporter)
-		})
-	}
-
-	// Send jobs to workers
-	go func() {
-		defer close(jobChan)
-		for _, job := range jobs {
-			select {
-			case jobChan <- job:
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
-	// Close result channel after all workers complete
-	go func() {
-		_ = g.Wait() // Error already captured below
-		close(resultChan)
-	}()
-
-	// Wait for all workers to complete
-	if err := g.Wait(); err != nil {
-		// On error/cancellation, drain the result channel to prevent goroutine leaks
-		go func() {
-			for range resultChan {
-			}
-		}()
-		return nil, fmt.Errorf("batch processing failed: %w", err)
+	changes, err := bp.runBatch(ctx, jobs, func(ctx context.Context, workerID int, jobChan <-chan FileJob, resultChan chan<- fileProcessResult) error {
+		return bp.workerWithProgress(ctx, workerID, sourcePath, jobChan, resultChan, &processed, &mu, len(jobs), progressReporter)
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	// Final progress update
@@ -724,8 +691,7 @@ func (bp *BatchProcessor) ProcessFilesWithProgress(ctx context.Context, sourcePa
 		progressReporter.UpdateProgress(len(jobs), len(jobs), "File processing completed")
 	}
 
-	// Collect results
-	return bp.collectResults(resultChan), nil
+	return changes, nil
 }
 
 // workerWithProgress processes files with progress updates
