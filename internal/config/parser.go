@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
+	"slices"
 	"sort"
 	"time"
 
@@ -114,20 +116,13 @@ func formatListNotFoundError(listType, ref, groupID, targetRepo string, fileList
 		}
 	}
 
-	// Collect available list IDs
+	// Collect available list IDs (sorted for deterministic output)
 	var availableIDs []string
 	if listType == "file" {
-		availableIDs = make([]string, 0, len(fileLists))
-		for id := range fileLists {
-			availableIDs = append(availableIDs, id)
-		}
+		availableIDs = slices.Sorted(maps.Keys(fileLists))
 	} else {
-		availableIDs = make([]string, 0, len(directoryLists))
-		for id := range directoryLists {
-			availableIDs = append(availableIDs, id)
-		}
+		availableIDs = slices.Sorted(maps.Keys(directoryLists))
 	}
-	sort.Strings(availableIDs)
 
 	return fmt.Sprintf("%s_list '%s' not found (group: %s, target: %s)%s; available %s_lists: %v",
 		listType, ref, groupID, targetRepo, hint, listType, availableIDs)

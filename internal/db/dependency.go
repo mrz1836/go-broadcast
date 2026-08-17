@@ -3,7 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 
 	"gorm.io/gorm"
 )
@@ -161,7 +161,7 @@ func (dg *DependencyGraph) TopologicalSort() ([]*Group, error) {
 	result := []*Group{}
 	for len(queue) > 0 {
 		// Sort queue for deterministic ordering
-		sort.Strings(queue)
+		slices.Sort(queue)
 
 		// Dequeue
 		current := queue[0]

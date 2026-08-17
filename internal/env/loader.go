@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 )
 
 // Static errors for consistent error handling
@@ -73,7 +73,7 @@ func LoadEnvDir(dirPath string, skipLocal bool) error {
 		return fmt.Errorf("failed to glob env files in %s: %w", dirPath, err)
 	}
 
-	sort.Strings(matches)
+	slices.Sort(matches)
 
 	merged := make(map[string]string)
 	loaded := 0

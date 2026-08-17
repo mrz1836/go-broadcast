@@ -3,8 +3,10 @@ package benchmark
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -232,11 +234,7 @@ func GenerateTextReport(comparison ComparisonReport) string {
 
 	// Detailed comparison - sort names for deterministic output
 	report.WriteString("Detailed Comparison:\n")
-	benchmarkNames := make([]string, 0, len(comparison.CurrentReport.Benchmarks))
-	for name := range comparison.CurrentReport.Benchmarks {
-		benchmarkNames = append(benchmarkNames, name)
-	}
-	sort.Strings(benchmarkNames)
+	benchmarkNames := slices.Sorted(maps.Keys(comparison.CurrentReport.Benchmarks))
 
 	for _, name := range benchmarkNames {
 		currentMetric := comparison.CurrentReport.Benchmarks[name]

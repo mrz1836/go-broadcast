@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -250,7 +250,7 @@ func orderTables(tableCounts map[string]int64) []string {
 			remaining = append(remaining, table)
 		}
 	}
-	sort.Strings(remaining)
+	slices.Sort(remaining)
 	ordered = append(ordered, remaining...)
 
 	return ordered

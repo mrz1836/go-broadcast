@@ -2,7 +2,7 @@ package transform
 
 import (
 	"bytes"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -241,7 +241,7 @@ func BuildKeyValuePairs(pairs map[string]string, keyValueSep, pairSep string) st
 		keys = append(keys, key)
 		totalSize += len(key) + len(keyValueSep) + len(pairs[key])
 	}
-	sort.Strings(keys) // Ensure deterministic output order
+	slices.Sort(keys) // Ensure deterministic output order
 	totalSize += len(pairSep) * (len(pairs) - 1)
 
 	var sb strings.Builder
@@ -317,7 +317,7 @@ func BuildURLWithParams(baseURL string, params map[string]string) string {
 	for key := range params {
 		keys = append(keys, key)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 
 	// Estimate size: baseURL + "?" + params
 	totalSize := len(baseURL) + 1 // baseURL + "?"

@@ -12,7 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -532,7 +532,7 @@ func (s *VersionUpdateService) checkVersions(ctx context.Context, tools map[stri
 	for key := range tools {
 		toolKeys = append(toolKeys, key)
 	}
-	sort.Strings(toolKeys)
+	slices.Sort(toolKeys)
 
 	for i, toolKey := range toolKeys {
 		tool := tools[toolKey]
@@ -897,7 +897,7 @@ func discoverEnvFiles(dirPath string) ([]string, error) {
 		return nil, fmt.Errorf("%w in %s", ErrNoEnvFiles, dirPath)
 	}
 
-	sort.Strings(files)
+	slices.Sort(files)
 	return files, nil
 }
 

@@ -2,7 +2,8 @@ package transform
 
 import (
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -103,14 +104,11 @@ func (t *templateTransformer) Transform(content []byte, ctx Context) ([]byte, er
 
 	// Sort variables by length (longest first) to avoid partial replacements
 	// e.g., replace {{SERVICE_NAME}} before {{SERVICE}}
-	varKeys := make([]string, 0, len(ctx.Variables))
-	for k := range ctx.Variables {
-		varKeys = append(varKeys, k)
-	}
+	varKeys := slices.Collect(maps.Keys(ctx.Variables))
 
-	// Sort by length (descending) using efficient sort.Slice
-	sort.Slice(varKeys, func(i, j int) bool {
-		return len(varKeys[i]) > len(varKeys[j])
+	// Sort by length (descending) using efficient slices.SortFunc
+	slices.SortFunc(varKeys, func(a, b string) int {
+		return len(b) - len(a)
 	})
 
 	// Replace each variable

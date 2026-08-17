@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -283,11 +285,7 @@ func (pr *PerformanceReporter) GenerateReport(currentMetrics map[string]float64,
 // calculatePerformanceChanges compares current metrics with baseline
 func (pr *PerformanceReporter) calculatePerformanceChanges(report *PerformanceReport) {
 	// Sort metric keys for deterministic iteration order
-	metrics := make([]string, 0, len(report.CurrentMetrics))
-	for metric := range report.CurrentMetrics {
-		metrics = append(metrics, metric)
-	}
-	sort.Strings(metrics)
+	metrics := slices.Sorted(maps.Keys(report.CurrentMetrics))
 
 	for _, metric := range metrics {
 		currentValue := report.CurrentMetrics[metric]
@@ -416,11 +414,7 @@ func (pr *PerformanceReporter) analyzeRegressions(report *PerformanceReport) []R
 	recommendations := make([]Recommendation, 0, len(report.Regressions))
 
 	// Sort regression keys for deterministic iteration order
-	metrics := make([]string, 0, len(report.Regressions))
-	for metric := range report.Regressions {
-		metrics = append(metrics, metric)
-	}
-	sort.Strings(metrics)
+	metrics := slices.Sorted(maps.Keys(report.Regressions))
 
 	for _, metric := range metrics {
 		regression := report.Regressions[metric]

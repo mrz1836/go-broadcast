@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -249,11 +251,7 @@ func convertStateToStatus(s *state.State, cfg *config.Config) *SyncStatus {
 	}
 
 	// Get sorted list of target repositories for deterministic order
-	repos := make([]string, 0, len(s.Targets))
-	for repo := range s.Targets {
-		repos = append(repos, repo)
-	}
-	sort.Strings(repos)
+	repos := slices.Sorted(maps.Keys(s.Targets))
 
 	// Convert each target state in sorted order
 	for _, repo := range repos {

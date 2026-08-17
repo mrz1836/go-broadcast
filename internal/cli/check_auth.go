@@ -9,7 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/mrz1836/go-broadcast/internal/ai"
@@ -149,7 +149,7 @@ func parseGitHubScopes(data []byte) []string {
 			continue
 		}
 		scopes := splitScopes(value)
-		sort.Strings(scopes)
+		slices.Sort(scopes)
 		return scopes
 	}
 	return []string{}
