@@ -347,50 +347,6 @@ func TestInvalidFieldError(t *testing.T) {
 	}
 }
 
-func TestCommandFailedError(t *testing.T) {
-	tests := []struct {
-		name    string
-		cmd     string
-		err     error
-		want    string
-		wantNil bool
-	}{
-		{
-			name: "command with error",
-			cmd:  "git clone",
-			err:  fmt.Errorf("exit code 1"), //nolint:err113 // test-only errors
-			want: "command failed: 'git clone': exit code 1",
-		},
-		{
-			name:    "nil error returns nil",
-			cmd:     "git clone",
-			err:     nil,
-			wantNil: true,
-		},
-		{
-			name: "empty command",
-			cmd:  "",
-			err:  fmt.Errorf("some error"), //nolint:err113 // test-only errors
-			want: "command failed: '': some error",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := CommandFailedError(tt.cmd, tt.err)
-
-			if tt.wantNil {
-				assert.NoError(t, result)
-				return
-			}
-
-			require.Error(t, result)
-			assert.Equal(t, tt.want, result.Error())
-			assert.ErrorIs(t, result, tt.err)
-		})
-	}
-}
-
 func TestValidationError(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -565,13 +521,6 @@ func TestNewErrorUtilityWrapping(t *testing.T) {
 		assert.Contains(t, wrapped.Error(), "original error")
 		assert.Contains(t, wrapped.Error(), "failed to operation")
 	})
-
-	t.Run("CommandFailedError preserves original error", func(t *testing.T) {
-		wrapped := CommandFailedError("test command", originalErr)
-		require.ErrorIs(t, wrapped, originalErr)
-		assert.Contains(t, wrapped.Error(), "original error")
-		assert.Contains(t, wrapped.Error(), "command failed: 'test command'")
-	})
 }
 
 // Test edge cases for new utilities
@@ -656,8 +605,8 @@ func TestErrorAsDoesNotFindNonMatchingTypes(t *testing.T) {
 
 	// Create various wrapped errors that don't contain customTestError
 	wrapped1 := WrapWithContext(ErrNoFilesToCommit, "test operation")
-	wrapped2 := CommandFailedError("git clone", fmt.Errorf("exit 1")) //nolint:err113 // test-only errors
-	wrapped3 := GitOperationError("clone", "repo", ErrGitCommand)
+	wrapped2 := WrapWithContext(fmt.Errorf("exit 1"), "git clone") //nolint:err113 // test-only errors
+	wrapped3 := WrapWithContext(ErrGitCommand, "clone repo")
 
 	// None of these should match customTestError type
 	assert.NotErrorAs(t, wrapped1, &customErr, "wrapped1 should not match customTestError")
@@ -695,9 +644,9 @@ func TestMixedErrorChain(t *testing.T) {
 
 	// Wrap with different error functions
 	level1 := WrapWithContext(level0, "reading config")
-	level2 := FileOperationError("read", "/config.yaml", level1)
+	level2 := WrapWithContext(level1, "reading /config.yaml")
 	level3 := WrapWithContext(level2, "loading application")
-	level4 := CommandFailedError("app start", level3)
+	level4 := WrapWithContext(level3, "app start")
 
 	// All levels should be findable
 	require.ErrorIs(t, level4, ErrFileNotFound)

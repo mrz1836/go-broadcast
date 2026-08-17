@@ -35,7 +35,6 @@ var (
 // Error templates for static error definitions (satisfies err113 linter)
 var (
 	errInvalidFieldTemplate     = errors.New("invalid field")
-	errCommandFailedTemplate    = errors.New("command failed")
 	errValidationFailedTemplate = errors.New("validation failed")
 	errPathTraversalTemplate    = errors.New("path traversal detected")
 	errEmptyFieldTemplate       = errors.New("field cannot be empty")
@@ -58,15 +57,6 @@ func WrapWithContext(err error, operation string) error {
 // This replaces manual fmt.Errorf("invalid %s: %s", field, value) patterns.
 func InvalidFieldError(field, value string) error {
 	return fmt.Errorf("%w: %s: %s", errInvalidFieldTemplate, field, value)
-}
-
-// CommandFailedError creates a standardized command failure error.
-// This standardizes command execution error reporting across git, gh, and other packages.
-func CommandFailedError(cmd string, err error) error {
-	if err == nil {
-		return nil
-	}
-	return fmt.Errorf("%w: '%s': %w", errCommandFailedTemplate, cmd, err)
 }
 
 // ValidationError creates a standardized validation error.

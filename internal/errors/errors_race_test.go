@@ -12,7 +12,7 @@ import (
 func TestConcurrentErrorCreation(t *testing.T) {
 	const goroutines = 100
 	var wg sync.WaitGroup
-	wg.Add(goroutines * 10)
+	wg.Add(goroutines * 8)
 
 	baseErr := errors.New("base error") //nolint:err113 // test-only error for race testing
 
@@ -35,15 +35,6 @@ func TestConcurrentErrorCreation(t *testing.T) {
 			}
 		}()
 
-		// Test CommandFailedError
-		go func() {
-			defer wg.Done()
-			err := CommandFailedError("test command", baseErr)
-			if err == nil {
-				t.Error("expected non-nil error")
-			}
-		}()
-
 		// Test ValidationError
 		go func() {
 			defer wg.Done()
@@ -53,46 +44,37 @@ func TestConcurrentErrorCreation(t *testing.T) {
 			}
 		}()
 
-		// Test GitOperationError
+		// Test EmptyFieldError
 		go func() {
 			defer wg.Done()
-			err := GitOperationError("clone", "repo", baseErr)
+			err := EmptyFieldError("field")
 			if err == nil {
 				t.Error("expected non-nil error")
 			}
 		}()
 
-		// Test GitHubAPIError
+		// Test RequiredFieldError
 		go func() {
 			defer wg.Done()
-			err := GitHubAPIError("create", "resource", baseErr)
+			err := RequiredFieldError("field")
 			if err == nil {
 				t.Error("expected non-nil error")
 			}
 		}()
 
-		// Test FileOperationError
+		// Test FormatError
 		go func() {
 			defer wg.Done()
-			err := FileOperationError("read", "/path", baseErr)
+			err := FormatError("field", "value", "org/repo")
 			if err == nil {
 				t.Error("expected non-nil error")
 			}
 		}()
 
-		// Test BatchOperationError
+		// Test PathTraversalError
 		go func() {
 			defer wg.Done()
-			err := BatchOperationError("process", 0, 10, baseErr)
-			if err == nil {
-				t.Error("expected non-nil error")
-			}
-		}()
-
-		// Test APIResponseError
-		go func() {
-			defer wg.Done()
-			err := APIResponseError(404, "not found")
+			err := PathTraversalError("../etc/passwd")
 			if err == nil {
 				t.Error("expected non-nil error")
 			}
@@ -164,11 +146,10 @@ func TestConcurrentSentinelErrorAccess(t *testing.T) {
 		// Create and check multiple error types
 		go func() {
 			defer wg.Done()
-			baseErr := errors.New("base") //nolint:err113 // test-only error for race testing
-			_ = GitCloneError("repo", baseErr)
-			_ = FileReadError("/path", baseErr)
-			_ = JSONMarshalError("context", baseErr)
-			_ = DirectoryCreateError("/dir", baseErr)
+			_ = InvalidFieldError("field", "value")
+			_ = ValidationError("item", "reason")
+			_ = EmptyFieldError("field")
+			_ = FormatError("field", "value", "org/repo")
 		}()
 	}
 

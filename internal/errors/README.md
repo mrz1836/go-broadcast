@@ -7,7 +7,6 @@ The `errors` package provides standardized error handling utilities and predefin
 - **Predefined error types** - Common errors used across the application
 - **Error wrapping utilities** - Consistent error context and formatting
 - **Validation errors** - Standardized validation error creation
-- **Command errors** - Consistent command failure error patterns
 
 ## Predefined Errors
 
@@ -65,19 +64,6 @@ if name == "" {
     return errors.InvalidField("username", "cannot be empty")
 }
 // Returns: "invalid field: username: cannot be empty"
-```
-
-### CommandFailed
-Creates a standardized command failure error:
-```go
-func CommandFailed(cmd string, err error) error
-
-// Usage
-output, err := exec.Command("git", "status").Output()
-if err != nil {
-    return errors.CommandFailed("git status", err)
-}
-// Returns: "command failed: git status: <original error>"
 ```
 
 ### ValidationFailed
@@ -216,22 +202,6 @@ func (r *Repository) GetFile(path string) ([]byte, error) {
 }
 ```
 
-### Command Execution Pattern
-```go
-func (g *GitClient) Status(repo string) (string, error) {
-    if err := validateRepository(repo); err != nil {
-        return "", err
-    }
-
-    output, err := g.run("git", "-C", repo, "status")
-    if err != nil {
-        return "", errors.CommandFailed("git status", err)
-    }
-
-    return string(output), nil
-}
-```
-
 ## Migration Guide
 
 ### From fmt.Errorf
@@ -254,16 +224,4 @@ return fmt.Errorf("invalid repository: %s", repo)
 After:
 ```go
 return errors.InvalidField("repository", repo)
-```
-
-### From Command Errors
-Before:
-```go
-return fmt.Errorf("command 'git status' failed: %w", err)
-```
-
-After:
-```go
-return errors.CommandFailed("git status", err)
-``` errors.CommandFailed("git status", err)
 ```
