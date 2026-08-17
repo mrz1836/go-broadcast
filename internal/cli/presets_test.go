@@ -67,7 +67,7 @@ func TestRunPresetsList_AggregatesAllSources(t *testing.T) {
 	assert.True(t, resp.Success)
 	assert.Equal(t, "preset", resp.Type)
 
-	entries, ok := resp.Data.([]interface{})
+	entries, ok := resp.Data.([]any)
 	require.True(t, ok, "expected list payload, got %T", resp.Data)
 	require.GreaterOrEqual(t, len(entries), 3, "expected DB row + 2 bundled defaults")
 
@@ -75,7 +75,7 @@ func TestRunPresetsList_AggregatesAllSources(t *testing.T) {
 	type seen struct{ id, source string }
 	got := make([]seen, 0, len(entries))
 	for _, e := range entries {
-		m, ok := e.(map[string]interface{})
+		m, ok := e.(map[string]any)
 		require.True(t, ok)
 		got = append(got, seen{
 			id:     m["id"].(string),
@@ -107,7 +107,7 @@ func TestRunPresetsSeed_Idempotent(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
-	data := resp.Data.(map[string]interface{})
+	data := resp.Data.(map[string]any)
 	assert.InDelta(t, 2.0, data["bundled_seeded"], 0.0001)
 
 	// Second seed: 0 bundled rows added (idempotent)
@@ -115,7 +115,7 @@ func TestRunPresetsSeed_Idempotent(t *testing.T) {
 		return runPresetsSeed(context.Background(), "", true)
 	})
 	require.NoError(t, err)
-	data = resp.Data.(map[string]interface{})
+	data = resp.Data.(map[string]any)
 	assert.InDelta(t, 0.0, data["bundled_seeded"], 0.0001)
 
 	// DB total should be exactly 2
@@ -150,7 +150,7 @@ labels:
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
-	data := resp.Data.(map[string]interface{})
+	data := resp.Data.(map[string]any)
 	assert.InDelta(t, 2.0, data["bundled_seeded"], 0.0001)
 	assert.InDelta(t, 1.0, data["loaded_from_dir"], 0.0001)
 	assert.InDelta(t, 0.0, data["overrides"], 0.0001)
@@ -162,7 +162,7 @@ labels:
 		return runPresetsSeed(context.Background(), dir, true)
 	})
 	require.NoError(t, err)
-	data = resp.Data.(map[string]interface{})
+	data = resp.Data.(map[string]any)
 	assert.InDelta(t, 0.0, data["bundled_seeded"], 0.0001)
 	assert.InDelta(t, 1.0, data["loaded_from_dir"], 0.0001)
 	assert.InDelta(t, 1.0, data["overrides"], 0.0001)
@@ -205,7 +205,7 @@ labels:
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
-	data := resp.Data.(map[string]interface{})
+	data := resp.Data.(map[string]any)
 	assert.InDelta(t, 1.0, data["loaded_from_dir"], 0.0001)
 	assert.InDelta(t, 1.0, data["overrides"], 0.0001)
 

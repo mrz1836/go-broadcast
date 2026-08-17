@@ -93,7 +93,7 @@ func TestTTLCacheGetOrLoad(t *testing.T) {
 	defer cache.Close()
 
 	loadCount := 0
-	loader := func() (interface{}, error) {
+	loader := func() (any, error) {
 		loadCount++
 		return "loaded value", nil
 	}
@@ -117,7 +117,7 @@ func TestTTLCacheGetOrLoadError(t *testing.T) {
 	defer cache.Close()
 
 	expectedErr := context.DeadlineExceeded
-	loader := func() (interface{}, error) {
+	loader := func() (any, error) {
 		return nil, expectedErr
 	}
 
@@ -217,7 +217,7 @@ func TestTTLCacheConcurrency(t *testing.T) {
 				case 2:
 					cache.Delete(key)
 				case 3:
-					_, _ = cache.GetOrLoad(key, func() (interface{}, error) {
+					_, _ = cache.GetOrLoad(key, func() (any, error) {
 						return value, nil
 					})
 				}
@@ -360,7 +360,7 @@ func TestTTLCacheGetOrLoadThunderingHerd(t *testing.T) {
 	for i := 0; i < numGoroutines; i++ {
 		go func() {
 			defer wg.Done()
-			_, err := cache.GetOrLoad("shared_key", func() (interface{}, error) {
+			_, err := cache.GetOrLoad("shared_key", func() (any, error) {
 				loaderCalls.Add(1)
 				// Simulate slow loader
 				time.Sleep(50 * time.Millisecond)

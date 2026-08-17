@@ -296,7 +296,7 @@ And also contains repo reference: test/source-repo`,
 	}
 
 	// Hidden files (mix of text and binary)
-	hiddenFiles := map[string]interface{}{
+	hiddenFiles := map[string]any{
 		".gitignore":           "*.log\n*.tmp\nbuild/\ndist/\nnode_modules/",            // text
 		".dockerignore":        "*.log\n.git/\n*.tmp",                                   // text
 		"src/.hidden_config":   "secret_key=test\napi_key={{.API_ENDPOINT}}",            // text with transformation
@@ -1063,8 +1063,8 @@ func (m *DirectoryMockGHClient) DiscoverOrgRepos(_ context.Context, _ string) ([
 	return nil, nil
 }
 
-func (m *DirectoryMockGHClient) ExecuteGraphQL(_ context.Context, _ string) (map[string]interface{}, error) {
-	return make(map[string]interface{}), nil
+func (m *DirectoryMockGHClient) ExecuteGraphQL(_ context.Context, _ string) (map[string]any, error) {
+	return make(map[string]any), nil
 }
 
 func (m *DirectoryMockGHClient) GetDependabotAlerts(_ context.Context, _ string) ([]gh.DependabotAlert, error) {

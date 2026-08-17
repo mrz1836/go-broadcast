@@ -155,7 +155,7 @@ func TestCreatePR_HeadFormatting(t *testing.T) {
 	var capturedJSON []byte
 	mockRunner.On("RunWithInput", ctx, mock.MatchedBy(func(jsonData []byte) bool {
 		capturedJSON = jsonData
-		var prData map[string]interface{}
+		var prData map[string]any
 		if unmarshalErr := json.Unmarshal(jsonData, &prData); unmarshalErr != nil {
 			return false
 		}
@@ -171,7 +171,7 @@ func TestCreatePR_HeadFormatting(t *testing.T) {
 	assert.Equal(t, 42, result.Number)
 
 	// Verify the captured JSON has the correctly formatted head
-	var prData map[string]interface{}
+	var prData map[string]any
 	err = json.Unmarshal(capturedJSON, &prData)
 	require.NoError(t, err)
 	assert.Equal(t, "org:feature-branch", prData["head"])

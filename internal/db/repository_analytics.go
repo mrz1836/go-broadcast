@@ -221,7 +221,7 @@ func (r *analyticsRepo) CreateSnapshot(ctx context.Context, snap *RepositorySnap
 func (r *analyticsRepo) UpdateSnapshotAlertCounts(ctx context.Context, snap *RepositorySnapshot) error {
 	return r.db.WithContext(ctx).
 		Model(snap).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"dependabot_alert_count":      snap.DependabotAlertCount,
 			"code_scanning_alert_count":   snap.CodeScanningAlertCount,
 			"secret_scanning_alert_count": snap.SecretScanningAlertCount,
@@ -392,7 +392,7 @@ func (r *analyticsRepo) CloseStaleAlerts(ctx context.Context, repoID uint, curre
 		query = query.Where("alert_number NOT IN ?", currentAlertNumbers)
 	}
 
-	result := query.Updates(map[string]interface{}{
+	result := query.Updates(map[string]any{
 		"state":    "auto_resolved",
 		"fixed_at": now,
 	})
@@ -429,7 +429,7 @@ func (r *analyticsRepo) UpdateRepoSyncTimestamp(ctx context.Context, repoID uint
 		Session(&gorm.Session{SkipHooks: true}).
 		Model(&Repo{}).
 		Where("id = ?", repoID).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"last_sync_at":     syncAt,
 			"last_sync_run_id": syncRunID,
 		}).Error

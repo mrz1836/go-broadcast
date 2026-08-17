@@ -92,7 +92,7 @@ func (p *Pool) Start(ctx context.Context) {
 	// Create a derived context that we control for cancellation
 	p.ctx, p.cancel = context.WithCancel(ctx)
 
-	for i := 0; i < p.workers; i++ {
+	for range p.workers {
 		p.wg.Add(1)
 		go p.worker(p.ctx) //nolint:contextcheck // p.ctx is derived from parent ctx via WithCancel above
 	}

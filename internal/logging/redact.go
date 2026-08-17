@@ -347,12 +347,12 @@ const maxRedactDepth = 10
 
 // redactValue recursively redacts sensitive data in values.
 // This is a wrapper that starts recursion at depth 0.
-func (h *RedactionHook) redactValue(key string, value interface{}) interface{} {
+func (h *RedactionHook) redactValue(key string, value any) any {
 	return h.redactValueWithDepth(key, value, 0)
 }
 
 // redactValueWithDepth recursively redacts sensitive data in values with depth tracking.
-func (h *RedactionHook) redactValueWithDepth(key string, value interface{}, depth int) interface{} {
+func (h *RedactionHook) redactValueWithDepth(key string, value any, depth int) any {
 	// Stop recursion at max depth to prevent stack overflow
 	if depth > maxRedactDepth {
 		return value
@@ -378,16 +378,16 @@ func (h *RedactionHook) redactValueWithDepth(key string, value interface{}, dept
 	case string:
 		// Apply pattern-based redaction to strings
 		return h.service.RedactSensitive(v)
-	case map[string]interface{}:
+	case map[string]any:
 		// Recursively process nested maps
-		result := make(map[string]interface{})
+		result := make(map[string]any)
 		for nestedKey, nestedValue := range v {
 			result[nestedKey] = h.redactValueWithDepth(nestedKey, nestedValue, depth+1)
 		}
 		return result
-	case []interface{}:
+	case []any:
 		// Process slices
-		result := make([]interface{}, len(v))
+		result := make([]any, len(v))
 		for i, item := range v {
 			result[i] = h.redactValueWithDepth("", item, depth+1) // Use empty key for array items
 		}
@@ -458,7 +458,7 @@ func (a *AuditLogger) LogAuthentication(user, method string, success bool) {
 // - Creates INFO level log entry with configuration change context
 // - Includes timestamp for audit trail continuity
 // - Records user and action for accountability
-func (a *AuditLogger) LogConfigChange(user, action string, _ interface{}) {
+func (a *AuditLogger) LogConfigChange(user, action string, _ any) {
 	a.logger.WithFields(logrus.Fields{
 		"event":  "config_change",
 		"user":   user,

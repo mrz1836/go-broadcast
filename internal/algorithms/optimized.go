@@ -50,7 +50,7 @@ func IsBinaryOptimizedWithConfig(content []byte, config BinaryDetectionConfig) b
 
 	// Quick detection: check for null bytes first (most reliable indicator)
 	nullCount := 0
-	for i := 0; i < sampleSize; i++ {
+	for i := range sampleSize {
 		if sample[i] == 0 {
 			nullCount++
 			// Early exit: if we find enough null bytes, it's binary
@@ -283,8 +283,8 @@ func computeLineDiff(a, b []byte, buf *bytes.Buffer, config DiffConfig) bool {
 // computeByteDiff performs byte-based diff computation
 func computeByteDiff(a, b []byte, buf *bytes.Buffer, config DiffConfig) bool {
 	// For binary files, use a simple block-based approach
-	minLen := minInt(len(a), len(b))
-	maxLen := maxInt(len(a), len(b))
+	minLen := min(len(a), len(b))
+	maxLen := max(len(a), len(b))
 
 	// Check if diff would be too large
 	if maxLen-minLen > config.MaxDiffSize {
@@ -349,7 +349,7 @@ func computeLCS(a, b [][]byte, buf *bytes.Buffer, config DiffConfig) bool {
 			if bytes.Equal(a[i-1], b[j-1]) {
 				lcs[i][j] = lcs[i-1][j-1] + 1
 			} else {
-				lcs[i][j] = maxInt(lcs[i-1][j], lcs[i][j-1])
+				lcs[i][j] = max(lcs[i-1][j], lcs[i][j-1])
 			}
 		}
 	}
@@ -402,19 +402,19 @@ func computeSimpleDiff(a, b [][]byte, buf *bytes.Buffer, config DiffConfig) bool
 		} else {
 			// Find next matching line within reasonable distance
 			matchFound := false
-			searchLimit := minInt(20, minInt(len(a)-aIdx, len(b)-bIdx))
+			searchLimit := min(20, len(a)-aIdx, len(b)-bIdx)
 
 			for offset := 1; offset < searchLimit && !matchFound; offset++ {
 				if aIdx+offset < len(a) && bIdx < len(b) && bytes.Equal(a[aIdx+offset], b[bIdx]) {
 					// Found match after deleting some lines
-					for i := 0; i < offset; i++ {
+					for i := range offset {
 						fmt.Fprintf(buf, "-%s\n", string(a[aIdx+i]))
 					}
 					aIdx += offset
 					matchFound = true
 				} else if bIdx+offset < len(b) && aIdx < len(a) && bytes.Equal(a[aIdx], b[bIdx+offset]) {
 					// Found match after adding some lines
-					for i := 0; i < offset; i++ {
+					for i := range offset {
 						fmt.Fprintf(buf, "+%s\n", string(b[bIdx+i]))
 					}
 					bIdx += offset
@@ -446,7 +446,7 @@ func isMostlyText(content []byte) bool {
 	}
 
 	// Sample check for text content
-	sampleSize := minInt(1024, len(content))
+	sampleSize := min(1024, len(content))
 	sample := content[:sampleSize]
 
 	nonPrintable := 0
@@ -462,8 +462,8 @@ func isMostlyText(content []byte) bool {
 // BatchProcessor optimizes batch operations with configurable batching
 type BatchProcessor struct {
 	batchSize int
-	processor func([]interface{}) error
-	items     []interface{}
+	processor func([]any) error
+	items     []any
 	mu        sync.Mutex
 
 	// Configuration
@@ -496,11 +496,11 @@ func DefaultBatchProcessorConfig() BatchProcessorConfig {
 }
 
 // NewBatchProcessor creates a new batch processor
-func NewBatchProcessor(processor func([]interface{}) error, config BatchProcessorConfig) *BatchProcessor {
+func NewBatchProcessor(processor func([]any) error, config BatchProcessorConfig) *BatchProcessor {
 	bp := &BatchProcessor{
 		batchSize:     config.BatchSize,
 		processor:     processor,
-		items:         make([]interface{}, 0, config.BatchSize),
+		items:         make([]any, 0, config.BatchSize),
 		autoFlush:     config.AutoFlush,
 		flushInterval: config.FlushInterval,
 		maxWaitTime:   config.MaxWaitTime,
@@ -517,7 +517,7 @@ func NewBatchProcessor(processor func([]interface{}) error, config BatchProcesso
 }
 
 // Add adds an item to the batch
-func (bp *BatchProcessor) Add(item interface{}) error {
+func (bp *BatchProcessor) Add(item any) error {
 	bp.mu.Lock()
 	defer bp.mu.Unlock()
 
@@ -531,7 +531,7 @@ func (bp *BatchProcessor) Add(item interface{}) error {
 }
 
 // AddBatch adds multiple items to the batch
-func (bp *BatchProcessor) AddBatch(items []interface{}) error {
+func (bp *BatchProcessor) AddBatch(items []any) error {
 	bp.mu.Lock()
 	defer bp.mu.Unlock()
 
@@ -591,7 +591,7 @@ func (bp *BatchProcessor) flush() error {
 		return nil
 	}
 
-	itemsCopy := make([]interface{}, len(bp.items))
+	itemsCopy := make([]any, len(bp.items))
 	copy(itemsCopy, bp.items)
 	bp.items = bp.items[:0]
 	bp.lastFlush = time.Now()
@@ -647,18 +647,4 @@ func abs(x int) int {
 		return -x
 	}
 	return x
-}
-
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }

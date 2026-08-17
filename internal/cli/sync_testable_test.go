@@ -69,7 +69,7 @@ func (m *MockOutputWriter) Success(msg string) {
 	m.Called(msg)
 }
 
-func (m *MockOutputWriter) Successf(format string, args ...interface{}) {
+func (m *MockOutputWriter) Successf(format string, args ...any) {
 	m.Called(format, args)
 }
 
@@ -78,7 +78,7 @@ func (m *MockOutputWriter) Info(msg string) {
 	m.Called(msg)
 }
 
-func (m *MockOutputWriter) Infof(format string, args ...interface{}) {
+func (m *MockOutputWriter) Infof(format string, args ...any) {
 	m.Called(format, args)
 }
 
@@ -87,7 +87,7 @@ func (m *MockOutputWriter) Warn(msg string) {
 	m.Called(msg)
 }
 
-func (m *MockOutputWriter) Warnf(format string, args ...interface{}) {
+func (m *MockOutputWriter) Warnf(format string, args ...any) {
 	m.Called(format, args)
 }
 
@@ -96,7 +96,7 @@ func (m *MockOutputWriter) Error(msg string) {
 	m.Called(msg)
 }
 
-func (m *MockOutputWriter) Errorf(format string, args ...interface{}) {
+func (m *MockOutputWriter) Errorf(format string, args ...any) {
 	m.Called(format, args)
 }
 
@@ -105,7 +105,7 @@ func (m *MockOutputWriter) Plain(msg string) {
 	m.Called(msg)
 }
 
-func (m *MockOutputWriter) Plainf(format string, args ...interface{}) {
+func (m *MockOutputWriter) Plainf(format string, args ...any) {
 	m.Called(format, args)
 }
 

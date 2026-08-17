@@ -446,7 +446,7 @@ func TestSyncSingleRepository_FullPath(t *testing.T) {
 		// ExecuteGraphQL returns no usable repo data -> SyncRepository errors with
 		// "metadata not returned".
 		ghMock.On("ExecuteGraphQL", mock.Anything, mock.Anything).
-			Return(map[string]interface{}{}, nil)
+			Return(map[string]any{}, nil)
 		mockRepo := new(mockAnalyticsRepo)
 		pipe := newTestPipeline(ghMock, mockRepo)
 		run := &db.SyncRun{}
@@ -459,8 +459,8 @@ func TestSyncSingleRepository_FullPath(t *testing.T) {
 		t.Parallel()
 		ghMock := gh.NewMockClient()
 		// Return a parseable single-repo GraphQL batch response (alias repo0).
-		ghMock.On("ExecuteGraphQL", mock.Anything, mock.Anything).Return(map[string]interface{}{
-			"repo0": map[string]interface{}{
+		ghMock.On("ExecuteGraphQL", mock.Anything, mock.Anything).Return(map[string]any{
+			"repo0": map[string]any{
 				"nameWithOwner":  "org/repo",
 				"stargazerCount": float64(5),
 				"forkCount":      float64(2),
@@ -489,8 +489,8 @@ func TestSyncSingleRepository_FullPath(t *testing.T) {
 	t.Run("upsert organization error", func(t *testing.T) {
 		t.Parallel()
 		ghMock := gh.NewMockClient()
-		ghMock.On("ExecuteGraphQL", mock.Anything, mock.Anything).Return(map[string]interface{}{
-			"repo0": map[string]interface{}{"nameWithOwner": "org/repo", "stargazerCount": float64(1)},
+		ghMock.On("ExecuteGraphQL", mock.Anything, mock.Anything).Return(map[string]any{
+			"repo0": map[string]any{"nameWithOwner": "org/repo", "stargazerCount": float64(1)},
 		}, nil)
 		mockRepo := new(mockAnalyticsRepo)
 		mockRepo.On("UpsertOrganization", ctx, mock.Anything).Return(errMockGH)
@@ -615,7 +615,7 @@ func TestSyncManagedRepos(t *testing.T) {
 		// SyncRepository -> ExecuteGraphQL returns no usable data -> each repo
 		// errors and is recorded, but the loop continues to completion.
 		ghMock.On("ExecuteGraphQL", mock.Anything, mock.Anything).
-			Return(map[string]interface{}{}, nil)
+			Return(map[string]any{}, nil)
 		mockRepo := new(mockAnalyticsRepo)
 		pipe := newTestPipeline(ghMock, mockRepo)
 		run := &db.SyncRun{}

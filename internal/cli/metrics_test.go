@@ -136,7 +136,7 @@ func TestOutputJSONMetrics(t *testing.T) {
 	// This test would require capturing stdout which is complex
 	// For now, we'll just test that the function doesn't panic
 	t.Run("simple data", func(t *testing.T) {
-		data := map[string]interface{}{
+		data := map[string]any{
 			"total": 10,
 			"rate":  95.5,
 		}

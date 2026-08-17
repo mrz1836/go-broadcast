@@ -66,23 +66,23 @@ type mockOutputWriter struct {
 }
 
 func (m *mockOutputWriter) Info(msg string) { m.buf.WriteString("INFO: " + msg + "\n") }
-func (m *mockOutputWriter) Infof(format string, args ...interface{}) {
+func (m *mockOutputWriter) Infof(format string, args ...any) {
 	m.buf.WriteString("INFO: " + fmt.Sprintf(format, args...) + "\n")
 }
 func (m *mockOutputWriter) Warn(msg string) { m.buf.WriteString("WARN: " + msg + "\n") }
-func (m *mockOutputWriter) Warnf(format string, args ...interface{}) {
+func (m *mockOutputWriter) Warnf(format string, args ...any) {
 	m.buf.WriteString("WARN: " + fmt.Sprintf(format, args...) + "\n")
 }
 func (m *mockOutputWriter) Error(msg string) { m.buf.WriteString("ERROR: " + msg + "\n") }
-func (m *mockOutputWriter) Errorf(format string, args ...interface{}) {
+func (m *mockOutputWriter) Errorf(format string, args ...any) {
 	m.buf.WriteString("ERROR: " + fmt.Sprintf(format, args...) + "\n")
 }
 func (m *mockOutputWriter) Success(msg string) { m.buf.WriteString("SUCCESS: " + msg + "\n") }
-func (m *mockOutputWriter) Successf(format string, args ...interface{}) {
+func (m *mockOutputWriter) Successf(format string, args ...any) {
 	m.buf.WriteString("SUCCESS: " + fmt.Sprintf(format, args...) + "\n")
 }
 func (m *mockOutputWriter) Plain(msg string) { m.buf.WriteString(msg) }
-func (m *mockOutputWriter) Plainf(format string, args ...interface{}) {
+func (m *mockOutputWriter) Plainf(format string, args ...any) {
 	fmt.Fprintf(&m.buf, format, args...)
 }
 

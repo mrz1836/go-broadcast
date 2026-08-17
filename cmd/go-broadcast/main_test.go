@@ -189,7 +189,7 @@ func TestAppRun_PanicRecoveryReturnsError(t *testing.T) {
 	// This is critical for ensuring proper exit codes
 	testCases := []struct {
 		name       string
-		panicValue interface{}
+		panicValue any
 	}{
 		{"string panic", "string panic value"},
 		{"error panic", "error type panic"},
@@ -212,7 +212,7 @@ func TestAppRun_PanicRecoveryReturnsError(t *testing.T) {
 }
 
 type customPanicExecutor struct {
-	panicValue interface{}
+	panicValue any
 }
 
 func (c *customPanicExecutor) Execute() error {

@@ -324,8 +324,8 @@ func TestSyncRepository(t *testing.T) {
 		pipeline := NewPipeline(mockClient, nil, nil, nil, nil, nil)
 
 		// Mock GraphQL response for single repo
-		graphQLData := map[string]interface{}{
-			"repo0": map[string]interface{}{
+		graphQLData := map[string]any{
+			"repo0": map[string]any{
 				"nameWithOwner":  "owner/repo",
 				"stargazerCount": float64(42),
 				"forkCount":      float64(5),
@@ -499,7 +499,7 @@ func TestRecordSyncRunError(t *testing.T) {
 		assert.Equal(t, 1, run.ReposFailed)
 		assert.Equal(t, "org/repo1", run.LastProcessedRepo)
 		require.NotNil(t, run.Errors)
-		errorsArr, ok := run.Errors["errors"].([]interface{})
+		errorsArr, ok := run.Errors["errors"].([]any)
 		require.True(t, ok)
 		assert.Len(t, errorsArr, 1)
 	})
@@ -517,7 +517,7 @@ func TestRecordSyncRunError(t *testing.T) {
 
 		assert.Equal(t, 2, run.ReposFailed)
 		assert.Equal(t, "org/repo2", run.LastProcessedRepo)
-		errorsArr, ok := run.Errors["errors"].([]interface{})
+		errorsArr, ok := run.Errors["errors"].([]any)
 		require.True(t, ok)
 		assert.Len(t, errorsArr, 2)
 	})
@@ -606,13 +606,13 @@ func TestSyncOrganization(t *testing.T) {
 		mockRepoRepo.On("List", ctx, uint(1)).Return(repos, nil)
 
 		mockClient := gh.NewMockClient()
-		graphQLData := map[string]interface{}{
-			"repo0": map[string]interface{}{
+		graphQLData := map[string]any{
+			"repo0": map[string]any{
 				"nameWithOwner":  "test-org/repo1",
 				"stargazerCount": float64(10),
 				"forkCount":      float64(2),
 			},
-			"repo1": map[string]interface{}{
+			"repo1": map[string]any{
 				"nameWithOwner":  "test-org/repo2",
 				"stargazerCount": float64(20),
 				"forkCount":      float64(4),

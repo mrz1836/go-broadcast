@@ -49,14 +49,14 @@ func TestMetricsCollection(t *testing.T) {
 	assert.Contains(t, metrics, "runtime")
 
 	// Check memory metrics
-	memory, ok := metrics["memory"].(map[string]interface{})
+	memory, ok := metrics["memory"].(map[string]any)
 	require.True(t, ok)
 	assert.Contains(t, memory, "alloc_mb")
 	assert.Contains(t, memory, "heap_alloc_mb")
 	assert.Contains(t, memory, "heap_objects")
 
 	// Check runtime metrics
-	runtimeMetrics, ok := metrics["runtime"].(map[string]interface{})
+	runtimeMetrics, ok := metrics["runtime"].(map[string]any)
 	require.True(t, ok)
 	assert.Contains(t, runtimeMetrics, "goroutines")
 	assert.Contains(t, runtimeMetrics, "num_cpu")
@@ -109,7 +109,7 @@ func TestMetricsHTTPHandler(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
 
-		var metrics map[string]interface{}
+		var metrics map[string]any
 		err := json.Unmarshal(w.Body.Bytes(), &metrics)
 		require.NoError(t, err)
 		assert.Contains(t, metrics, "timestamp")
@@ -124,12 +124,12 @@ func TestMetricsHTTPHandler(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, w.Code)
 
-		var response map[string]interface{}
+		var response map[string]any
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
 		assert.Contains(t, response, "history")
 
-		history, ok := response["history"].([]interface{})
+		history, ok := response["history"].([]any)
 		require.True(t, ok)
 		assert.NotEmpty(t, history)
 	})
@@ -221,7 +221,7 @@ func TestHealthHandler(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var health map[string]interface{}
+	var health map[string]any
 	err := json.Unmarshal(w.Body.Bytes(), &health)
 	require.NoError(t, err)
 
@@ -286,7 +286,7 @@ func TestMetricsCollectorWithProfiling(t *testing.T) {
 
 	// Should have profiler metrics when enabled
 	if profilerMetrics, ok := metrics["profiler"]; ok {
-		profiler := profilerMetrics.(map[string]interface{})
+		profiler := profilerMetrics.(map[string]any)
 		assert.Contains(t, profiler, "enabled")
 		assert.Contains(t, profiler, "active_sessions")
 		assert.Contains(t, profiler, "total_sessions")
@@ -308,7 +308,7 @@ func TestGCMetrics(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	metrics := collector.GetCurrentMetrics()
-	gcMetrics, ok := metrics["gc"].(map[string]interface{})
+	gcMetrics, ok := metrics["gc"].(map[string]any)
 	require.True(t, ok)
 
 	assert.Contains(t, gcMetrics, "num_gc")
@@ -380,7 +380,7 @@ func TestStartDashboardWithProfiling(t *testing.T) {
 func TestMetricsSnapshot(t *testing.T) {
 	snapshot := MetricsSnapshot{
 		Timestamp: time.Now(),
-		Metrics: map[string]interface{}{
+		Metrics: map[string]any{
 			"test": "value",
 		},
 	}
@@ -1100,7 +1100,7 @@ func TestServeHTTPBufferedResponse(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
 
-		var response map[string]interface{}
+		var response map[string]any
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
 		assert.Contains(t, response, "history")
@@ -1115,13 +1115,13 @@ func TestDeepCopyMetricsFunction(t *testing.T) {
 	})
 
 	t.Run("empty map", func(t *testing.T) {
-		result := deepCopyMetrics(map[string]interface{}{})
+		result := deepCopyMetrics(map[string]any{})
 		assert.NotNil(t, result)
 		assert.Empty(t, result)
 	})
 
 	t.Run("flat map", func(t *testing.T) {
-		original := map[string]interface{}{
+		original := map[string]any{
 			"string": "value",
 			"int":    42,
 			"float":  3.14,
@@ -1137,27 +1137,27 @@ func TestDeepCopyMetricsFunction(t *testing.T) {
 	})
 
 	t.Run("nested map", func(t *testing.T) {
-		original := map[string]interface{}{
-			"outer": map[string]interface{}{
+		original := map[string]any{
+			"outer": map[string]any{
 				"inner": "value",
 			},
 		}
 		copied := deepCopyMetrics(original)
 
 		// Modify nested value in copy
-		outer := copied["outer"].(map[string]interface{})
+		outer := copied["outer"].(map[string]any)
 		outer["inner"] = "modified"
 
 		// Original should be unchanged
-		origOuter := original["outer"].(map[string]interface{})
+		origOuter := original["outer"].(map[string]any)
 		assert.Equal(t, "value", origOuter["inner"])
 	})
 
 	t.Run("deeply nested map", func(t *testing.T) {
-		original := map[string]interface{}{
-			"level1": map[string]interface{}{
-				"level2": map[string]interface{}{
-					"level3": map[string]interface{}{
+		original := map[string]any{
+			"level1": map[string]any{
+				"level2": map[string]any{
+					"level3": map[string]any{
 						"value": "deep",
 					},
 				},
@@ -1166,15 +1166,15 @@ func TestDeepCopyMetricsFunction(t *testing.T) {
 		copied := deepCopyMetrics(original)
 
 		// Modify deep value in copy
-		l1 := copied["level1"].(map[string]interface{})
-		l2 := l1["level2"].(map[string]interface{})
-		l3 := l2["level3"].(map[string]interface{})
+		l1 := copied["level1"].(map[string]any)
+		l2 := l1["level2"].(map[string]any)
+		l3 := l2["level3"].(map[string]any)
 		l3["value"] = "modified"
 
 		// Original should be unchanged
-		origL1 := original["level1"].(map[string]interface{})
-		origL2 := origL1["level2"].(map[string]interface{})
-		origL3 := origL2["level3"].(map[string]interface{})
+		origL1 := original["level1"].(map[string]any)
+		origL2 := origL1["level2"].(map[string]any)
+		origL3 := origL2["level3"].(map[string]any)
 		assert.Equal(t, "deep", origL3["value"])
 	})
 }
@@ -1231,7 +1231,7 @@ func TestProfilerInitializationOrder(t *testing.T) {
 	// Should have profiler metrics
 	profilerMetrics, ok := metrics["profiler"]
 	if ok {
-		profiler := profilerMetrics.(map[string]interface{})
+		profiler := profilerMetrics.(map[string]any)
 		assert.Contains(t, profiler, "enabled")
 	}
 }

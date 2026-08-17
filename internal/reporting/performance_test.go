@@ -148,7 +148,7 @@ func TestPerformanceReporterGenerateReport(t *testing.T) {
 		currentMetrics  map[string]float64
 		baselineMetrics map[string]float64
 		testResults     []TestResult
-		customMetrics   map[string]interface{}
+		customMetrics   map[string]any
 		verify          func(t *testing.T, report *PerformanceReport)
 	}{
 		{
@@ -191,7 +191,7 @@ func TestPerformanceReporterGenerateReport(t *testing.T) {
 			name:           "WithCustomMetrics",
 			hasBaseline:    false,
 			currentMetrics: map[string]float64{"latency": 100},
-			customMetrics:  map[string]interface{}{"custom_metric": 42.5, "invalid_metric": "string"},
+			customMetrics:  map[string]any{"custom_metric": 42.5, "invalid_metric": "string"},
 			testResults:    []TestResult{},
 			verify: func(t *testing.T, report *PerformanceReport) {
 				require.InDelta(t, 42.5, report.CurrentMetrics["custom_metric"], 0.001)
@@ -730,7 +730,7 @@ func TestTemplateFunctions(t *testing.T) {
 	})
 
 	t.Run("Title", func(t *testing.T) {
-		title := funcs["title"].(func(interface{}) string)
+		title := funcs["title"].(func(any) string)
 		require.Equal(t, "Hello", title("hello"))
 		require.Equal(t, "World", title("WORLD"))
 		require.Empty(t, title(""))
@@ -1046,7 +1046,7 @@ func TestGenerateReport_InputNotMutated(t *testing.T) {
 	config := ReportConfig{
 		OutputDirectory:     tempDir,
 		ComparisonThreshold: 5.0,
-		CustomMetrics:       map[string]interface{}{"custom": 42.0},
+		CustomMetrics:       map[string]any{"custom": 42.0},
 	}
 	reporter := NewPerformanceReporter(config)
 

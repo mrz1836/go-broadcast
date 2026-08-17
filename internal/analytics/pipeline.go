@@ -332,7 +332,7 @@ func (p *Pipeline) CompleteSyncRun(ctx context.Context, run *db.SyncRun, status 
 
 // RecordSyncRunError adds an error to the SyncRun's error log
 func (p *Pipeline) RecordSyncRunError(ctx context.Context, run *db.SyncRun, repo string, err error) {
-	errorEntry := map[string]interface{}{
+	errorEntry := map[string]any{
 		"repo":  repo,
 		"error": err.Error(),
 		"time":  time.Now().UTC().Format(time.RFC3339),
@@ -341,12 +341,12 @@ func (p *Pipeline) RecordSyncRunError(ctx context.Context, run *db.SyncRun, repo
 	// Append to errors array (always use []interface{} for JSON round-trip consistency)
 	if run.Errors == nil {
 		run.Errors = db.Metadata{
-			"errors": []interface{}{errorEntry},
+			"errors": []any{errorEntry},
 		}
 	} else {
-		errorsArray, ok := run.Errors["errors"].([]interface{})
+		errorsArray, ok := run.Errors["errors"].([]any)
 		if !ok {
-			errorsArray = []interface{}{}
+			errorsArray = []any{}
 		}
 		errorsArray = append(errorsArray, errorEntry)
 		run.Errors["errors"] = errorsArray

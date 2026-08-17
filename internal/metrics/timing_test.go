@@ -81,7 +81,7 @@ func TestTimer_AddField(t *testing.T) {
 	tests := []struct {
 		name     string
 		key      string
-		value    interface{}
+		value    any
 		validate func(t *testing.T, timer *Timer)
 	}{
 		{

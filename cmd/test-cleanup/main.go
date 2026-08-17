@@ -49,8 +49,8 @@ type WalkFunc func(path string, info os.FileInfo, err error) error
 
 // Logger defines interface for logging operations
 type Logger interface {
-	Printf(format string, v ...interface{})
-	Fatalf(format string, v ...interface{})
+	Printf(format string, v ...any)
+	Fatalf(format string, v ...any)
 }
 
 // FileRemover defines interface for file removal operations
@@ -94,11 +94,11 @@ func (d *DefaultFileWalker) Walk(root string, walkFunc WalkFunc) error {
 // DefaultLogger implements Logger using the log package
 type DefaultLogger struct{}
 
-func (d *DefaultLogger) Printf(format string, v ...interface{}) {
+func (d *DefaultLogger) Printf(format string, v ...any) {
 	log.Printf(format, v...)
 }
 
-func (d *DefaultLogger) Fatalf(format string, v ...interface{}) {
+func (d *DefaultLogger) Fatalf(format string, v ...any) {
 	log.Fatalf(format, v...)
 }
 

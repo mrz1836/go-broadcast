@@ -428,9 +428,9 @@ func TestHandleTwoValueReturn(t *testing.T) {
 	})
 
 	t.Run("InterfaceType", func(t *testing.T) {
-		var expected interface{} = "hello"
+		var expected any = "hello"
 		args := mock.Arguments{expected, nil}
-		result, err := HandleTwoValueReturn[interface{}](args)
+		result, err := HandleTwoValueReturn[any](args)
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, result)

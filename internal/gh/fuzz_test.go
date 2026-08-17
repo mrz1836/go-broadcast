@@ -328,7 +328,7 @@ func testJSONParsing(t *testing.T, jsonData string) {
 	}
 
 	// Test parsing as generic interface
-	var generic interface{}
+	var generic any
 	if err := json.Unmarshal([]byte(jsonData), &generic); err == nil {
 		validateGenericJSON(t, generic)
 	}
@@ -437,7 +437,7 @@ func validateBase64Content(t *testing.T, content string) {
 	// This is just validating the raw base64 string for obvious issues
 }
 
-func validateGenericJSON(t *testing.T, data interface{}) {
+func validateGenericJSON(t *testing.T, data any) {
 	// Recursively check generic JSON data for security issues
 	switch v := data.(type) {
 	case string:
@@ -450,14 +450,14 @@ func validateGenericJSON(t *testing.T, data interface{}) {
 		if fuzz.ContainsNullByte(v) {
 			t.Logf("Security: Null byte in JSON string: %q", v)
 		}
-	case map[string]interface{}:
+	case map[string]any:
 		for key, value := range v {
 			if fuzz.ContainsShellMetachars(key) {
 				t.Logf("Security: Shell metacharacters in JSON key: %q", key)
 			}
 			validateGenericJSON(t, value)
 		}
-	case []interface{}:
+	case []any:
 		for i, item := range v {
 			validateGenericJSON(t, item)
 			if i > 50 { // Limit recursion for large arrays

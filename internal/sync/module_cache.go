@@ -174,7 +174,7 @@ func (c *ModuleCache) Close() {
 }
 
 // Stats returns cache statistics
-func (c *ModuleCache) Stats() map[string]interface{} {
+func (c *ModuleCache) Stats() map[string]any {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -187,7 +187,7 @@ func (c *ModuleCache) Stats() map[string]interface{} {
 		}
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"total_entries": len(c.entries),
 		"expired":       totalExpired,
 		"active":        len(c.entries) - totalExpired,

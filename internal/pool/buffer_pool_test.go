@@ -357,23 +357,6 @@ func TestPoolCategorizationByCapacity(t *testing.T) {
 	assert.Equal(t, int64(0), stats.LargePool.Puts)
 }
 
-// TestMaxInt tests the maxInt helper function
-func TestMaxInt(t *testing.T) {
-	testCases := []struct {
-		a, b, expected int
-	}{
-		{1, 2, 2},
-		{5, 3, 5},
-		{-1, -2, -1},
-		{0, 0, 0},
-	}
-
-	for _, tc := range testCases {
-		result := maxInt(tc.a, tc.b)
-		assert.Equal(t, tc.expected, result)
-	}
-}
-
 // TestBufferSizeConstants tests that size constants are properly ordered
 func TestBufferSizeConstants(t *testing.T) {
 	assert.Less(t, SmallBufferThreshold, MediumBufferThreshold)

@@ -34,7 +34,7 @@ func TestRedactionHook_ConcurrentFire(t *testing.T) {
 					"password": "secret",
 					"id":       n,
 					"token":    fmt.Sprintf("ghp_secretabcdef%d", n),
-					"nested": map[string]interface{}{
+					"nested": map[string]any{
 						"api_key": "sk-1234567890",
 						"normal":  "value",
 					},
@@ -164,18 +164,18 @@ func TestRedactionHook_ConcurrentFireWithNestedMaps(t *testing.T) {
 			entry := &logrus.Entry{
 				Message: fmt.Sprintf("Processing request %d", n),
 				Data: logrus.Fields{
-					"level1": map[string]interface{}{
-						"level2": map[string]interface{}{
-							"level3": map[string]interface{}{
+					"level1": map[string]any{
+						"level2": map[string]any{
+							"level3": map[string]any{
 								"password": "secret123",
 								"normal":   fmt.Sprintf("value%d", n),
 							},
 						},
 					},
-					"items": []interface{}{
+					"items": []any{
 						fmt.Sprintf("ghp_abcdef123%d", n),
 						"regular_string",
-						map[string]interface{}{
+						map[string]any{
 							"secret": "hidden",
 							"public": "visible",
 						},
@@ -187,11 +187,11 @@ func TestRedactionHook_ConcurrentFireWithNestedMaps(t *testing.T) {
 			assert.NoError(t, err)
 
 			// Verify nested redaction occurred
-			level1, ok := entry.Data["level1"].(map[string]interface{})
+			level1, ok := entry.Data["level1"].(map[string]any)
 			assert.True(t, ok)
-			level2, ok := level1["level2"].(map[string]interface{})
+			level2, ok := level1["level2"].(map[string]any)
 			assert.True(t, ok)
-			level3, ok := level2["level3"].(map[string]interface{})
+			level3, ok := level2["level3"].(map[string]any)
 			assert.True(t, ok)
 			assert.Equal(t, "***REDACTED***", level3["password"])
 		}(i)
@@ -248,11 +248,11 @@ func TestRedactionHook_MaxDepthConcurrent(t *testing.T) {
 	wg.Add(goroutines)
 
 	// Create a structure that exceeds max depth
-	createDeepMap := func(depth int) map[string]interface{} {
-		result := map[string]interface{}{"password": "secret"}
+	createDeepMap := func(depth int) map[string]any {
+		result := map[string]any{"password": "secret"}
 		current := result
 		for i := 0; i < depth; i++ {
-			nested := map[string]interface{}{"password": "secret"}
+			nested := map[string]any{"password": "secret"}
 			current["nested"] = nested
 			current = nested
 		}

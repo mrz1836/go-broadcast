@@ -324,7 +324,7 @@ func (mp *MemoryProfiler) captureProfile(name, filename string, debug int) (retu
 }
 
 // writeToReport is a helper function that safely writes to report files, ignoring errors
-func writeToReport(writer io.Writer, format string, args ...interface{}) {
+func writeToReport(writer io.Writer, format string, args ...any) {
 	_, _ = fmt.Fprintf(writer, format, args...)
 }
 

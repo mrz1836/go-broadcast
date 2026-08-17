@@ -13,22 +13,22 @@ import (
 
 // mockAPIResponse simulates an API response structure
 type mockAPIResponse struct {
-	ID      int                    `json:"id"`
-	Name    string                 `json:"name"`
-	Status  string                 `json:"status"`
-	Data    map[string]interface{} `json:"data"`
-	Created time.Time              `json:"created"`
+	ID      int            `json:"id"`
+	Name    string         `json:"name"`
+	Status  string         `json:"status"`
+	Data    map[string]any `json:"data"`
+	Created time.Time      `json:"created"`
 }
 
 // simulateAPICall simulates a slow API call
-func simulateAPICall(id int, latency time.Duration) (interface{}, error) {
+func simulateAPICall(id int, latency time.Duration) (any, error) {
 	time.Sleep(latency)
 
 	return &mockAPIResponse{
 		ID:     id,
 		Name:   fmt.Sprintf("Item_%d", id),
 		Status: "active",
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"value":     rand.Intn(1000), //nolint:gosec // Using weak random for benchmark data is acceptable
 			"timestamp": time.Now(),
 			"tags":      []string{"tag1", "tag2", "tag3"},
@@ -74,7 +74,7 @@ func BenchmarkCacheBasicOperations(b *testing.B) {
 	b.Run("GetOrLoad", func(b *testing.B) {
 		benchmark.WithMemoryTracking(b, func() {
 			key := fmt.Sprintf("load_key_%d", b.N%50) // 50% hit rate
-			_, _ = cache.GetOrLoad(key, func() (interface{}, error) {
+			_, _ = cache.GetOrLoad(key, func() (any, error) {
 				return fmt.Sprintf("loaded_value_%d", b.N), nil
 			})
 		})
@@ -166,7 +166,7 @@ func BenchmarkCacheWithAPISimulation(b *testing.B) {
 					}
 
 					start := time.Now()
-					_, err := cache.GetOrLoad(key, func() (interface{}, error) {
+					_, err := cache.GetOrLoad(key, func() (any, error) {
 						return simulateAPICall(id, latency)
 					})
 					elapsed := time.Since(start)
@@ -216,7 +216,7 @@ func BenchmarkCacheConcurrency(b *testing.B) {
 						cache.Set(key, fmt.Sprintf("new_value_%d", rand.Intn(1000))) //nolint:gosec // Using weak random for benchmark is acceptable
 					case 2: // GetOrLoad (10% of operations)
 						key := fmt.Sprintf("concurrent_key_%d", rand.Intn(120)) //nolint:gosec // Using weak random for benchmark is acceptable
-						_, _ = cache.GetOrLoad(key, func() (interface{}, error) {
+						_, _ = cache.GetOrLoad(key, func() (any, error) {
 							return fmt.Sprintf("loaded_%d", rand.Intn(1000)), nil //nolint:gosec // Using weak random for benchmark is acceptable
 						})
 					}
@@ -250,13 +250,13 @@ func BenchmarkCacheMemoryUsage(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				key := fmt.Sprintf("mem_key_%d", i%scenario.maxSize)
 
-				var value interface{}
+				var value any
 				switch scenario.dataSize {
 				case "small":
 					value = fmt.Sprintf("value_%d", i)
 				case "large":
 					// Create larger data structure
-					data := make(map[string]interface{})
+					data := make(map[string]any)
 					for j := 0; j < 100; j++ {
 						data[fmt.Sprintf("field_%d", j)] = fmt.Sprintf("data_%d_%d", i, j)
 					}
@@ -375,17 +375,17 @@ func BenchmarkCacheWithJSONSerialization(b *testing.B) {
 	cache := NewTTLCache(time.Minute, 1000)
 	defer cache.Close()
 
-	complexData := map[string]interface{}{
-		"users": []map[string]interface{}{
+	complexData := map[string]any{
+		"users": []map[string]any{
 			{"id": 1, "name": "John", "email": "john@example.com", "active": true},
 			{"id": 2, "name": "Jane", "email": "jane@example.com", "active": false},
 		},
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"version": "1.0",
 			"created": time.Now(),
 			"tags":    []string{"test", "benchmark", "cache"},
 		},
-		"settings": map[string]interface{}{
+		"settings": map[string]any{
 			"timeout":  30,
 			"retries":  3,
 			"debug":    true,
@@ -399,14 +399,14 @@ func BenchmarkCacheWithJSONSerialization(b *testing.B) {
 		key := fmt.Sprintf("json_key_%d", i%100)
 
 		// Simulate API call that returns JSON data
-		_, err := cache.GetOrLoad(key, func() (interface{}, error) {
+		_, err := cache.GetOrLoad(key, func() (any, error) {
 			// Serialize and deserialize to simulate real JSON API
 			jsonData, err := json.Marshal(complexData)
 			if err != nil {
 				return nil, err
 			}
 
-			var result map[string]interface{}
+			var result map[string]any
 			err = json.Unmarshal(jsonData, &result)
 			return result, err
 		})

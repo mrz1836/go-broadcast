@@ -343,11 +343,11 @@ func showRunDetails(ctx context.Context, repo db.BroadcastSyncRepo, extID string
 }
 
 // outputJSONMetrics outputs metrics data as JSON
-func outputJSONMetrics(dataType string, data interface{}) error {
+func outputJSONMetrics(dataType string, data any) error {
 	output := struct {
-		GeneratedAt string      `json:"generated_at"`
-		Type        string      `json:"type"`
-		Data        interface{} `json:"data"`
+		GeneratedAt string `json:"generated_at"`
+		Type        string `json:"type"`
+		Data        any    `json:"data"`
 	}{
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 		Type:        dataType,

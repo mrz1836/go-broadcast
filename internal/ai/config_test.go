@@ -176,42 +176,42 @@ func TestLoadConfig_InvalidValues(t *testing.T) {
 		name         string
 		envVar       string
 		invalidValue string
-		checkField   func(*Config) interface{}
-		expectValue  interface{}
+		checkField   func(*Config) any
+		expectValue  any
 	}{
 		{
 			name:         "invalid max tokens uses default",
 			envVar:       "GO_BROADCAST_AI_MAX_TOKENS",
 			invalidValue: "not-a-number",
-			checkField:   func(c *Config) interface{} { return c.MaxTokens },
+			checkField:   func(c *Config) any { return c.MaxTokens },
 			expectValue:  2000,
 		},
 		{
 			name:         "invalid timeout uses default",
 			envVar:       "GO_BROADCAST_AI_TIMEOUT",
 			invalidValue: "invalid",
-			checkField:   func(c *Config) interface{} { return c.Timeout },
+			checkField:   func(c *Config) any { return c.Timeout },
 			expectValue:  30 * time.Second,
 		},
 		{
 			name:         "invalid temperature uses default",
 			envVar:       "GO_BROADCAST_AI_TEMPERATURE",
 			invalidValue: "abc",
-			checkField:   func(c *Config) interface{} { return c.Temperature },
+			checkField:   func(c *Config) any { return c.Temperature },
 			expectValue:  0.3,
 		},
 		{
 			name:         "invalid cache TTL uses default",
 			envVar:       "GO_BROADCAST_AI_CACHE_TTL",
 			invalidValue: "xyz",
-			checkField:   func(c *Config) interface{} { return c.CacheTTL },
+			checkField:   func(c *Config) any { return c.CacheTTL },
 			expectValue:  1 * time.Hour,
 		},
 		{
 			name:         "invalid retry max attempts uses default",
 			envVar:       "GO_BROADCAST_AI_RETRY_MAX_ATTEMPTS",
 			invalidValue: "three",
-			checkField:   func(c *Config) interface{} { return c.RetryMaxAttempts },
+			checkField:   func(c *Config) any { return c.RetryMaxAttempts },
 			expectValue:  3,
 		},
 	}
@@ -720,7 +720,7 @@ func TestConfig_Validate(t *testing.T) {
 func TestSetConfigLogger(t *testing.T) {
 	t.Run("logs warning when set", func(t *testing.T) {
 		var logged string
-		SetConfigLogger(func(msg string, _ ...interface{}) {
+		SetConfigLogger(func(msg string, _ ...any) {
 			logged = msg
 		})
 		defer SetConfigLogger(nil)

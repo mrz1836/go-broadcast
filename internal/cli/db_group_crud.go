@@ -652,7 +652,7 @@ func runGroupSetEnabled(externalID string, enabled, jsonOutput bool) error {
 		return printDryRunResponse(CLIResponse{
 			Action: action,
 			Type:   "group",
-			Data: map[string]interface{}{
+			Data: map[string]any{
 				"external_id": externalID,
 				"enabled":     enabled,
 			},
@@ -668,7 +668,7 @@ func runGroupSetEnabled(externalID string, enabled, jsonOutput bool) error {
 		Success: true,
 		Action:  action,
 		Type:    "group",
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"external_id": externalID,
 			"enabled":     enabled,
 		},

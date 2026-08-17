@@ -14,7 +14,7 @@ func CreateTestFiles(t *testing.T, dir string, count int) []string {
 	t.Helper()
 
 	files := make([]string, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		fileName := fmt.Sprintf("test_file_%d.txt", i)
 		filePath := filepath.Join(dir, fileName)
 		content := fmt.Sprintf("Test content for file %d\n", i)
@@ -75,7 +75,7 @@ func WriteTestFile(t *testing.T, filePath, content string) {
 }
 
 // WriteTestFileWithFormat creates a single test file with formatted content.
-func WriteTestFileWithFormat(t *testing.T, filePath, format string, args ...interface{}) {
+func WriteTestFileWithFormat(t *testing.T, filePath, format string, args ...any) {
 	t.Helper()
 
 	content := fmt.Sprintf(format, args...)
@@ -91,7 +91,7 @@ func CreateBenchmarkFiles(b *testing.B, dir string, count int) []string {
 	b.Helper()
 
 	files := make([]string, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		fileName := fmt.Sprintf("bench_file_%d.txt", i)
 		filePath := filepath.Join(dir, fileName)
 		content := fmt.Sprintf("Benchmark test content %d", i)

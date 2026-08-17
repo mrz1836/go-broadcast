@@ -68,12 +68,12 @@ func enrichConfigFields(cfg *config.Config, sourcePath string) (name, externalID
 
 // CalculateConfigMetrics analyzes a config and returns metrics and analysis
 // Returns two maps: "metrics" with counts and "config_analysis" with feature detection
-func CalculateConfigMetrics(cfg *config.Config) map[string]interface{} {
-	result := make(map[string]interface{})
+func CalculateConfigMetrics(cfg *config.Config) map[string]any {
+	result := make(map[string]any)
 
 	// Initialize metrics
-	metrics := make(map[string]interface{})
-	analysis := make(map[string]interface{})
+	metrics := make(map[string]any)
+	analysis := make(map[string]any)
 
 	// Basic counts
 	metrics["groups_count"] = len(cfg.Groups)

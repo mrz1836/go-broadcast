@@ -21,7 +21,7 @@ type BaseModel struct {
 // Metadata is a JSON key/value map stored as TEXT, provides extensibility on every table
 //
 //nolint:recvcheck // mixed receivers required by driver.Valuer/sql.Scanner interface
-type Metadata map[string]interface{}
+type Metadata map[string]any
 
 // Value implements driver.Valuer for database storage
 func (m Metadata) Value() (driver.Value, error) {
@@ -32,7 +32,7 @@ func (m Metadata) Value() (driver.Value, error) {
 }
 
 // Scan implements sql.Scanner for database retrieval
-func (m *Metadata) Scan(value interface{}) error {
+func (m *Metadata) Scan(value any) error {
 	if value == nil {
 		*m = nil
 		return nil
@@ -65,7 +65,7 @@ func (j JSONStringSlice) Value() (driver.Value, error) {
 }
 
 // Scan implements sql.Scanner
-func (j *JSONStringSlice) Scan(value interface{}) error {
+func (j *JSONStringSlice) Scan(value any) error {
 	if value == nil {
 		*j = nil
 		return nil
@@ -98,7 +98,7 @@ func (j JSONStringMap) Value() (driver.Value, error) {
 }
 
 // Scan implements sql.Scanner
-func (j *JSONStringMap) Scan(value interface{}) error {
+func (j *JSONStringMap) Scan(value any) error {
 	if value == nil {
 		*j = nil
 		return nil
@@ -134,7 +134,7 @@ func (j *JSONModuleConfig) Value() (driver.Value, error) {
 }
 
 // Scan implements sql.Scanner
-func (j *JSONModuleConfig) Scan(value interface{}) error {
+func (j *JSONModuleConfig) Scan(value any) error {
 	if value == nil {
 		*j = JSONModuleConfig{}
 		return nil

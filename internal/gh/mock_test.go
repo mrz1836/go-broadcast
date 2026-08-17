@@ -1200,8 +1200,8 @@ func TestMockClient_ExecuteGraphQL(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		m := NewMockClient()
-		expected := map[string]interface{}{
-			"data": map[string]interface{}{"viewer": map[string]interface{}{"login": "user"}},
+		expected := map[string]any{
+			"data": map[string]any{"viewer": map[string]any{"login": "user"}},
 		}
 		m.On("ExecuteGraphQL", mock.Anything, "{ viewer { login } }").Return(expected, nil)
 

@@ -14,7 +14,7 @@ import (
 //
 //nolint:gochecknoglobals // Intentional - allows optional logging without requiring dependency injection
 var (
-	configLogger   func(msg string, args ...interface{})
+	configLogger   func(msg string, args ...any)
 	configLoggerMu sync.RWMutex
 )
 
@@ -22,7 +22,7 @@ var (
 // The logger function receives a format string and arguments.
 // Pass nil to disable logging (default).
 // This function is safe for concurrent use.
-func SetConfigLogger(logger func(msg string, args ...interface{})) {
+func SetConfigLogger(logger func(msg string, args ...any)) {
 	configLoggerMu.Lock()
 	defer configLoggerMu.Unlock()
 	configLogger = logger
@@ -30,7 +30,7 @@ func SetConfigLogger(logger func(msg string, args ...interface{})) {
 
 // logConfigWarning logs a configuration warning if a logger is set.
 // This function is safe for concurrent use.
-func logConfigWarning(format string, args ...interface{}) {
+func logConfigWarning(format string, args ...any) {
 	configLoggerMu.RLock()
 	logger := configLogger
 	configLoggerMu.RUnlock()

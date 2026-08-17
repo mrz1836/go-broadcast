@@ -538,7 +538,7 @@ func parseLOCFromMarkdown(data []byte) (goLOC, testLOC, goFiles, testFiles int) 
 
 // parseCoverageJSON extracts coverage_percentage from codecov JSON
 func parseCoverageJSON(data []byte) *float64 {
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil
 	}
@@ -562,7 +562,7 @@ func parseCoverageJSON(data []byte) *float64 {
 
 // parseBenchStatsJSON extracts benchmark_count from a bench-stats JSON file
 func parseBenchStatsJSON(data []byte) int {
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return 0
 	}
@@ -585,14 +585,14 @@ func parseCIResultsJSONL(data []byte) int {
 	for scanner.Scan() {
 		line := scanner.Bytes()
 
-		var entry map[string]interface{}
+		var entry map[string]any
 		if err := json.Unmarshal(line, &entry); err != nil {
 			continue
 		}
 
 		// Look for the summary entry
 		if entryType, ok := entry["type"].(string); ok && entryType == "summary" {
-			if summary, ok := entry["summary"].(map[string]interface{}); ok {
+			if summary, ok := entry["summary"].(map[string]any); ok {
 				// Prefer unique_total (actual unique test functions)
 				if uniqueTotal, ok := summary["unique_total"]; ok {
 					switch v := uniqueTotal.(type) {

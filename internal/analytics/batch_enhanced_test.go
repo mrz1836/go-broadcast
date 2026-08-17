@@ -51,31 +51,31 @@ func TestBuildBatchQuery_IncludesAllNewFields(t *testing.T) {
 func TestParseBatchResponse_AllNewFields(t *testing.T) {
 	testCases := []struct {
 		name     string
-		data     map[string]interface{}
+		data     map[string]any
 		expected func(*testing.T, *RepoMetadata)
 	}{
 		{
 			name: "Complete metadata with all fields",
-			data: map[string]interface{}{
-				"repo0": map[string]interface{}{
+			data: map[string]any{
+				"repo0": map[string]any{
 					"nameWithOwner": "mrz1836/go-broadcast",
-					"primaryLanguage": map[string]interface{}{
+					"primaryLanguage": map[string]any{
 						"name": "Go",
 					},
 					"createdAt":   "2023-01-15T10:00:00Z",
 					"homepageUrl": "https://example.com",
 					"diskUsage":   1024.0,
-					"licenseInfo": map[string]interface{}{
+					"licenseInfo": map[string]any{
 						"key":  "mit",
 						"name": "MIT License",
 					},
-					"repositoryTopics": map[string]interface{}{
-						"nodes": []interface{}{
-							map[string]interface{}{
-								"topic": map[string]interface{}{"name": "golang"},
+					"repositoryTopics": map[string]any{
+						"nodes": []any{
+							map[string]any{
+								"topic": map[string]any{"name": "golang"},
 							},
-							map[string]interface{}{
-								"topic": map[string]interface{}{"name": "cli"},
+							map[string]any{
+								"topic": map[string]any{"name": "cli"},
 							},
 						},
 					},
@@ -87,7 +87,7 @@ func TestParseBatchResponse_AllNewFields(t *testing.T) {
 					"isPrivate":             false,
 					"isArchived":            false,
 					"isFork":                true,
-					"parent": map[string]interface{}{
+					"parent": map[string]any{
 						"nameWithOwner": "upstream/original",
 					},
 				},
@@ -112,8 +112,8 @@ func TestParseBatchResponse_AllNewFields(t *testing.T) {
 		},
 		{
 			name: "Minimal metadata (null optional fields)",
-			data: map[string]interface{}{
-				"repo0": map[string]interface{}{
+			data: map[string]any{
+				"repo0": map[string]any{
 					"nameWithOwner": "test/minimal",
 					// No primaryLanguage
 					// No licenseInfo
@@ -135,10 +135,10 @@ func TestParseBatchResponse_AllNewFields(t *testing.T) {
 		},
 		{
 			name: "Topics with 10+ items (pagination test)",
-			data: map[string]interface{}{
-				"repo0": map[string]interface{}{
+			data: map[string]any{
+				"repo0": map[string]any{
 					"nameWithOwner": "test/many-topics",
-					"repositoryTopics": map[string]interface{}{
+					"repositoryTopics": map[string]any{
 						"nodes": buildTopicNodes(12), // 12 topics
 					},
 					"url":    "https://github.com/test/many-topics",
@@ -151,8 +151,8 @@ func TestParseBatchResponse_AllNewFields(t *testing.T) {
 		},
 		{
 			name: "Empty homepage URL",
-			data: map[string]interface{}{
-				"repo0": map[string]interface{}{
+			data: map[string]any{
+				"repo0": map[string]any{
 					"nameWithOwner": "test/no-homepage",
 					"homepageUrl":   "",
 					"url":           "https://github.com/test/no-homepage",
@@ -183,13 +183,13 @@ func TestParseBatchResponse_AllNewFields(t *testing.T) {
 func TestParseBatchResponse_LicenseVariations(t *testing.T) {
 	testCases := []struct {
 		name         string
-		licenseInfo  interface{}
+		licenseInfo  any
 		expectedKey  string
 		expectedName string
 	}{
 		{
 			name: "MIT license",
-			licenseInfo: map[string]interface{}{
+			licenseInfo: map[string]any{
 				"key":  "mit",
 				"name": "MIT License",
 			},
@@ -198,7 +198,7 @@ func TestParseBatchResponse_LicenseVariations(t *testing.T) {
 		},
 		{
 			name: "Apache 2.0 license",
-			licenseInfo: map[string]interface{}{
+			licenseInfo: map[string]any{
 				"key":  "apache-2.0",
 				"name": "Apache License 2.0",
 			},
@@ -215,8 +215,8 @@ func TestParseBatchResponse_LicenseVariations(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			data := map[string]interface{}{
-				"repo0": map[string]interface{}{
+			data := map[string]any{
+				"repo0": map[string]any{
 					"nameWithOwner": "test/repo",
 					"url":           "https://github.com/test/repo",
 					"sshUrl":        "git@github.com:test/repo.git",
@@ -224,7 +224,7 @@ func TestParseBatchResponse_LicenseVariations(t *testing.T) {
 			}
 
 			if tc.licenseInfo != nil {
-				data["repo0"].(map[string]interface{})["licenseInfo"] = tc.licenseInfo
+				data["repo0"].(map[string]any)["licenseInfo"] = tc.licenseInfo
 			}
 
 			repos := []gh.RepoInfo{{FullName: "test/repo"}}
@@ -242,19 +242,19 @@ func TestParseBatchResponse_LicenseVariations(t *testing.T) {
 
 // TestParseBatchResponse_TopicsJSON verifies topics are correctly extracted as array
 func TestParseBatchResponse_TopicsJSON(t *testing.T) {
-	data := map[string]interface{}{
-		"repo0": map[string]interface{}{
+	data := map[string]any{
+		"repo0": map[string]any{
 			"nameWithOwner": "test/repo",
-			"repositoryTopics": map[string]interface{}{
-				"nodes": []interface{}{
-					map[string]interface{}{
-						"topic": map[string]interface{}{"name": "golang"},
+			"repositoryTopics": map[string]any{
+				"nodes": []any{
+					map[string]any{
+						"topic": map[string]any{"name": "golang"},
 					},
-					map[string]interface{}{
-						"topic": map[string]interface{}{"name": "testing"},
+					map[string]any{
+						"topic": map[string]any{"name": "testing"},
 					},
-					map[string]interface{}{
-						"topic": map[string]interface{}{"name": "open-source"},
+					map[string]any{
+						"topic": map[string]any{"name": "open-source"},
 					},
 				},
 			},
@@ -279,11 +279,11 @@ func TestParseBatchResponse_TopicsJSON(t *testing.T) {
 }
 
 // buildTopicNodes is a helper function to create topic nodes for testing
-func buildTopicNodes(count int) []interface{} {
-	nodes := make([]interface{}, count)
+func buildTopicNodes(count int) []any {
+	nodes := make([]any, count)
 	for i := 0; i < count; i++ {
-		nodes[i] = map[string]interface{}{
-			"topic": map[string]interface{}{
+		nodes[i] = map[string]any{
+			"topic": map[string]any{
 				"name": fmt.Sprintf("topic%d", i),
 			},
 		}

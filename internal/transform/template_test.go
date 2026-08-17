@@ -637,7 +637,7 @@ func formatLogData(data logrus.Fields) string {
 	return strings.Join(parts, " ")
 }
 
-func formatValue(v interface{}) string {
+func formatValue(v any) string {
 	switch val := v.(type) {
 	case string:
 		return val

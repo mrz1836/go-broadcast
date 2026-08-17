@@ -67,13 +67,13 @@ func BenchmarkFormatting_Types(b *testing.B) {
 	// Create test log entries with different complexity
 	entries := []struct {
 		name   string
-		fields map[string]interface{}
+		fields map[string]any
 	}{
-		{"Simple", map[string]interface{}{
+		{"Simple", map[string]any{
 			"message": "Simple log message",
 			"level":   "INFO",
 		}},
-		{"WithFields", map[string]interface{}{
+		{"WithFields", map[string]any{
 			"message":  "Log with fields",
 			"level":    "INFO",
 			"user":     "test-user",
@@ -81,8 +81,8 @@ func BenchmarkFormatting_Types(b *testing.B) {
 			"count":    100,
 			"success":  true,
 		}},
-		{"ManyFields", func() map[string]interface{} {
-			fields := make(map[string]interface{})
+		{"ManyFields", func() map[string]any {
+			fields := make(map[string]any)
 			fields["message"] = "Log with many fields"
 			fields["level"] = "INFO"
 			for i := 0; i < 20; i++ {
@@ -90,22 +90,22 @@ func BenchmarkFormatting_Types(b *testing.B) {
 			}
 			return fields
 		}()},
-		{"NestedFields", map[string]interface{}{
+		{"NestedFields", map[string]any{
 			"message": "Log with nested data",
 			"level":   "INFO",
-			"metadata": map[string]interface{}{
-				"user": map[string]interface{}{
+			"metadata": map[string]any{
+				"user": map[string]any{
 					"id":   123,
 					"name": "John Doe",
 				},
-				"request": map[string]interface{}{
+				"request": map[string]any{
 					"method": "GET",
 					"path":   "/api/v1/users",
 					"params": []string{"param1", "param2"},
 				},
 			},
 		}},
-		{"WithSensitiveData", map[string]interface{}{
+		{"WithSensitiveData", map[string]any{
 			"message":  "Log with sensitive data",
 			"level":    "INFO",
 			"token":    "ghp_1234567890abcdefghij",
@@ -196,9 +196,9 @@ func BenchmarkRedactionHook_Processing(b *testing.B) {
 		}},
 		{"NestedSensitiveData", logrus.Fields{
 			"user": "test-user",
-			"config": map[string]interface{}{
+			"config": map[string]any{
 				"database_password": "dbpass123",
-				"api_settings": map[string]interface{}{
+				"api_settings": map[string]any{
 					"token":   "nested_token_123",
 					"timeout": 30,
 				},
@@ -279,9 +279,9 @@ func BenchmarkMemoryUsage_LoggingOperations(b *testing.B) {
 					"tokens": []string{
 						"ghp_token1", "ghs_token2", "github_pat_token3",
 					},
-					"nested": map[string]interface{}{
+					"nested": map[string]any{
 						"password": "secret123",
-						"config": map[string]interface{}{
+						"config": map[string]any{
 							"api_key": "key_abc123",
 							"timeout": 30,
 						},

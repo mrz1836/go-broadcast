@@ -98,7 +98,7 @@ func BenchmarkParseJSON_Sizes(b *testing.B) {
 			data := benchmark.GenerateJSONResponse(size.itemCount)
 
 			benchmark.WithMemoryTracking(b, func() {
-				var result []interface{}
+				var result []any
 				_ = json.Unmarshal(data, &result)
 			})
 		})
@@ -259,7 +259,7 @@ func BenchmarkCommitOperations(b *testing.B) {
 func BenchmarkJSONSerialization_ComplexStructures(b *testing.B) {
 	structures := []struct {
 		name string
-		data interface{}
+		data any
 	}{
 		{"Branch", generateTestBranch("master")},
 		{"PR_Simple", generateTestPR(1, false)},

@@ -106,14 +106,14 @@ type ProfileInfo struct {
 
 // ReportConfig configures report generation
 type ReportConfig struct {
-	OutputDirectory     string                 `json:"output_directory"`
-	BaselineFile        string                 `json:"baseline_file"`
-	IncludeProfiles     bool                   `json:"include_profiles"`
-	GenerateHTML        bool                   `json:"generate_html"`
-	GenerateJSON        bool                   `json:"generate_json"`
-	GenerateMarkdown    bool                   `json:"generate_markdown"`
-	ComparisonThreshold float64                `json:"comparison_threshold"`
-	CustomMetrics       map[string]interface{} `json:"custom_metrics,omitempty"`
+	OutputDirectory     string         `json:"output_directory"`
+	BaselineFile        string         `json:"baseline_file"`
+	IncludeProfiles     bool           `json:"include_profiles"`
+	GenerateHTML        bool           `json:"generate_html"`
+	GenerateJSON        bool           `json:"generate_json"`
+	GenerateMarkdown    bool           `json:"generate_markdown"`
+	ComparisonThreshold float64        `json:"comparison_threshold"`
+	CustomMetrics       map[string]any `json:"custom_metrics,omitempty"`
 }
 
 // DefaultReportConfig returns default report configuration
@@ -712,7 +712,7 @@ func (pr *PerformanceReporter) getTemplateFuncs() template.FuncMap {
 			}
 			return formatBytesHelper(bytes)
 		},
-		"title": func(v interface{}) string {
+		"title": func(v any) string {
 			s := fmt.Sprintf("%v", v)
 			runes := []rune(s)
 			if len(runes) == 0 {

@@ -22,11 +22,11 @@ func TestMetadata_Roundtrip(t *testing.T) {
 		},
 		{
 			name:     "nested objects",
-			metadata: Metadata{"nested": map[string]interface{}{"inner": "value"}},
+			metadata: Metadata{"nested": map[string]any{"inner": "value"}},
 		},
 		{
 			name:     "array values",
-			metadata: Metadata{"tags": []interface{}{"tag1", "tag2"}},
+			metadata: Metadata{"tags": []any{"tag1", "tag2"}},
 		},
 		{
 			name:     "nil metadata",
@@ -577,7 +577,7 @@ func TestCustomTypes_Value(t *testing.T) {
 		assert.NotNil(t, val)
 
 		// Verify JSON encoding
-		var decoded map[string]interface{}
+		var decoded map[string]any
 		err = json.Unmarshal(val.([]byte), &decoded)
 		require.NoError(t, err)
 		assert.Equal(t, "value", decoded["key"])

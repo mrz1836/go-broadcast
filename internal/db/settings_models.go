@@ -82,7 +82,7 @@ func (j JSONAuditResults) Value() (driver.Value, error) {
 }
 
 // Scan implements sql.Scanner
-func (j *JSONAuditResults) Scan(value interface{}) error {
+func (j *JSONAuditResults) Scan(value any) error {
 	if value == nil {
 		*j = nil
 		return nil

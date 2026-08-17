@@ -82,7 +82,7 @@ func (bp *BatchProcessor) ProcessFiles(ctx context.Context, sourcePath string, j
 	g.SetLimit(bp.workerCount)
 
 	// Start workers
-	for i := 0; i < bp.workerCount; i++ {
+	for i := range bp.workerCount {
 		workerID := i
 		g.Go(func() error {
 			return bp.worker(ctx, workerID, sourcePath, jobChan, resultChan)
@@ -684,7 +684,7 @@ func (bp *BatchProcessor) ProcessFilesWithProgress(ctx context.Context, sourcePa
 	var mu sync.Mutex
 
 	// Start workers with progress tracking
-	for i := 0; i < bp.workerCount; i++ {
+	for i := range bp.workerCount {
 		workerID := i
 		g.Go(func() error {
 			return bp.workerWithProgress(ctx, workerID, sourcePath, jobChan, resultChan, &processed, &mu, len(jobs), progressReporter)

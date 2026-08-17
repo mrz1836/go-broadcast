@@ -573,7 +573,7 @@ func (rs *RepositorySync) forceCleanup() error {
 	}
 
 	// Strategy 2: Multiple removal attempts with delay
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if err := os.RemoveAll(rs.tempDir); err != nil {
 			lastErr = err
 			rs.logger.WithError(err).WithField("attempt", i+1).Debug("Cleanup attempt failed")

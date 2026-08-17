@@ -513,7 +513,7 @@ func TestTargetUpdateEmail(t *testing.T) {
 		assert.Equal(t, "updated", resp.Action)
 
 		// Result JSON reports both emails (AC-8).
-		data, ok := resp.Data.(map[string]interface{})
+		data, ok := resp.Data.(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "new-security@example.com", data["security_email"])
 		assert.Equal(t, "keep-support@example.com", data["support_email"])
@@ -562,7 +562,7 @@ func TestTargetUpdateEmail(t *testing.T) {
 		assert.True(t, resp.DryRun)
 
 		// Dry-run reports the new value (AC-8)...
-		data, ok := resp.Data.(map[string]interface{})
+		data, ok := resp.Data.(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "dryrun@example.com", data["security_email"])
 
@@ -1531,7 +1531,7 @@ func TestTargetCloneEmail(t *testing.T) {
 		assert.True(t, resp.Success)
 
 		// Result JSON reports the rebased emails (AC-8, real path).
-		data, ok := resp.Data.(map[string]interface{})
+		data, ok := resp.Data.(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "go-actions@example.com", data["security_email"])
 		assert.Equal(t, "go-actions@example.com", data["support_email"])
@@ -1606,7 +1606,7 @@ func TestTargetCloneEmail(t *testing.T) {
 		assert.True(t, resp.DryRun)
 
 		// Dry-run reports the resolved emails for both columns (AC-8)...
-		data, ok := resp.Data.(map[string]interface{})
+		data, ok := resp.Data.(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "dry-dest@example.com", data["security_email"])
 		assert.Equal(t, "dry-dest@example.com", data["support_email"])

@@ -1449,7 +1449,7 @@ func (suite *DirectoryE2EPerformanceSuite) generateComprehensiveReport() {
 }
 
 // writeToReport is a helper function that ignores fmt.Fprintf errors in test reports
-func (suite *DirectoryE2EPerformanceSuite) writeToReport(f *os.File, format string, args ...interface{}) {
+func (suite *DirectoryE2EPerformanceSuite) writeToReport(f *os.File, format string, args ...any) {
 	_, _ = fmt.Fprintf(f, format, args...)
 }
 

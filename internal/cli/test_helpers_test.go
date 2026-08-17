@@ -14,7 +14,7 @@ func TestTestValidConfig(t *testing.T) {
 		require.NotEmpty(t, TestValidConfig, "TestValidConfig should not be empty")
 
 		// Test that it's valid YAML
-		var config map[string]interface{}
+		var config map[string]any
 		err := yaml.Unmarshal([]byte(TestValidConfig), &config)
 		require.NoError(t, err, "TestValidConfig should be valid YAML")
 	})
@@ -177,7 +177,7 @@ func TestTestValidConfigUsability(t *testing.T) {
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
 				if tc.valid {
-					var config map[string]interface{}
+					var config map[string]any
 					err := yaml.Unmarshal([]byte(tc.config), &config)
 					require.NoError(t, err, "Should parse successfully")
 					assert.NotEmpty(t, config, "Should not be empty")
@@ -204,7 +204,7 @@ func TestTestValidConfigUsability(t *testing.T) {
 		assert.Contains(t, modifiedConfig, "config.yaml", "Should be modifiable")
 
 		// Still should be valid YAML after modifications
-		var config map[string]interface{}
+		var config map[string]any
 		err := yaml.Unmarshal([]byte(modifiedConfig), &config)
 		require.NoError(t, err, "Modified config should still be valid YAML")
 	})

@@ -45,13 +45,13 @@ type MockLogger struct {
 	messages []string
 }
 
-func (m *MockLogger) Printf(format string, v ...interface{}) {
+func (m *MockLogger) Printf(format string, v ...any) {
 	msg := fmt.Sprintf(format, v...)
 	m.messages = append(m.messages, msg)
 	m.Called(format, v)
 }
 
-func (m *MockLogger) Fatalf(format string, v ...interface{}) {
+func (m *MockLogger) Fatalf(format string, v ...any) {
 	m.Called(format, v)
 	panic(fmt.Sprintf(format, v...))
 }
@@ -83,7 +83,7 @@ func (m *MockFileInfo) Size() int64        { return m.size }
 func (m *MockFileInfo) Mode() os.FileMode  { return 0o644 }
 func (m *MockFileInfo) ModTime() time.Time { return time.Now() }
 func (m *MockFileInfo) IsDir() bool        { return m.isDir }
-func (m *MockFileInfo) Sys() interface{}   { return nil }
+func (m *MockFileInfo) Sys() any           { return nil }
 
 func TestTestCleanupApp_Run(t *testing.T) {
 	t.Run("successful execution", func(t *testing.T) {

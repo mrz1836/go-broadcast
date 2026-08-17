@@ -46,14 +46,14 @@ func validateJSONLogOutput(t *testing.T, output string) {
 
 // validateSingleJSONLogEntry validates a single JSON log entry
 func validateSingleJSONLogEntry(t *testing.T, line string) bool {
-	var logEntry map[string]interface{}
+	var logEntry map[string]any
 	if json.Unmarshal([]byte(line), &logEntry) != nil {
 		return false
 	}
 
 	// Validate JSON structure
 	if level, ok := logEntry["level"]; ok {
-		assert.Contains(t, []interface{}{"info", "debug", "trace", "warn", "error"}, level,
+		assert.Contains(t, []any{"info", "debug", "trace", "warn", "error"}, level,
 			"should have valid log level")
 	}
 
@@ -526,7 +526,7 @@ groups:
 					continue
 				}
 
-				var logEntry map[string]interface{}
+				var logEntry map[string]any
 				if json.Unmarshal([]byte(line), &logEntry) == nil {
 					if corrID, ok := logEntry["correlation_id"]; ok {
 						if corrIDStr, ok := corrID.(string); ok && corrIDStr != "" {
@@ -614,7 +614,7 @@ groups:
 					continue
 				}
 
-				var logEntry map[string]interface{}
+				var logEntry map[string]any
 				if json.Unmarshal([]byte(line), &logEntry) == nil {
 					if durationMs, ok := logEntry["duration_ms"]; ok {
 						foundTiming = true
@@ -746,7 +746,7 @@ groups:
 						}
 
 						// Try to parse as JSON - if successful, break
-						var jsonData map[string]interface{}
+						var jsonData map[string]any
 						if json.Unmarshal([]byte(line), &jsonData) == nil {
 							// Found valid JSON, test passes
 							break

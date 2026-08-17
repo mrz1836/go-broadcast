@@ -10,7 +10,7 @@ import (
 
 // Entry represents a cached value
 type Entry struct {
-	Value     interface{}
+	Value     any
 	ExpiresAt time.Time
 }
 
@@ -86,7 +86,7 @@ func NewTTLCache(ttl time.Duration, maxSize int) *TTLCache {
 }
 
 // Get retrieves a value from cache
-func (c *TTLCache) Get(key string) (interface{}, bool) {
+func (c *TTLCache) Get(key string) (any, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -106,7 +106,7 @@ func (c *TTLCache) Get(key string) (interface{}, bool) {
 }
 
 // Set stores a value in cache
-func (c *TTLCache) Set(key string, value interface{}) {
+func (c *TTLCache) Set(key string, value any) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -126,14 +126,14 @@ func (c *TTLCache) Set(key string, value interface{}) {
 // This method uses singleflight to prevent the "thundering herd" problem:
 // when multiple goroutines request the same missing key simultaneously,
 // only one will call the loader function, and the result is shared.
-func (c *TTLCache) GetOrLoad(key string, loader func() (interface{}, error)) (interface{}, error) {
+func (c *TTLCache) GetOrLoad(key string, loader func() (any, error)) (any, error) {
 	// Fast path: check if value exists in cache
 	if val, ok := c.Get(key); ok {
 		return val, nil
 	}
 
 	// Use singleflight to ensure only one loader runs per key
-	val, err, _ := c.group.Do(key, func() (interface{}, error) {
+	val, err, _ := c.group.Do(key, func() (any, error) {
 		// Double-check after acquiring singleflight lock
 		// (another goroutine may have populated the cache)
 		if val, ok := c.Get(key); ok {

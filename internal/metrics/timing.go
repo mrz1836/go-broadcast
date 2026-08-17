@@ -129,7 +129,7 @@ func StartTimer(ctx context.Context, logger *logrus.Entry, operation string) *Ti
 // Notes:
 // - Method chaining is supported for multiple field assignments
 // - Fields are logged when Stop() is called
-func (t *Timer) AddField(key string, value interface{}) *Timer {
+func (t *Timer) AddField(key string, value any) *Timer {
 	t.fields[key] = value
 	return t
 }

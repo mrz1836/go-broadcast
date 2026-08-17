@@ -20,7 +20,7 @@ type testStruct struct {
 func TestMarshalJSON(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   interface{}
+		input   any
 		want    string
 		wantErr bool
 	}{
@@ -51,7 +51,7 @@ func TestMarshalJSON(t *testing.T) {
 		},
 		{
 			name: "complex nested structure",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"struct": testStruct{Name: "nested", Value: 100},
 				"array":  []int{1, 2, 3},
 				"bool":   true,
@@ -71,7 +71,7 @@ func TestMarshalJSON(t *testing.T) {
 
 			// For maps, we need to handle potential key ordering differences
 			if strings.Contains(tt.want, `"a":`) && strings.Contains(tt.want, `"b":`) {
-				var gotMap, wantMap map[string]interface{}
+				var gotMap, wantMap map[string]any
 				require.NoError(t, json.Unmarshal(got, &gotMap))
 				require.NoError(t, json.Unmarshal([]byte(tt.want), &wantMap))
 				assert.Equal(t, wantMap, gotMap)
@@ -86,8 +86,8 @@ func TestUnmarshalJSON(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
-		target  interface{}
-		want    interface{}
+		target  any
+		want    any
 		wantErr bool
 	}{
 		{
@@ -175,7 +175,7 @@ func TestGenerateTestJSON(t *testing.T) {
 	tests := []struct {
 		name     string
 		count    int
-		template interface{}
+		template any
 		wantLen  int
 		wantErr  bool
 	}{
@@ -227,7 +227,7 @@ func TestGenerateTestJSON(t *testing.T) {
 			require.NoError(t, err)
 
 			// Unmarshal to verify the content
-			var result []interface{}
+			var result []any
 			require.NoError(t, json.Unmarshal(got, &result))
 			assert.Len(t, result, tt.wantLen)
 
@@ -240,7 +240,7 @@ func TestGenerateTestJSON(t *testing.T) {
 					assert.Equal(t, tmpl, result[tt.wantLen-1])
 				case testStruct:
 					// For structs, JSON unmarshals to map[string]interface{}
-					firstItem := result[0].(map[string]interface{})
+					firstItem := result[0].(map[string]any)
 					assert.Equal(t, tmpl.Name, firstItem["name"])
 					assert.InEpsilon(t, float64(tmpl.Value), firstItem["value"], 0.0001)
 				}
@@ -252,7 +252,7 @@ func TestGenerateTestJSON(t *testing.T) {
 func TestPrettyPrint(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   interface{}
+		input   any
 		want    string
 		wantErr bool
 	}{
@@ -274,8 +274,8 @@ func TestPrettyPrint(t *testing.T) {
 		},
 		{
 			name: "nested structure",
-			input: map[string]interface{}{
-				"level1": map[string]interface{}{
+			input: map[string]any{
+				"level1": map[string]any{
 					"level2": "value",
 					"array":  []int{1, 2, 3},
 				},
@@ -307,7 +307,7 @@ func TestPrettyPrint(t *testing.T) {
 		},
 		{
 			name:  "empty object",
-			input: map[string]interface{}{},
+			input: map[string]any{},
 			want:  "{}",
 		},
 	}
@@ -324,7 +324,7 @@ func TestPrettyPrint(t *testing.T) {
 			// Normalize the comparison by parsing both as JSON
 			if strings.Contains(tt.want, `"array"`) && strings.Contains(tt.want, `"level2"`) {
 				// For maps with potential key ordering issues
-				var gotObj, wantObj interface{}
+				var gotObj, wantObj any
 				require.NoError(t, json.Unmarshal([]byte(got), &gotObj))
 				require.NoError(t, json.Unmarshal([]byte(tt.want), &wantObj))
 				assert.Equal(t, wantObj, gotObj)
@@ -534,7 +534,7 @@ func BenchmarkUnmarshalJSON(b *testing.B) {
 }
 
 func BenchmarkGenerateTestJSON(b *testing.B) {
-	template := map[string]interface{}{
+	template := map[string]any{
 		"id":     123,
 		"name":   "test",
 		"active": true,
@@ -558,7 +558,7 @@ func TestMarshalJSONErrorCases(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		input   interface{}
+		input   any
 		wantErr bool
 	}{
 		{
@@ -590,7 +590,7 @@ func TestMarshalJSONErrorCases(t *testing.T) {
 func TestPrettyPrintErrorCases(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   interface{}
+		input   any
 		wantErr bool
 	}{
 		{

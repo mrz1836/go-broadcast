@@ -20,14 +20,14 @@ var ErrInvalidPort = errors.New("invalid port")
 
 // deepCopyMetrics creates a deep copy of the metrics map to prevent data races.
 // This ensures callers cannot modify internal state through returned references.
-func deepCopyMetrics(src map[string]interface{}) map[string]interface{} {
+func deepCopyMetrics(src map[string]any) map[string]any {
 	if src == nil {
 		return nil
 	}
-	result := make(map[string]interface{}, len(src))
+	result := make(map[string]any, len(src))
 	for k, v := range src {
 		switch val := v.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			result[k] = deepCopyMetrics(val)
 		default:
 			result[k] = v
@@ -39,7 +39,7 @@ func deepCopyMetrics(src map[string]interface{}) map[string]interface{} {
 // MetricsCollector collects and aggregates runtime metrics
 type MetricsCollector struct {
 	mu      sync.RWMutex
-	metrics map[string]interface{}
+	metrics map[string]any
 
 	// Configuration
 	collectInterval time.Duration
@@ -57,8 +57,8 @@ type MetricsCollector struct {
 
 // MetricsSnapshot represents metrics at a point in time
 type MetricsSnapshot struct {
-	Timestamp time.Time              `json:"timestamp"`
-	Metrics   map[string]interface{} `json:"metrics"`
+	Timestamp time.Time      `json:"timestamp"`
+	Metrics   map[string]any `json:"metrics"`
 }
 
 // DashboardConfig configures the monitoring dashboard
@@ -86,7 +86,7 @@ func NewMetricsCollector(config DashboardConfig) *MetricsCollector {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	mc := &MetricsCollector{
-		metrics:         make(map[string]interface{}),
+		metrics:         make(map[string]any),
 		collectInterval: config.CollectInterval,
 		retainHistory:   config.RetainHistory,
 		history:         make([]MetricsSnapshot, 0, config.RetainHistory),
@@ -110,7 +110,7 @@ func NewMetricsCollector(config DashboardConfig) *MetricsCollector {
 
 // GetCurrentMetrics returns a deep copy of the current metrics.
 // The returned map is safe to modify without affecting internal state.
-func (mc *MetricsCollector) GetCurrentMetrics() map[string]interface{} {
+func (mc *MetricsCollector) GetCurrentMetrics() map[string]any {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
 
@@ -149,10 +149,10 @@ func (mc *MetricsCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Prepare response data
-	var data interface{}
+	var data any
 	switch r.URL.Query().Get("type") {
 	case "history":
-		data = map[string]interface{}{"history": mc.GetMetricsHistory()}
+		data = map[string]any{"history": mc.GetMetricsHistory()}
 	default:
 		data = mc.GetCurrentMetrics()
 	}
@@ -212,9 +212,9 @@ func (mc *MetricsCollector) updateMetrics() {
 	now := time.Now()
 
 	// Create metrics map
-	currentMetrics := map[string]interface{}{
+	currentMetrics := map[string]any{
 		"timestamp": now.Unix(),
-		"memory": map[string]interface{}{
+		"memory": map[string]any{
 			"alloc_mb":       float64(memStats.Alloc) / 1024 / 1024,
 			"total_alloc_mb": float64(memStats.TotalAlloc) / 1024 / 1024,
 			"sys_mb":         float64(memStats.Sys) / 1024 / 1024,
@@ -224,12 +224,12 @@ func (mc *MetricsCollector) updateMetrics() {
 			"stack_sys_mb":   float64(memStats.StackSys) / 1024 / 1024,
 			"next_gc_mb":     float64(memStats.NextGC) / 1024 / 1024,
 		},
-		"gc": map[string]interface{}{
+		"gc": map[string]any{
 			"num_gc":         memStats.NumGC,
 			"num_forced":     memStats.NumForcedGC,
 			"pause_total_ms": float64(memStats.PauseTotalNs) / 1e6,
 		},
-		"runtime": map[string]interface{}{
+		"runtime": map[string]any{
 			"goroutines": runtime.NumGoroutine(),
 			"num_cpu":    runtime.NumCPU(),
 			"gomaxprocs": runtime.GOMAXPROCS(-1),
@@ -243,7 +243,7 @@ func (mc *MetricsCollector) updateMetrics() {
 		recentPause := memStats.PauseNs[(memStats.NumGC+255)%256]
 		avgPause := float64(memStats.PauseTotalNs) / float64(memStats.NumGC) / 1e6
 
-		gcMetrics := currentMetrics["gc"].(map[string]interface{})
+		gcMetrics := currentMetrics["gc"].(map[string]any)
 		gcMetrics["last_pause_ms"] = float64(recentPause) / 1e6
 		gcMetrics["avg_pause_ms"] = avgPause
 		gcMetrics["last_gc_time"] = time.Unix(0, int64(memStats.LastGC)).Unix() //nolint:gosec // LastGC is nanoseconds since epoch, safe for int64 until year 2262
@@ -252,7 +252,7 @@ func (mc *MetricsCollector) updateMetrics() {
 	// Add profiler statistics if available
 	if mc.profiler != nil {
 		profilerStats := mc.profiler.GetProfilerStats()
-		currentMetrics["profiler"] = map[string]interface{}{
+		currentMetrics["profiler"] = map[string]any{
 			"enabled":         profilerStats.Enabled,
 			"active_sessions": profilerStats.ActiveSessions,
 			"total_sessions":  profilerStats.TotalSessions,
@@ -378,7 +378,7 @@ func (d *Dashboard) healthHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	response := map[string]interface{}{
+	response := map[string]any{
 		"status":    "healthy",
 		"timestamp": time.Now().Unix(),
 		"uptime":    time.Since(d.startTime).Seconds(),

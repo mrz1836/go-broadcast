@@ -170,12 +170,12 @@ func ChunkRepos(repos []gh.RepoInfo, batchSize int) [][]gh.RepoInfo {
 
 // ParseBatchResponse extracts per-repo data from aliased GraphQL response
 // The response structure matches the aliased query format (repo0, repo1, etc.)
-func ParseBatchResponse(data map[string]interface{}, repos []gh.RepoInfo) (map[string]*RepoMetadata, error) {
+func ParseBatchResponse(data map[string]any, repos []gh.RepoInfo) (map[string]*RepoMetadata, error) {
 	result := make(map[string]*RepoMetadata)
 
 	for i, repo := range repos {
 		alias := fmt.Sprintf("repo%d", i)
-		repoData, ok := data[alias].(map[string]interface{})
+		repoData, ok := data[alias].(map[string]any)
 		if !ok {
 			// Repo might not exist or be inaccessible, skip it
 			continue
@@ -207,7 +207,7 @@ func ParseBatchResponse(data map[string]interface{}, repos []gh.RepoInfo) (map[s
 		if isFork, ok := repoData["isFork"].(bool); ok {
 			metadata.IsFork = isFork
 		}
-		if parent, ok := repoData["parent"].(map[string]interface{}); ok {
+		if parent, ok := repoData["parent"].(map[string]any); ok {
 			if nwo, ok := parent["nameWithOwner"].(string); ok {
 				metadata.ForkParent = nwo
 			}
@@ -220,42 +220,42 @@ func ParseBatchResponse(data map[string]interface{}, repos []gh.RepoInfo) (map[s
 		}
 
 		// Extract watchers (nested object)
-		if watchers, ok := repoData["watchers"].(map[string]interface{}); ok {
+		if watchers, ok := repoData["watchers"].(map[string]any); ok {
 			if count, ok := watchers["totalCount"].(float64); ok {
 				metadata.Watchers = int(count)
 			}
 		}
 
 		// Extract open issues count
-		if issues, ok := repoData["issues"].(map[string]interface{}); ok {
+		if issues, ok := repoData["issues"].(map[string]any); ok {
 			if count, ok := issues["totalCount"].(float64); ok {
 				metadata.OpenIssues = int(count)
 			}
 		}
 
 		// Extract open PRs count
-		if prs, ok := repoData["pullRequests"].(map[string]interface{}); ok {
+		if prs, ok := repoData["pullRequests"].(map[string]any); ok {
 			if count, ok := prs["totalCount"].(float64); ok {
 				metadata.OpenPRs = int(count)
 			}
 		}
 
 		// Extract branch count (refs with refPrefix: "refs/heads/")
-		if refs, ok := repoData["refs"].(map[string]interface{}); ok {
+		if refs, ok := repoData["refs"].(map[string]any); ok {
 			if count, ok := refs["totalCount"].(float64); ok {
 				metadata.BranchCount = int(count)
 			}
 		}
 
 		// Extract default branch
-		if defaultBranch, ok := repoData["defaultBranchRef"].(map[string]interface{}); ok {
+		if defaultBranch, ok := repoData["defaultBranchRef"].(map[string]any); ok {
 			if name, ok := defaultBranch["name"].(string); ok {
 				metadata.DefaultBranch = name
 			}
 		}
 
 		// Extract latest release
-		if latestRelease, ok := repoData["latestRelease"].(map[string]interface{}); ok {
+		if latestRelease, ok := repoData["latestRelease"].(map[string]any); ok {
 			if tagName, ok := latestRelease["tagName"].(string); ok {
 				metadata.LatestRelease = tagName
 			}
@@ -265,15 +265,15 @@ func ParseBatchResponse(data map[string]interface{}, repos []gh.RepoInfo) (map[s
 		}
 
 		// Extract latest tag from aliased "tags" field
-		if tags, ok := repoData["tags"].(map[string]interface{}); ok {
-			if nodes, ok := tags["nodes"].([]interface{}); ok && len(nodes) > 0 {
-				if node, ok := nodes[0].(map[string]interface{}); ok {
+		if tags, ok := repoData["tags"].(map[string]any); ok {
+			if nodes, ok := tags["nodes"].([]any); ok && len(nodes) > 0 {
+				if node, ok := nodes[0].(map[string]any); ok {
 					if name, ok := node["name"].(string); ok {
 						metadata.LatestTag = name
 					}
 					// Extract tag date from target (can be Tag or Commit)
-					if target, ok := node["target"].(map[string]interface{}); ok {
-						if tagger, ok := target["tagger"].(map[string]interface{}); ok {
+					if target, ok := node["target"].(map[string]any); ok {
+						if tagger, ok := target["tagger"].(map[string]any); ok {
 							if date, ok := tagger["date"].(string); ok {
 								metadata.LatestTagAt = &date
 							}
@@ -286,7 +286,7 @@ func ParseBatchResponse(data map[string]interface{}, repos []gh.RepoInfo) (map[s
 		}
 
 		// Extract primary language
-		if primaryLanguage, ok := repoData["primaryLanguage"].(map[string]interface{}); ok {
+		if primaryLanguage, ok := repoData["primaryLanguage"].(map[string]any); ok {
 			if name, ok := primaryLanguage["name"].(string); ok {
 				metadata.Language = name
 			}
@@ -308,7 +308,7 @@ func ParseBatchResponse(data map[string]interface{}, repos []gh.RepoInfo) (map[s
 		}
 
 		// Extract license information
-		if licenseInfo, ok := repoData["licenseInfo"].(map[string]interface{}); ok {
+		if licenseInfo, ok := repoData["licenseInfo"].(map[string]any); ok {
 			if key, ok := licenseInfo["key"].(string); ok {
 				metadata.License = key
 			}
@@ -318,12 +318,12 @@ func ParseBatchResponse(data map[string]interface{}, repos []gh.RepoInfo) (map[s
 		}
 
 		// Extract repository topics
-		if repositoryTopics, ok := repoData["repositoryTopics"].(map[string]interface{}); ok {
-			if nodes, ok := repositoryTopics["nodes"].([]interface{}); ok {
+		if repositoryTopics, ok := repoData["repositoryTopics"].(map[string]any); ok {
+			if nodes, ok := repositoryTopics["nodes"].([]any); ok {
 				topics := make([]string, 0, len(nodes))
 				for _, node := range nodes {
-					if nodeMap, ok := node.(map[string]interface{}); ok {
-						if topic, ok := nodeMap["topic"].(map[string]interface{}); ok {
+					if nodeMap, ok := node.(map[string]any); ok {
+						if topic, ok := nodeMap["topic"].(map[string]any); ok {
 							if name, ok := topic["name"].(string); ok {
 								topics = append(topics, name)
 							}

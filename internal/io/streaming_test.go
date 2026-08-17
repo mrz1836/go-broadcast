@@ -379,7 +379,7 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 
 	t.Run("JSONArray", func(t *testing.T) {
 		// Create JSON array file
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"id": 1, "name": "item1", "value": "test1"},
 			{"id": 2, "name": "item2", "value": "test2"},
 			{"id": 3, "name": "item3", "value": "test3"},
@@ -391,8 +391,8 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 		testutil.WriteTestFile(t, jsonFile, string(data))
 
 		// Process JSON
-		var processedItems []interface{}
-		handler := func(item interface{}) error {
+		var processedItems []any
+		handler := func(item any) error {
 			processedItems = append(processedItems, item)
 			return nil
 		}
@@ -401,7 +401,7 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 		require.Len(t, processedItems, 3)
 
 		// Verify first item
-		firstItem, ok := processedItems[0].(map[string]interface{})
+		firstItem, ok := processedItems[0].(map[string]any)
 		require.True(t, ok)
 		require.InDelta(t, 1.0, firstItem["id"], 0.001) // JSON numbers are float64
 		require.Equal(t, "item1", firstItem["name"])
@@ -409,7 +409,7 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 
 	t.Run("JSONObject", func(t *testing.T) {
 		// Create JSON object file
-		testData := map[string]interface{}{
+		testData := map[string]any{
 			"property1": "value1",
 			"property2": 42,
 			"property3": true,
@@ -421,9 +421,9 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 		testutil.WriteTestFile(t, jsonFile, string(data))
 
 		// Process JSON
-		var processedProperties []map[string]interface{}
-		handler := func(item interface{}) error {
-			if prop, ok := item.(map[string]interface{}); ok {
+		var processedProperties []map[string]any
+		handler := func(item any) error {
+			if prop, ok := item.(map[string]any); ok {
 				processedProperties = append(processedProperties, prop)
 			}
 			return nil
@@ -448,7 +448,7 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 		jsonFile := filepath.Join(tempDir, "invalid.json")
 		testutil.WriteTestFile(t, jsonFile, "invalid json content")
 
-		handler := func(_ interface{}) error {
+		handler := func(_ any) error {
 			return nil
 		}
 
@@ -461,7 +461,7 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 		jsonFile := filepath.Join(tempDir, "invalid_structure.json")
 		testutil.WriteTestFile(t, jsonFile, "\"just a string\"")
 
-		handler := func(_ interface{}) error {
+		handler := func(_ any) error {
 			return nil
 		}
 
@@ -471,7 +471,7 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 	})
 
 	t.Run("HandlerError", func(t *testing.T) {
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"id": 1, "name": "item1"},
 		}
 
@@ -480,7 +480,7 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 		require.NoError(t, err)
 		testutil.WriteTestFile(t, jsonFile, string(data))
 
-		handler := func(_ interface{}) error {
+		handler := func(_ any) error {
 			return errHandlerFailed
 		}
 
@@ -491,9 +491,9 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 
 	t.Run("ContextCancellation", func(t *testing.T) {
 		// Create large JSON array
-		testData := make([]map[string]interface{}, 1000)
+		testData := make([]map[string]any, 1000)
 		for i := 0; i < 1000; i++ {
-			testData[i] = map[string]interface{}{"id": i}
+			testData[i] = map[string]any{"id": i}
 		}
 
 		jsonFile := filepath.Join(tempDir, "large_array.json")
@@ -504,7 +504,7 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		processedCount := 0
 
-		handler := func(_ interface{}) error {
+		handler := func(_ any) error {
 			processedCount++
 			if processedCount > 10 {
 				cancel() // Cancel after processing some items
@@ -521,7 +521,7 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 
 	t.Run("InvalidPath", func(t *testing.T) {
 		invalidPath := "../../../etc/passwd"
-		handler := func(_ interface{}) error {
+		handler := func(_ any) error {
 			return nil
 		}
 
@@ -532,7 +532,7 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 
 	t.Run("FileNotFound", func(t *testing.T) {
 		nonExistentFile := filepath.Join(tempDir, "nonexistent.json")
-		handler := func(_ interface{}) error {
+		handler := func(_ any) error {
 			return nil
 		}
 
@@ -1040,8 +1040,8 @@ func TestProcessLargeJSONEdgeCases(t *testing.T) {
 		jsonFile := filepath.Join(tempDir, "empty_array.json")
 		testutil.WriteTestFile(t, jsonFile, "[]")
 
-		var processedItems []interface{}
-		handler := func(item interface{}) error {
+		var processedItems []any
+		handler := func(item any) error {
 			processedItems = append(processedItems, item)
 			return nil
 		}
@@ -1055,8 +1055,8 @@ func TestProcessLargeJSONEdgeCases(t *testing.T) {
 		jsonFile := filepath.Join(tempDir, "empty_object.json")
 		testutil.WriteTestFile(t, jsonFile, "{}")
 
-		var processedItems []interface{}
-		handler := func(item interface{}) error {
+		var processedItems []any
+		handler := func(item any) error {
 			processedItems = append(processedItems, item)
 			return nil
 		}
@@ -1067,18 +1067,18 @@ func TestProcessLargeJSONEdgeCases(t *testing.T) {
 	})
 
 	t.Run("JSONArray_NestedStructures", func(t *testing.T) {
-		testData := []interface{}{
-			map[string]interface{}{
+		testData := []any{
+			map[string]any{
 				"id": 1,
-				"nested": map[string]interface{}{
-					"level2": map[string]interface{}{
-						"level3": []interface{}{1, 2, 3},
+				"nested": map[string]any{
+					"level2": map[string]any{
+						"level3": []any{1, 2, 3},
 					},
 				},
 			},
-			[]interface{}{
-				map[string]interface{}{"a": 1},
-				map[string]interface{}{"b": 2},
+			[]any{
+				map[string]any{"a": 1},
+				map[string]any{"b": 2},
 			},
 		}
 
@@ -1087,8 +1087,8 @@ func TestProcessLargeJSONEdgeCases(t *testing.T) {
 		require.NoError(t, err)
 		testutil.WriteTestFile(t, jsonFile, string(data))
 
-		var processedItems []interface{}
-		handler := func(item interface{}) error {
+		var processedItems []any
+		handler := func(item any) error {
 			processedItems = append(processedItems, item)
 			return nil
 		}
@@ -1101,7 +1101,7 @@ func TestProcessLargeJSONEdgeCases(t *testing.T) {
 	t.Run("JSONArray_LargeStrings", func(t *testing.T) {
 		// Create array with large string values
 		largeString := strings.Repeat("a", 100000)
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"id": 1, "data": largeString},
 			{"id": 2, "data": largeString},
 		}
@@ -1112,10 +1112,10 @@ func TestProcessLargeJSONEdgeCases(t *testing.T) {
 		testutil.WriteTestFile(t, jsonFile, string(data))
 
 		processedCount := 0
-		handler := func(item interface{}) error {
+		handler := func(item any) error {
 			processedCount++
 			// Verify we got the large string
-			if m, ok := item.(map[string]interface{}); ok {
+			if m, ok := item.(map[string]any); ok {
 				if str, ok := m["data"].(string); ok {
 					require.Len(t, str, len(largeString))
 				}
@@ -1143,7 +1143,7 @@ func TestProcessLargeJSONEdgeCases(t *testing.T) {
 				jsonFile := filepath.Join(tempDir, "malformed.json")
 				testutil.WriteTestFile(t, jsonFile, tt.content)
 
-				handler := func(_ interface{}) error {
+				handler := func(_ any) error {
 					return nil
 				}
 
@@ -1154,7 +1154,7 @@ func TestProcessLargeJSONEdgeCases(t *testing.T) {
 	})
 
 	t.Run("JSON_SpecialCharacters", func(t *testing.T) {
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{
 				"id":        1,
 				"unicode":   "Hello 世界 🌍", //nolint:gosmopolitan // Testing Unicode support
@@ -1170,8 +1170,8 @@ func TestProcessLargeJSONEdgeCases(t *testing.T) {
 		require.NoError(t, err)
 		testutil.WriteTestFile(t, jsonFile, string(data))
 
-		var processedItems []interface{}
-		handler := func(item interface{}) error {
+		var processedItems []any
+		handler := func(item any) error {
 			processedItems = append(processedItems, item)
 			return nil
 		}
@@ -1181,7 +1181,7 @@ func TestProcessLargeJSONEdgeCases(t *testing.T) {
 		require.Len(t, processedItems, 1)
 
 		// Verify special characters were preserved
-		item := processedItems[0].(map[string]interface{})
+		item := processedItems[0].(map[string]any)
 		require.Equal(t, "Hello 世界 🌍", item["unicode"]) //nolint:gosmopolitan // Testing Unicode support
 		require.Equal(t, "Line1\nLine2\tTabbed", item["escaped"])
 	})
@@ -1335,7 +1335,7 @@ func TestStreamProcessorSpecificErrorPaths(t *testing.T) {
 		testutil.WriteTestFile(t, inputFile, `["item1", "item2"]`)
 
 		handlerCalled := false
-		handler := func(_ interface{}) error {
+		handler := func(_ any) error {
 			handlerCalled = true
 			return nil
 		}
@@ -1351,7 +1351,7 @@ func TestStreamProcessorSpecificErrorPaths(t *testing.T) {
 		// Create JSON array with malformed item
 		testutil.WriteTestFile(t, inputFile, `["valid", invalid_json, "another"]`)
 
-		handler := func(_ interface{}) error {
+		handler := func(_ any) error {
 			return nil
 		}
 
@@ -1366,7 +1366,7 @@ func TestStreamProcessorSpecificErrorPaths(t *testing.T) {
 		testutil.WriteTestFile(t, inputFile, `["item1", "item2", "item3"]`)
 
 		callCount := 0
-		handler := func(_ interface{}) error {
+		handler := func(_ any) error {
 			callCount++
 			if callCount == 2 {
 				return errHandlerError
@@ -1384,9 +1384,9 @@ func TestStreamProcessorSpecificErrorPaths(t *testing.T) {
 		inputFile := filepath.Join(tempDir, "object.json")
 		testutil.WriteTestFile(t, inputFile, `{"key1": "value1", "key2": "value2", "key3": "value3"}`)
 
-		items := make([]map[string]interface{}, 0)
-		handler := func(item interface{}) error {
-			property := item.(map[string]interface{})
+		items := make([]map[string]any, 0)
+		handler := func(item any) error {
+			property := item.(map[string]any)
 			items = append(items, property)
 			return nil
 		}
@@ -1402,7 +1402,7 @@ func TestStreamProcessorSpecificErrorPaths(t *testing.T) {
 		// Malformed object with invalid property
 		testutil.WriteTestFile(t, inputFile, `{"valid": "value", invalid_property}`)
 
-		handler := func(_ interface{}) error {
+		handler := func(_ any) error {
 			return nil
 		}
 
@@ -1416,7 +1416,7 @@ func TestStreamProcessorSpecificErrorPaths(t *testing.T) {
 		inputFile := filepath.Join(tempDir, "obj_bad_value.json")
 		testutil.WriteTestFile(t, inputFile, `{"key": invalid_value}`)
 
-		handler := func(_ interface{}) error {
+		handler := func(_ any) error {
 			return nil
 		}
 
@@ -1431,7 +1431,7 @@ func TestStreamProcessorSpecificErrorPaths(t *testing.T) {
 		testutil.WriteTestFile(t, inputFile, `{"key1": "value1", "key2": "value2"}`)
 
 		callCount := 0
-		handler := func(_ interface{}) error {
+		handler := func(_ any) error {
 			callCount++
 			if callCount == 1 {
 				return errObjectHandlerError
@@ -1449,7 +1449,7 @@ func TestStreamProcessorSpecificErrorPaths(t *testing.T) {
 		inputFile := filepath.Join(tempDir, "no_closing.json")
 		testutil.WriteTestFile(t, inputFile, `["item1", "item2"`) // Missing closing bracket
 
-		handler := func(_ interface{}) error {
+		handler := func(_ any) error {
 			return nil
 		}
 

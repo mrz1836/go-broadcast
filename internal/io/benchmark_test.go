@@ -39,13 +39,13 @@ func generateTestJSONFile(t *testing.B, itemCount int) string {
 	filename := filepath.Join(tmpDir, fmt.Sprintf("test_%d.json", itemCount))
 
 	// Generate JSON array with test data
-	items := make([]map[string]interface{}, itemCount)
+	items := make([]map[string]any, itemCount)
 	for i := 0; i < itemCount; i++ {
-		items[i] = map[string]interface{}{
+		items[i] = map[string]any{
 			"id":   i,
 			"name": fmt.Sprintf("item_%d", i),
 			"data": fmt.Sprintf("test_data_%d", i),
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"created_at": time.Now().Format(time.RFC3339),
 				"version":    "1.0",
 				"tags":       []string{"test", fmt.Sprintf("tag_%d", i%10)},
@@ -223,7 +223,7 @@ func BenchmarkJSONProcessing(b *testing.B) {
 				b.ReportAllocs()
 				benchmark.WithMemoryTracking(b, func() {
 					processedCount := 0
-					handler := func(_ interface{}) error {
+					handler := func(_ any) error {
 						processedCount++
 						return nil
 					}
@@ -247,7 +247,7 @@ func BenchmarkJSONProcessing(b *testing.B) {
 						b.Fatalf("Failed to read JSON file: %v", err)
 					}
 
-					var items []interface{}
+					var items []any
 					if err := json.Unmarshal(data, &items); err != nil {
 						b.Fatalf("Failed to unmarshal JSON: %v", err)
 					}
@@ -472,9 +472,9 @@ func BenchmarkRealWorldScenarios(b *testing.B) {
 			intern := memory.NewStringIntern()
 			branches := memory.PreallocateSlice[string](1000)
 
-			handler := func(item interface{}) error {
+			handler := func(item any) error {
 				// Simulate branch processing with string interning
-				if branchMap, ok := item.(map[string]interface{}); ok {
+				if branchMap, ok := item.(map[string]any); ok {
 					if name, ok := branchMap["name"].(string); ok {
 						internedName := intern.Intern(name)
 						branches = append(branches, internedName)

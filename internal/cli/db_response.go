@@ -11,14 +11,14 @@ import (
 // CLIResponse is the standard JSON envelope for all CRUD commands.
 // It provides a consistent structure for AI agents and programmatic consumers.
 type CLIResponse struct {
-	Success bool        `json:"success"`
-	Action  string      `json:"action"`          // "created", "updated", "deleted", "listed", "attached", "detached"
-	Type    string      `json:"type"`            // "group", "target", "file_list", "directory_list", etc.
-	Data    interface{} `json:"data"`            // result object or array
-	Count   int         `json:"count,omitempty"` // for lists
-	DryRun  bool        `json:"dry_run,omitempty"`
-	Error   string      `json:"error,omitempty"` // error message on failure
-	Hint    string      `json:"hint,omitempty"`  // actionable suggestion on failure
+	Success bool   `json:"success"`
+	Action  string `json:"action"`          // "created", "updated", "deleted", "listed", "attached", "detached"
+	Type    string `json:"type"`            // "group", "target", "file_list", "directory_list", etc.
+	Data    any    `json:"data"`            // result object or array
+	Count   int    `json:"count,omitempty"` // for lists
+	DryRun  bool   `json:"dry_run,omitempty"`
+	Error   string `json:"error,omitempty"` // error message on failure
+	Hint    string `json:"hint,omitempty"`  // actionable suggestion on failure
 }
 
 func printDryRunResponse(resp CLIResponse, preview string, jsonOutput bool) error {

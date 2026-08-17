@@ -63,9 +63,9 @@ func init() {
 
 // QueryResult represents a query result
 type QueryResult struct {
-	Query   string      `json:"query"`
-	Results interface{} `json:"results"`
-	Count   int         `json:"count"`
+	Query   string `json:"query"`
+	Results any    `json:"results"`
+	Count   int    `json:"count"`
 }
 
 // runDBQuery executes the database query command
@@ -371,7 +371,7 @@ func queryByPattern(ctx context.Context, repo db.QueryRepository, pattern string
 }
 
 // printJSON prints a result as JSON
-func printJSON(result interface{}) error {
+func printJSON(result any) error {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(result)

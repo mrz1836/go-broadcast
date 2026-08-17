@@ -47,7 +47,7 @@ defaults:
   pr_labels: ["automated-sync", "chore"]
 targets:`)
 
-	for i := 0; i < targetCount; i++ {
+	for i := range targetCount {
 		fmt.Fprintf(&buf, `
   - repo: "org/target-repo-%d"
     files:
@@ -77,7 +77,7 @@ func GenerateJSONResponse(itemCount int) []byte {
 	var buf bytes.Buffer
 	buf.WriteString("[")
 
-	for i := 0; i < itemCount; i++ {
+	for i := range itemCount {
 		if i > 0 {
 			buf.WriteString(",")
 		}
@@ -135,7 +135,7 @@ func GenerateLogEntries(count int, withTokens bool) []string {
 		"INFO Successfully synchronized %d files",
 	}
 
-	for i := 0; i < count; i++ {
+	for i := range count {
 		pattern := patterns[i%len(patterns)]
 
 		var entry string
@@ -175,7 +175,7 @@ func GenerateGitDiff(fileCount, linesPerFile int) string {
 
 	var buf strings.Builder
 
-	for i := 0; i < fileCount; i++ {
+	for i := range fileCount {
 		filename := fmt.Sprintf("file%d.txt", i)
 		fmt.Fprintf(&buf, "diff --git a/%s b/%s\n", filename, filename)
 		fmt.Fprintf(&buf, "index %s..%s 100644\n", generateSHA()[:7], generateSHA()[:7])
@@ -183,7 +183,7 @@ func GenerateGitDiff(fileCount, linesPerFile int) string {
 		fmt.Fprintf(&buf, "+++ b/%s\n", filename)
 		fmt.Fprintf(&buf, "@@ -1,%d +1,%d @@\n", linesPerFile, linesPerFile+5)
 
-		for j := 0; j < linesPerFile; j++ {
+		for j := range linesPerFile {
 			if j%3 == 0 {
 				fmt.Fprintf(&buf, "-old line %d\n", j)
 				fmt.Fprintf(&buf, "+new line %d\n", j)
@@ -206,11 +206,11 @@ func GenerateRepositoryList(count int) []TestRepo {
 
 	repos := make([]TestRepo, count)
 
-	for i := 0; i < count; i++ {
+	for i := range count {
 		fileCount := 3 + (i % 10) // 3-12 files per repo
 		files := make([]TestFile, fileCount)
 
-		for j := 0; j < fileCount; j++ {
+		for j := range fileCount {
 			files[j] = TestFile{
 				Path:    fmt.Sprintf("file%d.txt", j),
 				Content: fmt.Sprintf("Content for file %d in repo %d\n", j, i),

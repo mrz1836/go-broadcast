@@ -87,7 +87,7 @@ type Client interface {
 	DiscoverOrgRepos(ctx context.Context, org string) ([]RepoInfo, error)
 
 	// ExecuteGraphQL executes a GraphQL query and returns the raw response data
-	ExecuteGraphQL(ctx context.Context, query string) (map[string]interface{}, error)
+	ExecuteGraphQL(ctx context.Context, query string) (map[string]any, error)
 
 	// GetDependabotAlerts retrieves Dependabot security alerts for a repository
 	// Returns empty slice if Dependabot is not enabled (404 response)

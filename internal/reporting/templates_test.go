@@ -60,7 +60,7 @@ func TestMarkdownTemplateBasic(t *testing.T) {
 		"formatBytes": func(_ int64) string {
 			return "formatted_bytes"
 		},
-		"title": func(_ interface{}) string {
+		"title": func(_ any) string {
 			return "titled"
 		},
 		"priorityClass": func(_ RecommendationPriority) string {
@@ -227,7 +227,7 @@ func TestHTMLTemplateBasic(t *testing.T) {
 		"formatBytes": func(_ int64) string {
 			return "bytes_formatted"
 		},
-		"title": func(_ interface{}) string {
+		"title": func(_ any) string {
 			return "Title_Case"
 		},
 		"priorityClass": func(priority RecommendationPriority) string {
@@ -323,7 +323,7 @@ func TestTemplateEdgeCases(t *testing.T) {
 			"formatFloat":   func(_ float64) string { return "0.00" },
 			"formatPercent": func(_ float64) string { return "0.0%" },
 			"formatBytes":   func(_ int64) string { return "0 B" },
-			"title":         func(_ interface{}) string { return "" },
+			"title":         func(_ any) string { return "" },
 			"priorityClass": func(_ RecommendationPriority) string { return "" },
 		}
 
@@ -363,7 +363,7 @@ func TestTemplateEdgeCases(t *testing.T) {
 			"formatFloat":   func(_ float64) string { return "0.00" },
 			"formatPercent": func(_ float64) string { return "0.0%" },
 			"formatBytes":   func(_ int64) string { return "0 B" },
-			"title":         func(_ interface{}) string { return "Zero Metric" },
+			"title":         func(_ any) string { return "Zero Metric" },
 			"priorityClass": func(_ RecommendationPriority) string { return "" },
 		}
 
@@ -396,7 +396,7 @@ func TestTemplateFunctionIntegration(t *testing.T) {
 			},
 			"formatPercent": func(_ float64) string { return "0.0%" },
 			"formatBytes":   func(_ int64) string { return "0 B" },
-			"title":         func(_ interface{}) string { return "Test Metric" },
+			"title":         func(_ any) string { return "Test Metric" },
 			"priorityClass": func(_ RecommendationPriority) string { return "" },
 		}
 
@@ -422,7 +422,7 @@ func TestTemplateFunctionIntegration(t *testing.T) {
 			"formatFloat":   func(_ float64) string { return "456.79" },
 			"formatPercent": func(_ float64) string { return "0.0%" },
 			"formatBytes":   func(_ int64) string { return "0 B" },
-			"title":         func(_ interface{}) string { return "Memory Usage" },
+			"title":         func(_ any) string { return "Memory Usage" },
 			"priorityClass": func(_ RecommendationPriority) string { return "" },
 		}
 
@@ -451,7 +451,7 @@ func TestTemplateFunctionIntegration(t *testing.T) {
 			"formatFloat":   func(_ float64) string { return "0.00" },
 			"formatPercent": func(_ float64) string { return "0.0%" },
 			"formatBytes":   func(_ int64) string { return "0 B" },
-			"title":         func(_ interface{}) string { return "Test" },
+			"title":         func(_ any) string { return "Test" },
 			"priorityClass": func(_ RecommendationPriority) string {
 				return "priority-high"
 			},
@@ -481,7 +481,7 @@ func TestTemplateConditionals(t *testing.T) {
 			"formatFloat":   func(_ float64) string { return "0.00" },
 			"formatPercent": func(_ float64) string { return "0.0%" },
 			"formatBytes":   func(_ int64) string { return "0 B" },
-			"title":         func(_ interface{}) string { return "" },
+			"title":         func(_ any) string { return "" },
 			"priorityClass": func(_ RecommendationPriority) string { return "" },
 		}
 
@@ -527,7 +527,7 @@ func TestTemplateConditionals(t *testing.T) {
 			"formatFloat":   func(_ float64) string { return "0.00" },
 			"formatPercent": func(_ float64) string { return "0.0%" },
 			"formatBytes":   func(_ int64) string { return "0 B" },
-			"title":         func(_ interface{}) string { return "" },
+			"title":         func(_ any) string { return "" },
 			"priorityClass": func(_ RecommendationPriority) string { return "" },
 		}
 
@@ -552,7 +552,7 @@ func TestTemplateConditionals(t *testing.T) {
 			"formatFloat":   func(_ float64) string { return "0.00" },
 			"formatPercent": func(_ float64) string { return "0.0%" },
 			"formatBytes":   func(_ int64) string { return "0 B" },
-			"title":         func(_ interface{}) string { return "" },
+			"title":         func(_ any) string { return "" },
 			"priorityClass": func(_ RecommendationPriority) string { return "" },
 		}
 

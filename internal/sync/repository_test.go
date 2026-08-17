@@ -1868,7 +1868,7 @@ func (m *TestValidationMockGHClient) DiscoverOrgRepos(_ context.Context, _ strin
 	return nil, ErrMockNotImplemented
 }
 
-func (m *TestValidationMockGHClient) ExecuteGraphQL(_ context.Context, _ string) (map[string]interface{}, error) {
+func (m *TestValidationMockGHClient) ExecuteGraphQL(_ context.Context, _ string) (map[string]any, error) {
 	return nil, ErrMockNotImplemented
 }
 

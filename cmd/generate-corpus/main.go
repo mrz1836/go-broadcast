@@ -29,9 +29,9 @@ type GenerateCorpusApp struct {
 
 // Logger defines the interface for logging operations
 type Logger interface {
-	Println(v ...interface{})
-	Printf(format string, v ...interface{})
-	Fatalf(format string, v ...interface{})
+	Println(v ...any)
+	Printf(format string, v ...any)
+	Fatalf(format string, v ...any)
 }
 
 // FileSystem defines the interface for file system operations
@@ -52,15 +52,15 @@ type CorpusGenerator interface {
 // DefaultLogger implements Logger using the log package
 type DefaultLogger struct{}
 
-func (d *DefaultLogger) Println(v ...interface{}) {
+func (d *DefaultLogger) Println(v ...any) {
 	log.Println(v...)
 }
 
-func (d *DefaultLogger) Printf(format string, v ...interface{}) {
+func (d *DefaultLogger) Printf(format string, v ...any) {
 	log.Printf(format, v...)
 }
 
-func (d *DefaultLogger) Fatalf(format string, v ...interface{}) {
+func (d *DefaultLogger) Fatalf(format string, v ...any) {
 	log.Fatalf(format, v...)
 }
 

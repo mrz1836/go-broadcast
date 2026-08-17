@@ -507,7 +507,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		}), "new456").Return(nil)
 
 		// Mock transform operations - different content for different targets
-		transformChain.On("Transform", mock.Anything, mock.Anything, mock.MatchedBy(func(_ interface{}) bool {
+		transformChain.On("Transform", mock.Anything, mock.Anything, mock.MatchedBy(func(_ any) bool {
 			// This is tricky - we need to return different content based on target
 			// For now, return general transformed content and rely on separate logic
 			return true

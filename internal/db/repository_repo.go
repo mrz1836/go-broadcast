@@ -143,7 +143,7 @@ func (r *repoRepository) UpdateLastSyncTimestamp(ctx context.Context, repoID uin
 		Session(&gorm.Session{SkipHooks: true}).
 		Model(&Repo{}).
 		Where("id = ?", repoID).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"last_sync_at":     syncAt,
 			"last_sync_run_id": syncRunID,
 		}).Error
@@ -154,7 +154,7 @@ func (r *repoRepository) UpdateLastBroadcastSyncTimestamp(ctx context.Context, r
 		Session(&gorm.Session{SkipHooks: true}).
 		Model(&Repo{}).
 		Where("id = ?", repoID).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"last_broadcast_sync_at":     syncAt,
 			"last_broadcast_sync_run_id": broadcastSyncRunID,
 		}).Error

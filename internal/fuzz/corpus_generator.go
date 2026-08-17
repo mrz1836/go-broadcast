@@ -408,7 +408,7 @@ func generateDeeplyNested(depth int) string {
 	sb.WriteString("targets:\n")
 
 	indent := "  "
-	for i := 0; i < depth; i++ {
+	for i := range depth {
 		sb.WriteString(indent + "- repo: nested/repo" + fmt.Sprintf("%d", i) + "\n")
 		sb.WriteString(indent + "  files:\n")
 		indent += "    "
@@ -429,11 +429,11 @@ func generateDeeplyNestedJSON(depth int) string {
 	}
 
 	var sb strings.Builder
-	for i := 0; i < depth; i++ {
+	for range depth {
 		sb.WriteString(`{"level":`)
 	}
 	sb.WriteString(`"bottom"`)
-	for i := 0; i < depth; i++ {
+	for range depth {
 		sb.WriteString(`}`)
 	}
 	return sb.String()

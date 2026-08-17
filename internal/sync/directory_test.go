@@ -557,7 +557,7 @@ type MockFileContent struct {
 type MockTransformChain struct{}
 
 // Transform implements a mock Transform method
-func (m *MockTransformChain) Transform(_ context.Context, content []byte, _ interface{}) ([]byte, error) {
+func (m *MockTransformChain) Transform(_ context.Context, content []byte, _ any) ([]byte, error) {
 	// Simple mock transformation - just return the content unchanged
 	return content, nil
 }

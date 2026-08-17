@@ -31,19 +31,19 @@ type MockLoggerAdvanced struct {
 	messages []string
 }
 
-func (m *MockLoggerAdvanced) Println(v ...interface{}) {
+func (m *MockLoggerAdvanced) Println(v ...any) {
 	msg := fmt.Sprintln(v...)
 	m.messages = append(m.messages, msg)
 	m.Called(v...)
 }
 
-func (m *MockLoggerAdvanced) Printf(format string, v ...interface{}) {
+func (m *MockLoggerAdvanced) Printf(format string, v ...any) {
 	msg := fmt.Sprintf(format, v...)
 	m.messages = append(m.messages, msg)
 	m.Called(format, v)
 }
 
-func (m *MockLoggerAdvanced) Fatalf(format string, v ...interface{}) {
+func (m *MockLoggerAdvanced) Fatalf(format string, v ...any) {
 	msg := fmt.Sprintf(format, v...)
 	m.messages = append(m.messages, msg)
 	m.Called(format, v)
@@ -95,7 +95,7 @@ func (m *MockFileInfo) Size() int64        { return m.size }
 func (m *MockFileInfo) Mode() os.FileMode  { return m.mode }
 func (m *MockFileInfo) ModTime() time.Time { return time.Now() }
 func (m *MockFileInfo) IsDir() bool        { return m.isDir }
-func (m *MockFileInfo) Sys() interface{}   { return nil }
+func (m *MockFileInfo) Sys() any           { return nil }
 
 func TestGenerateCorpusApp_Run(t *testing.T) {
 	t.Run("successful execution", func(t *testing.T) {
@@ -235,7 +235,7 @@ func TestGenerateCorpusApp_Run(t *testing.T) {
 		mockLogger.On("Println", "Starting fuzz corpus generation...").Return()
 		mockLogger.On("Println", "Generating fuzz test corpus...").Return()
 		mockLogger.On("Println", "Corpus generation complete!").Return()
-		mockLogger.On("Printf", "Corpus files created in: %s/corpus/\n", []interface{}{"internal/fuzz"}).Return()
+		mockLogger.On("Printf", "Corpus files created in: %s/corpus/\n", []any{"internal/fuzz"}).Return()
 
 		mockFileInfo := &MockFileInfo{name: "internal/fuzz", isDir: true}
 		mockFileSystem.On("Stat", "internal/fuzz").Return(mockFileInfo, nil)
@@ -356,7 +356,7 @@ func TestGenerateCorpusApp_MockValidation(t *testing.T) {
 		mockLogger.On("Println", "Starting fuzz corpus generation...").Once()
 		mockLogger.On("Println", "Generating fuzz test corpus...").Once()
 		mockLogger.On("Println", "Corpus generation complete!").Once()
-		mockLogger.On("Printf", "Corpus files created in: %s/corpus/\n", []interface{}{"internal/fuzz"}).Once()
+		mockLogger.On("Printf", "Corpus files created in: %s/corpus/\n", []any{"internal/fuzz"}).Once()
 
 		mockFileInfo := &MockFileInfo{name: "internal/fuzz", isDir: true}
 		mockFileSystem.On("Stat", "internal/fuzz").Return(mockFileInfo, nil).Once()

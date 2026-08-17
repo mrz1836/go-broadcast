@@ -90,7 +90,7 @@ func TestBuildCompleteMetadata(t *testing.T) {
 		metadata := buildCompleteMetadata(cfg, "/nonexistent/sync.yaml")
 
 		// Verify import context
-		importCtx, ok := metadata["import"].(map[string]interface{})
+		importCtx, ok := metadata["import"].(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "cli", importCtx["source_type"])
 		assert.NotEmpty(t, importCtx["timestamp"])
@@ -119,7 +119,7 @@ func TestBuildCompleteMetadata(t *testing.T) {
 		cfg := &config.Config{Version: 1}
 		metadata := buildCompleteMetadata(cfg, tmpFile)
 
-		fileMetadata, ok := metadata["source_file"].(map[string]interface{})
+		fileMetadata, ok := metadata["source_file"].(map[string]any)
 		require.True(t, ok)
 		assert.NotEmpty(t, fileMetadata["sha256"])
 	})
@@ -157,11 +157,11 @@ func TestEnrichConfigWithMetadata(t *testing.T) {
 
 		// Build metadata to apply
 		metadata := db.Metadata{
-			"import": map[string]interface{}{
+			"import": map[string]any{
 				"source_type": "cli",
 				"timestamp":   "2026-01-01T00:00:00Z",
 			},
-			"metrics": map[string]interface{}{
+			"metrics": map[string]any{
 				"total_groups":  1,
 				"total_targets": 3,
 			},
@@ -180,7 +180,7 @@ func TestEnrichConfigWithMetadata(t *testing.T) {
 		// Verify metadata content
 		importCtx, ok := updatedConfig.Metadata["import"]
 		assert.True(t, ok, "metadata should contain 'import' key")
-		if importMap, ok := importCtx.(map[string]interface{}); ok {
+		if importMap, ok := importCtx.(map[string]any); ok {
 			assert.Equal(t, "cli", importMap["source_type"])
 		}
 	})

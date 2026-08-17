@@ -154,7 +154,7 @@ func TestAnalyticsModels(t *testing.T) {
 		syncRun.APICallsMade = 228
 		syncRun.DurationMs = 12000
 		syncRun.Errors = Metadata{
-			"errors": []map[string]interface{}{
+			"errors": []map[string]any{
 				{"repo": "test-org/failed-repo", "error": "rate limit"},
 			},
 		}

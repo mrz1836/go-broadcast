@@ -52,8 +52,8 @@ type ProfileDemoApp struct {
 
 // Logger defines the interface for logging operations
 type Logger interface {
-	Println(v ...interface{})
-	Printf(format string, v ...interface{})
+	Println(v ...any)
+	Printf(format string, v ...any)
 }
 
 // DirectoryManager defines the interface for directory operations
@@ -89,11 +89,11 @@ type ReportGenerator interface {
 // DefaultLogger implements Logger using the log package
 type DefaultLogger struct{}
 
-func (d *DefaultLogger) Println(v ...interface{}) {
+func (d *DefaultLogger) Println(v ...any) {
 	log.Println(v...)
 }
 
-func (d *DefaultLogger) Printf(format string, v ...interface{}) {
+func (d *DefaultLogger) Printf(format string, v ...any) {
 	log.Printf(format, v...)
 }
 
@@ -342,7 +342,7 @@ func testBatchProcessing() {
 	config.BatchSize = 50
 	config.FlushInterval = time.Millisecond * 100
 
-	processor := algorithms.NewBatchProcessor(func(items []interface{}) error {
+	processor := algorithms.NewBatchProcessor(func(items []any) error {
 		// Simulate processing work
 		time.Sleep(time.Microsecond * time.Duration(len(items)*10))
 		return nil

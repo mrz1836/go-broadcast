@@ -49,7 +49,7 @@ func TestMetricsConcurrentReadWrite(t *testing.T) {
 				metrics := collector.GetCurrentMetrics()
 
 				// Modify returned data - should not affect other copies or internal state
-				if mem, ok := metrics["memory"].(map[string]interface{}); ok {
+				if mem, ok := metrics["memory"].(map[string]any); ok {
 					mem["test_value"] = 42
 				}
 
@@ -82,19 +82,19 @@ func TestMetricsDeepCopyIsolation(t *testing.T) {
 	metrics2 := collector.GetCurrentMetrics()
 
 	// Modify nested map in first copy
-	if mem, ok := metrics1["memory"].(map[string]interface{}); ok {
+	if mem, ok := metrics1["memory"].(map[string]any); ok {
 		mem["injected_value"] = "should_not_appear"
 	}
 
 	// Verify second copy was not affected
-	if mem2, ok := metrics2["memory"].(map[string]interface{}); ok {
+	if mem2, ok := metrics2["memory"].(map[string]any); ok {
 		_, exists := mem2["injected_value"]
 		assert.False(t, exists, "Second copy should not contain injected value")
 	}
 
 	// Verify internal state was not affected
 	metrics3 := collector.GetCurrentMetrics()
-	if mem3, ok := metrics3["memory"].(map[string]interface{}); ok {
+	if mem3, ok := metrics3["memory"].(map[string]any); ok {
 		_, exists := mem3["injected_value"]
 		assert.False(t, exists, "Internal state should not contain injected value")
 	}
@@ -120,12 +120,12 @@ func TestHistoryDeepCopyIsolation(t *testing.T) {
 	require.NotEmpty(t, history1, "History should not be empty")
 
 	// Modify nested map in first history copy
-	if mem, ok := history1[0].Metrics["memory"].(map[string]interface{}); ok {
+	if mem, ok := history1[0].Metrics["memory"].(map[string]any); ok {
 		mem["injected_value"] = "should_not_appear"
 	}
 
 	// Verify second copy was not affected
-	if mem2, ok := history2[0].Metrics["memory"].(map[string]interface{}); ok {
+	if mem2, ok := history2[0].Metrics["memory"].(map[string]any); ok {
 		_, exists := mem2["injected_value"]
 		assert.False(t, exists, "Second history copy should not contain injected value")
 	}
@@ -153,7 +153,7 @@ func TestProfilerConcurrentAccess(t *testing.T) {
 			for j := 0; j < 20; j++ {
 				metrics := collector.GetCurrentMetrics()
 				// Access profiler metrics if present
-				if profiler, ok := metrics["profiler"].(map[string]interface{}); ok {
+				if profiler, ok := metrics["profiler"].(map[string]any); ok {
 					_ = profiler["enabled"]
 					_ = profiler["active_sessions"]
 				}
@@ -189,7 +189,7 @@ func TestConcurrentMetricsAndHistory(t *testing.T) {
 			for j := 0; j < 20; j++ {
 				metrics := collector.GetCurrentMetrics()
 				// Access and modify - should be safe
-				if gc, ok := metrics["gc"].(map[string]interface{}); ok {
+				if gc, ok := metrics["gc"].(map[string]any); ok {
 					gc["test"] = j
 				}
 			}
@@ -283,9 +283,9 @@ func TestDeepCopyNilMap(t *testing.T) {
 func TestDeepCopyNestedMaps(t *testing.T) {
 	t.Parallel()
 
-	original := map[string]interface{}{
-		"level1": map[string]interface{}{
-			"level2": map[string]interface{}{
+	original := map[string]any{
+		"level1": map[string]any{
+			"level2": map[string]any{
 				"level3": "value",
 			},
 		},
@@ -294,12 +294,12 @@ func TestDeepCopyNestedMaps(t *testing.T) {
 	copied := deepCopyMetrics(original)
 
 	// Modify nested value in copy
-	level1 := copied["level1"].(map[string]interface{})
-	level2 := level1["level2"].(map[string]interface{})
+	level1 := copied["level1"].(map[string]any)
+	level2 := level1["level2"].(map[string]any)
 	level2["level3"] = "modified"
 
 	// Original should not be affected
-	origLevel1 := original["level1"].(map[string]interface{})
-	origLevel2 := origLevel1["level2"].(map[string]interface{})
+	origLevel1 := original["level1"].(map[string]any)
+	origLevel2 := origLevel1["level2"].(map[string]any)
 	assert.Equal(t, "value", origLevel2["level3"], "Original should not be modified")
 }

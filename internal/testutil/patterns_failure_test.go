@@ -32,24 +32,24 @@ type fatalSentinel struct{}
 
 func (r *recordingTB) Helper() { r.helperCalled = true }
 
-func (r *recordingTB) Fatal(args ...interface{}) {
+func (r *recordingTB) Fatal(args ...any) {
 	r.fatalCalled = true
 	r.lastMessage = fmt.Sprint(args...)
 	panic(fatalSentinel{})
 }
 
-func (r *recordingTB) Fatalf(format string, args ...interface{}) {
+func (r *recordingTB) Fatalf(format string, args ...any) {
 	r.fatalCalled = true
 	r.lastMessage = fmt.Sprintf(format, args...)
 	panic(fatalSentinel{})
 }
 
-func (r *recordingTB) Error(args ...interface{}) {
+func (r *recordingTB) Error(args ...any) {
 	r.errorCalled = true
 	r.lastMessage = fmt.Sprint(args...)
 }
 
-func (r *recordingTB) Errorf(format string, args ...interface{}) {
+func (r *recordingTB) Errorf(format string, args ...any) {
 	r.errorCalled = true
 	r.lastMessage = fmt.Sprintf(format, args...)
 }
@@ -74,7 +74,7 @@ func TestAssertNoError_Failure(t *testing.T) {
 	tests := []struct {
 		name        string
 		err         error
-		msgAndArgs  []interface{}
+		msgAndArgs  []any
 		wantContain string
 	}{
 		{
@@ -85,7 +85,7 @@ func TestAssertNoError_Failure(t *testing.T) {
 		{
 			name:        "error with message",
 			err:         errors.New("boom"), //nolint:err113 // test-only error
-			msgAndArgs:  []interface{}{"context info"},
+			msgAndArgs:  []any{"context info"},
 			wantContain: "unexpected error: boom",
 		},
 	}
@@ -106,7 +106,7 @@ func TestAssertNoError_Failure(t *testing.T) {
 func TestAssertError_Failure(t *testing.T) {
 	tests := []struct {
 		name        string
-		msgAndArgs  []interface{}
+		msgAndArgs  []any
 		wantContain string
 	}{
 		{
@@ -115,7 +115,7 @@ func TestAssertError_Failure(t *testing.T) {
 		},
 		{
 			name:        "nil error with message",
-			msgAndArgs:  []interface{}{"context info"},
+			msgAndArgs:  []any{"context info"},
 			wantContain: "expected error but got nil",
 		},
 	}

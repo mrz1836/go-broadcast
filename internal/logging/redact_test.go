@@ -17,9 +17,9 @@ func deepCopyFields(fields logrus.Fields) logrus.Fields {
 	result := make(logrus.Fields, len(fields))
 	for k, v := range fields {
 		switch val := v.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			result[k] = deepCopyMap(val)
-		case []interface{}:
+		case []any:
 			result[k] = deepCopySlice(val)
 		default:
 			result[k] = v
@@ -29,16 +29,16 @@ func deepCopyFields(fields logrus.Fields) logrus.Fields {
 }
 
 // deepCopyMap creates a deep copy of a map[string]interface{}.
-func deepCopyMap(m map[string]interface{}) map[string]interface{} {
+func deepCopyMap(m map[string]any) map[string]any {
 	if m == nil {
 		return nil
 	}
-	result := make(map[string]interface{}, len(m))
+	result := make(map[string]any, len(m))
 	for k, v := range m {
 		switch val := v.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			result[k] = deepCopyMap(val)
-		case []interface{}:
+		case []any:
 			result[k] = deepCopySlice(val)
 		default:
 			result[k] = v
@@ -48,16 +48,16 @@ func deepCopyMap(m map[string]interface{}) map[string]interface{} {
 }
 
 // deepCopySlice creates a deep copy of a []interface{}.
-func deepCopySlice(s []interface{}) []interface{} {
+func deepCopySlice(s []any) []any {
 	if s == nil {
 		return nil
 	}
-	result := make([]interface{}, len(s))
+	result := make([]any, len(s))
 	for i, v := range s {
 		switch val := v.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			result[i] = deepCopyMap(val)
-		case []interface{}:
+		case []any:
 			result[i] = deepCopySlice(val)
 		default:
 			result[i] = v
@@ -172,7 +172,7 @@ func TestRedactionService_RedactLogEntry(t *testing.T) {
 	tests := []struct {
 		name     string
 		entry    *logrus.Entry
-		expected map[string]interface{}
+		expected map[string]any
 	}{
 		{
 			name: "redact token in message",
@@ -180,7 +180,7 @@ func TestRedactionService_RedactLogEntry(t *testing.T) {
 				Message: "Using token ghp_1234567890abcdefghijklmnopqrstuvwxyz123456",
 				Data:    logrus.Fields{},
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"message": "Using token ghp_***REDACTED***",
 			},
 		},
@@ -196,7 +196,7 @@ func TestRedactionService_RedactLogEntry(t *testing.T) {
 					"normal_field": "normal_value",
 				},
 			},
-			expected: map[string]interface{}{ //nolint:gosec // G101: test data with fake credentials for verifying redaction
+			expected: map[string]any{ //nolint:gosec // G101 false positive: redaction placeholder values, not real credentials
 				"message":      "Processing request",
 				"password":     "***REDACTED***",
 				"token":        "ghp_***REDACTED***",
@@ -210,7 +210,7 @@ func TestRedactionService_RedactLogEntry(t *testing.T) {
 			entry: &logrus.Entry{
 				Message: "Configuration loaded",
 				Data: logrus.Fields{
-					"config": map[string]interface{}{
+					"config": map[string]any{
 						"database_password": "db_secret_123",
 						"api_secret":        "api_secret_456",
 						"normal_setting":    "value",
@@ -218,9 +218,9 @@ func TestRedactionService_RedactLogEntry(t *testing.T) {
 					"user": "testuser",
 				},
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"message": "Configuration loaded",
-				"config": map[string]interface{}{
+				"config": map[string]any{
 					"database_password": "***REDACTED***",
 					"api_secret":        "***REDACTED***",
 					"normal_setting":    "value",
@@ -238,7 +238,7 @@ func TestRedactionService_RedactLogEntry(t *testing.T) {
 					"status":    "completed",
 				},
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"message":   "Normal log message",
 				"operation": "sync",
 				"duration":  "1.5s",
@@ -562,31 +562,31 @@ func TestRedactionHookFireWithComplexData(t *testing.T) {
 	tests := []struct {
 		name     string
 		entry    *logrus.Entry
-		expected map[string]interface{}
+		expected map[string]any
 	}{
 		{
 			name: "nested map with sensitive data",
 			entry: &logrus.Entry{
 				Data: logrus.Fields{
-					"user": map[string]interface{}{
+					"user": map[string]any{
 						"token":    "ghp_secrettoken123",
 						"password": "mysecret",
 						"name":     "john",
 					},
-					"config": map[string]interface{}{
+					"config": map[string]any{
 						"api_key": "sk-1234567890",
 						"debug":   true,
 					},
 				},
 				Message: "Processing user data with token ghp_secrettoken123",
 			},
-			expected: map[string]interface{}{
-				"user": map[string]interface{}{ //nolint:gosec // G101: test data with redacted tokens, not real credentials
+			expected: map[string]any{
+				"user": map[string]any{ //nolint:gosec // G101 false positive: redaction placeholder values, not real credentials
 					"token":    "ghp_***REDACTED***", // pattern-based redaction for sensitive field
 					"password": "***REDACTED***",     // complete redaction for sensitive field
 					"name":     "john",               // not sensitive
 				},
-				"config": map[string]interface{}{
+				"config": map[string]any{
 					"api_key": "***REDACTED***", // sensitive field name
 					"debug":   true,             // not sensitive
 				},
@@ -596,21 +596,21 @@ func TestRedactionHookFireWithComplexData(t *testing.T) {
 			name: "array with sensitive data",
 			entry: &logrus.Entry{
 				Data: logrus.Fields{
-					"items": []interface{}{ // Use "items" instead of "tokens" to avoid field-level redaction
+					"items": []any{
 						"ghp_token1",
 						"regular_string",
-						map[string]interface{}{
+						map[string]any{
 							"secret": "hidden",
 							"public": "visible",
 						},
 					},
 				},
 			},
-			expected: map[string]interface{}{
-				"items": []interface{}{
+			expected: map[string]any{
+				"items": []any{
 					"ghp_***REDACTED***", // pattern match
 					"regular_string",     // no pattern match
-					map[string]interface{}{
+					map[string]any{
 						"secret": "***REDACTED***", // sensitive field name
 						"public": "visible",        // not sensitive
 					},
@@ -626,7 +626,7 @@ func TestRedactionHookFireWithComplexData(t *testing.T) {
 					"api_key":  []string{"key"}, // slice api_key
 				},
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"password": "***REDACTED***", // non-string sensitive field
 				"token":    "***REDACTED***", // non-string sensitive field
 				"api_key":  "***REDACTED***", // non-string sensitive field
@@ -638,15 +638,15 @@ func TestRedactionHookFireWithComplexData(t *testing.T) {
 				Data: logrus.Fields{
 					"count":    42,
 					"active":   true,
-					"items":    []interface{}{1, 2, 3},
+					"items":    []any{1, 2, 3},
 					"metadata": nil,
 				},
 			},
-			expected: map[string]interface{}{
-				"count":    42,                     // unchanged
-				"active":   true,                   // unchanged
-				"items":    []interface{}{1, 2, 3}, // unchanged (no sensitive data)
-				"metadata": nil,                    // unchanged
+			expected: map[string]any{
+				"count":    42,             // unchanged
+				"active":   true,           // unchanged
+				"items":    []any{1, 2, 3}, // unchanged (no sensitive data)
+				"metadata": nil,            // unchanged
 			},
 		},
 	}
@@ -715,9 +715,9 @@ func TestRedactionHookDeepNesting(t *testing.T) {
 
 	entry := &logrus.Entry{
 		Data: logrus.Fields{
-			"level1": map[string]interface{}{
-				"level2": map[string]interface{}{
-					"level3": map[string]interface{}{
+			"level1": map[string]any{
+				"level2": map[string]any{
+					"level3": map[string]any{
 						"password": "secret123",
 						"normal":   "value",
 					},
@@ -730,9 +730,9 @@ func TestRedactionHookDeepNesting(t *testing.T) {
 	require.NoError(t, err)
 
 	// Navigate to deeply nested value
-	level1 := entry.Data["level1"].(map[string]interface{})
-	level2 := level1["level2"].(map[string]interface{})
-	level3 := level2["level3"].(map[string]interface{})
+	level1 := entry.Data["level1"].(map[string]any)
+	level2 := level1["level2"].(map[string]any)
+	level3 := level2["level3"].(map[string]any)
 
 	assert.Equal(t, "***REDACTED***", level3["password"])
 	assert.Equal(t, "value", level3["normal"])

@@ -73,7 +73,7 @@ type TransformError struct {
 	duration  time.Duration
 
 	// Additional context
-	metadata map[string]interface{}
+	metadata map[string]any
 }
 
 // Error implements the error interface
@@ -143,7 +143,7 @@ func NewTransformError(
 		recoverable:   isRecoverableError(err),
 		retryable:     isRetryableError(err),
 		timestamp:     time.Now(),
-		metadata:      make(map[string]interface{}),
+		metadata:      make(map[string]any),
 	}
 }
 
@@ -167,7 +167,7 @@ func (te *TransformError) WithDuration(duration time.Duration) *TransformError {
 }
 
 // WithMetadata adds metadata to the error
-func (te *TransformError) WithMetadata(key string, value interface{}) *TransformError {
+func (te *TransformError) WithMetadata(key string, value any) *TransformError {
 	te.metadata[key] = value
 	return te
 }
@@ -228,7 +228,7 @@ func (te *TransformError) GetDuration() time.Duration {
 }
 
 // GetMetadata returns the error metadata
-func (te *TransformError) GetMetadata() map[string]interface{} {
+func (te *TransformError) GetMetadata() map[string]any {
 	return te.metadata
 }
 

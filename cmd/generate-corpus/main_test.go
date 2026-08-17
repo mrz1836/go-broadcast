@@ -86,15 +86,15 @@ type MockLogger struct {
 	Messages []string
 }
 
-func (m *MockLogger) Println(_ ...interface{}) {
+func (m *MockLogger) Println(_ ...any) {
 	// Simple implementation for testing
 }
 
-func (m *MockLogger) Printf(_ string, _ ...interface{}) {
+func (m *MockLogger) Printf(_ string, _ ...any) {
 	// Simple implementation for testing
 }
 
-func (m *MockLogger) Fatalf(_ string, _ ...interface{}) {
+func (m *MockLogger) Fatalf(_ string, _ ...any) {
 	// Simple implementation for testing
 }
 

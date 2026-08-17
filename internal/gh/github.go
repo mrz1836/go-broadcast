@@ -133,7 +133,7 @@ func (g *githubClient) CreatePR(ctx context.Context, repo string, req PRRequest)
 	}
 
 	// Create PR using gh api
-	prData := map[string]interface{}{
+	prData := map[string]any{
 		"title": req.Title,
 		"body":  req.Body,
 		"head":  headRef,
@@ -236,7 +236,7 @@ func (g *githubClient) CreatePR(ctx context.Context, repo string, req PRRequest)
 
 // setAssignees sets assignees for a pull request
 func (g *githubClient) setAssignees(ctx context.Context, repo string, prNumber int, assignees []string) error {
-	assigneeData := map[string]interface{}{
+	assigneeData := map[string]any{
 		"assignees": assignees,
 	}
 
@@ -255,7 +255,7 @@ func (g *githubClient) setAssignees(ctx context.Context, repo string, prNumber i
 
 // setReviewers sets reviewers and team reviewers for a pull request
 func (g *githubClient) setReviewers(ctx context.Context, repo string, prNumber int, reviewers, teamReviewers []string) error {
-	reviewerData := map[string]interface{}{}
+	reviewerData := map[string]any{}
 
 	if len(reviewers) > 0 {
 		reviewerData["reviewers"] = reviewers
@@ -280,7 +280,7 @@ func (g *githubClient) setReviewers(ctx context.Context, repo string, prNumber i
 
 // setLabels sets labels for a pull request
 func (g *githubClient) setLabels(ctx context.Context, repo string, prNumber int, labels []string) error {
-	labelData := map[string]interface{}{
+	labelData := map[string]any{
 		"labels": labels,
 	}
 
@@ -912,7 +912,7 @@ func (g *githubClient) GetPRCheckStatus(ctx context.Context, repo string, number
 
 // GraphQLResponse represents a GraphQL API response
 type GraphQLResponse struct {
-	Data   map[string]interface{} `json:"data"`
+	Data   map[string]any `json:"data"`
 	Errors []struct {
 		Message string `json:"message"`
 	} `json:"errors"`
@@ -942,7 +942,7 @@ func (g *githubClient) GetContributorCount(ctx context.Context, repo string) (in
 }
 
 // ExecuteGraphQL executes a GraphQL query and returns the raw response data
-func (g *githubClient) ExecuteGraphQL(ctx context.Context, query string) (map[string]interface{}, error) {
+func (g *githubClient) ExecuteGraphQL(ctx context.Context, query string) (map[string]any, error) {
 	// Execute GraphQL query via gh api
 	output, err := g.runner.RunWithInput(ctx, []byte(query), "gh", "api", "graphql", "-F", "query=@-")
 	if err != nil {

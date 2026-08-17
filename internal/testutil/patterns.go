@@ -39,7 +39,7 @@ func RunTableTests[TInput, TExpected any](
 
 // AssertNoError fails the test if err is not nil.
 // It provides a consistent way to check for unexpected errors.
-func AssertNoError(t testing.TB, err error, msgAndArgs ...interface{}) {
+func AssertNoError(t testing.TB, err error, msgAndArgs ...any) {
 	t.Helper()
 	if err != nil {
 		if len(msgAndArgs) > 0 {
@@ -52,7 +52,7 @@ func AssertNoError(t testing.TB, err error, msgAndArgs ...interface{}) {
 
 // AssertError fails the test if err is nil when error is expected.
 // It provides a consistent way to check that an error occurred.
-func AssertError(t testing.TB, err error, msgAndArgs ...interface{}) {
+func AssertError(t testing.TB, err error, msgAndArgs ...any) {
 	t.Helper()
 	if err == nil {
 		if len(msgAndArgs) > 0 {
@@ -77,7 +77,7 @@ func AssertErrorContains(t testing.TB, err error, expectedMsg string) {
 
 // AssertEqual checks that two values are equal.
 // It provides a simple equality check with clear error messages.
-func AssertEqual[T comparable](t testing.TB, expected, actual T, msgAndArgs ...interface{}) {
+func AssertEqual[T comparable](t testing.TB, expected, actual T, msgAndArgs ...any) {
 	t.Helper()
 	if expected != actual {
 		if len(msgAndArgs) > 0 {
@@ -90,7 +90,7 @@ func AssertEqual[T comparable](t testing.TB, expected, actual T, msgAndArgs ...i
 
 // AssertNotEqual checks that two values are not equal.
 // It provides a simple inequality check with clear error messages.
-func AssertNotEqual[T comparable](t testing.TB, unexpected, actual T, msgAndArgs ...interface{}) {
+func AssertNotEqual[T comparable](t testing.TB, unexpected, actual T, msgAndArgs ...any) {
 	t.Helper()
 	if unexpected == actual {
 		if len(msgAndArgs) > 0 {

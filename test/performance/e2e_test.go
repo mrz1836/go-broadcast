@@ -417,7 +417,7 @@ func validatePerformanceTargets(t *testing.T, scenario E2EPerformanceTest, resul
 }
 
 // writeToReport is a helper function that ignores fmt.Fprintf errors in test reports
-func writeToReport(f *os.File, format string, args ...interface{}) {
+func writeToReport(f *os.File, format string, args ...any) {
 	_, _ = fmt.Fprintf(f, format, args...)
 }
 

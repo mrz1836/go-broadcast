@@ -142,8 +142,8 @@ func TestParseBatchResponse(t *testing.T) {
 
 		publishedAt := "2024-01-15T10:00:00Z"
 
-		data := map[string]interface{}{
-			"repo0": map[string]interface{}{
+		data := map[string]any{
+			"repo0": map[string]any{
 				"nameWithOwner":  "owner/test-repo",
 				"stargazerCount": float64(42),
 				"forkCount":      float64(5),
@@ -151,34 +151,34 @@ func TestParseBatchResponse(t *testing.T) {
 				"updatedAt":      "2024-01-20T12:00:00Z",
 				"pushedAt":       "2024-01-19T08:30:00Z",
 				"isFork":         true,
-				"parent": map[string]interface{}{
+				"parent": map[string]any{
 					"nameWithOwner": "upstream/test-repo",
 				},
-				"watchers": map[string]interface{}{
+				"watchers": map[string]any{
 					"totalCount": float64(10),
 				},
-				"issues": map[string]interface{}{
+				"issues": map[string]any{
 					"totalCount": float64(3),
 				},
-				"pullRequests": map[string]interface{}{
+				"pullRequests": map[string]any{
 					"totalCount": float64(1),
 				},
-				"refs": map[string]interface{}{
+				"refs": map[string]any{
 					"totalCount": float64(5),
 				},
-				"defaultBranchRef": map[string]interface{}{
+				"defaultBranchRef": map[string]any{
 					"name": "main",
 				},
-				"latestRelease": map[string]interface{}{
+				"latestRelease": map[string]any{
 					"tagName":     "v1.2.3",
 					"publishedAt": publishedAt,
 				},
-				"tags": map[string]interface{}{
-					"nodes": []interface{}{
-						map[string]interface{}{
+				"tags": map[string]any{
+					"nodes": []any{
+						map[string]any{
 							"name": "v1.2.3",
-							"target": map[string]interface{}{
-								"tagger": map[string]interface{}{
+							"target": map[string]any{
+								"tagger": map[string]any{
 									"date": "2024-01-15T10:00:00Z",
 								},
 							},
@@ -226,8 +226,8 @@ func TestParseBatchResponse(t *testing.T) {
 			},
 		}
 
-		data := map[string]interface{}{
-			"repo0": map[string]interface{}{
+		data := map[string]any{
+			"repo0": map[string]any{
 				"nameWithOwner":  "owner/my-repo",
 				"stargazerCount": float64(10),
 				"isFork":         false,
@@ -256,8 +256,8 @@ func TestParseBatchResponse(t *testing.T) {
 			},
 		}
 
-		data := map[string]interface{}{
-			"repo0": map[string]interface{}{
+		data := map[string]any{
+			"repo0": map[string]any{
 				"nameWithOwner":  "owner/minimal-repo",
 				"stargazerCount": float64(0),
 			},
@@ -293,8 +293,8 @@ func TestParseBatchResponse(t *testing.T) {
 		}
 
 		// Only repo0 has data, repo1 is missing (might be private/inaccessible)
-		data := map[string]interface{}{
-			"repo0": map[string]interface{}{
+		data := map[string]any{
+			"repo0": map[string]any{
 				"nameWithOwner":  "owner/repo1",
 				"stargazerCount": float64(10),
 			},

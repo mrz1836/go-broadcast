@@ -29,13 +29,13 @@ type MockLogger struct {
 	messages []string
 }
 
-func (m *MockLogger) Println(v ...interface{}) {
+func (m *MockLogger) Println(v ...any) {
 	msg := fmt.Sprintln(v...)
 	m.messages = append(m.messages, msg)
 	m.Called(v...)
 }
 
-func (m *MockLogger) Printf(format string, v ...interface{}) {
+func (m *MockLogger) Printf(format string, v ...any) {
 	msg := fmt.Sprintf(format, v...)
 	m.messages = append(m.messages, msg)
 	m.Called(format, v)

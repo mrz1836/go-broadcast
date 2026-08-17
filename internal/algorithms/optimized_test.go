@@ -401,10 +401,10 @@ func TestDefaultBatchProcessorConfig(t *testing.T) {
 
 func TestBatchProcessor(t *testing.T) {
 	t.Run("basic add and flush", func(t *testing.T) {
-		var processed []interface{}
+		var processed []any
 		var mu sync.Mutex
 
-		processor := func(items []interface{}) error {
+		processor := func(items []any) error {
 			mu.Lock()
 			processed = append(processed, items...)
 			mu.Unlock()
@@ -436,7 +436,7 @@ func TestBatchProcessor(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 
 		mu.Lock()
-		assert.Equal(t, []interface{}{"item1", "item2", "item3"}, processed)
+		assert.Equal(t, []any{"item1", "item2", "item3"}, processed)
 		mu.Unlock()
 
 		// Add more items and manually flush
@@ -455,10 +455,10 @@ func TestBatchProcessor(t *testing.T) {
 	})
 
 	t.Run("batch add", func(t *testing.T) {
-		var processed []interface{}
+		var processed []any
 		var mu sync.Mutex
 
-		processor := func(items []interface{}) error {
+		processor := func(items []any) error {
 			mu.Lock()
 			processed = append(processed, items...)
 			mu.Unlock()
@@ -474,7 +474,7 @@ func TestBatchProcessor(t *testing.T) {
 
 		bp := NewBatchProcessor(processor, config)
 
-		items := []interface{}{"a", "b", "c", "d", "e"}
+		items := []any{"a", "b", "c", "d", "e"}
 		require.NoError(t, bp.AddBatch(items))
 
 		// Wait for processing
@@ -497,10 +497,10 @@ func TestBatchProcessor(t *testing.T) {
 	})
 
 	t.Run("auto flush", func(t *testing.T) {
-		var processed []interface{}
+		var processed []any
 		var mu sync.Mutex
 
-		processor := func(items []interface{}) error {
+		processor := func(items []any) error {
 			mu.Lock()
 			processed = append(processed, items...)
 			mu.Unlock()
@@ -531,7 +531,7 @@ func TestBatchProcessor(t *testing.T) {
 	})
 
 	t.Run("stats", func(t *testing.T) {
-		processor := func(_ []interface{}) error {
+		processor := func(_ []any) error {
 			return nil
 		}
 
@@ -557,7 +557,7 @@ func TestBatchProcessor(t *testing.T) {
 
 	t.Run("processor error", func(t *testing.T) {
 		expectedErr := assert.AnError
-		processor := func(_ []interface{}) error {
+		processor := func(_ []any) error {
 			return expectedErr
 		}
 
@@ -583,18 +583,6 @@ func TestHelperFunctions(t *testing.T) {
 		assert.Equal(t, 5, abs(5))
 		assert.Equal(t, 5, abs(-5))
 		assert.Equal(t, 0, abs(0))
-	})
-
-	t.Run("minInt", func(t *testing.T) {
-		assert.Equal(t, 3, minInt(3, 5))
-		assert.Equal(t, 3, minInt(5, 3))
-		assert.Equal(t, -5, minInt(-5, 0))
-	})
-
-	t.Run("maxInt", func(t *testing.T) {
-		assert.Equal(t, 5, maxInt(3, 5))
-		assert.Equal(t, 5, maxInt(5, 3))
-		assert.Equal(t, 0, maxInt(-5, 0))
 	})
 }
 
@@ -808,7 +796,7 @@ func BenchmarkDiffOptimized(b *testing.B) {
 }
 
 func BenchmarkBatchProcessor(b *testing.B) {
-	processor := func(_ []interface{}) error {
+	processor := func(_ []any) error {
 		// Simulate some work
 		time.Sleep(time.Microsecond)
 		return nil

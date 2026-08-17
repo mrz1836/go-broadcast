@@ -1444,7 +1444,7 @@ func TestCalculateConfigMetrics(t *testing.T) {
 		cfg := &config.Config{}
 		result := CalculateConfigMetrics(cfg)
 
-		metrics, ok := result["metrics"].(map[string]interface{})
+		metrics, ok := result["metrics"].(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, 0, metrics["groups_count"])
 		assert.Equal(t, 0, metrics["file_lists_count"])
@@ -1455,7 +1455,7 @@ func TestCalculateConfigMetrics(t *testing.T) {
 		assert.Equal(t, 0, metrics["enabled_groups"])
 		assert.Equal(t, 0, metrics["disabled_groups"])
 
-		analysis, ok := result["config_analysis"].(map[string]interface{})
+		analysis, ok := result["config_analysis"].(map[string]any)
 		require.True(t, ok)
 		assert.False(t, analysis["has_dependencies"].(bool))
 		assert.False(t, analysis["has_transforms"].(bool))
@@ -1500,13 +1500,13 @@ func TestCalculateConfigMetrics(t *testing.T) {
 
 		result := CalculateConfigMetrics(cfg)
 
-		metrics := result["metrics"].(map[string]interface{})
+		metrics := result["metrics"].(map[string]any)
 		assert.Equal(t, 3, metrics["groups_count"])
 		assert.Equal(t, 2, metrics["enabled_groups"])
 		assert.Equal(t, 1, metrics["disabled_groups"])
 		assert.Equal(t, 4, metrics["total_targets"])
 
-		analysis := result["config_analysis"].(map[string]interface{})
+		analysis := result["config_analysis"].(map[string]any)
 		assert.Equal(t, 3, analysis["target_repos_count"])
 
 		sourceRepos := analysis["source_repos"].([]string)
@@ -1531,7 +1531,7 @@ func TestCalculateConfigMetrics(t *testing.T) {
 		}
 
 		result := CalculateConfigMetrics(cfg)
-		analysis := result["config_analysis"].(map[string]interface{})
+		analysis := result["config_analysis"].(map[string]any)
 		assert.True(t, analysis["has_dependencies"].(bool))
 	})
 
@@ -1556,7 +1556,7 @@ func TestCalculateConfigMetrics(t *testing.T) {
 		}
 
 		result := CalculateConfigMetrics(cfg)
-		analysis := result["config_analysis"].(map[string]interface{})
+		analysis := result["config_analysis"].(map[string]any)
 		assert.True(t, analysis["has_transforms"].(bool))
 	})
 
@@ -1587,10 +1587,10 @@ func TestCalculateConfigMetrics(t *testing.T) {
 		}
 
 		result := CalculateConfigMetrics(cfg)
-		analysis := result["config_analysis"].(map[string]interface{})
+		analysis := result["config_analysis"].(map[string]any)
 		assert.True(t, analysis["has_transforms"].(bool))
 
-		metrics := result["metrics"].(map[string]interface{})
+		metrics := result["metrics"].(map[string]any)
 		assert.Equal(t, 1, metrics["total_directories"])
 	})
 
@@ -1622,7 +1622,7 @@ func TestCalculateConfigMetrics(t *testing.T) {
 		}
 
 		result := CalculateConfigMetrics(cfg)
-		analysis := result["config_analysis"].(map[string]interface{})
+		analysis := result["config_analysis"].(map[string]any)
 		assert.True(t, analysis["has_module_configs"].(bool))
 	})
 
@@ -1654,7 +1654,7 @@ func TestCalculateConfigMetrics(t *testing.T) {
 		}
 
 		result := CalculateConfigMetrics(cfg)
-		metrics := result["metrics"].(map[string]interface{})
+		metrics := result["metrics"].(map[string]any)
 		assert.Equal(t, 2, metrics["file_lists_count"])
 		assert.Equal(t, 1, metrics["directory_lists_count"])
 		// total_files = 1 inline + 2 refs = 3

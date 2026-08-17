@@ -121,7 +121,7 @@ func TestGenkitProvider_Name(t *testing.T) {
 func TestGenkitProvider_IsAvailable(t *testing.T) {
 	tests := []struct {
 		name     string
-		gk       interface{} // use interface to handle nil
+		gk       any // use interface to handle nil
 		apiKey   string
 		expected bool
 	}{

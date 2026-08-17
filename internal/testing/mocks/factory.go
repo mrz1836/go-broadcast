@@ -22,13 +22,13 @@ func NewCallHandler[T any](m *mock.Mock) *CallHandler[T] {
 }
 
 // HandleCall handles a mock call that returns (T, error)
-func (h *CallHandler[T]) HandleCall(args ...interface{}) (T, error) {
+func (h *CallHandler[T]) HandleCall(args ...any) (T, error) {
 	callArgs := h.mock.Called(args...)
 	return testutil.ExtractResult[T](callArgs, 0)
 }
 
 // HandleCallWithIndex handles a mock call where the result is at a specific index
-func (h *CallHandler[T]) HandleCallWithIndex(index int, args ...interface{}) (T, error) {
+func (h *CallHandler[T]) HandleCallWithIndex(index int, args ...any) (T, error) {
 	callArgs := h.mock.Called(args...)
 	return testutil.ExtractResult[T](callArgs, index)
 }
@@ -48,7 +48,7 @@ func NewErrorHandler(m *mock.Mock) *ErrorHandler {
 }
 
 // HandleError handles a mock call that returns only error
-func (h *ErrorHandler) HandleError(args ...interface{}) error {
+func (h *ErrorHandler) HandleError(args ...any) error {
 	callArgs := h.mock.Called(args...)
 	return testutil.ExtractError(callArgs)
 }
@@ -68,7 +68,7 @@ func NewBoolHandler(m *mock.Mock) *BoolHandler {
 }
 
 // HandleBool handles a mock call that returns (bool, error)
-func (h *BoolHandler) HandleBool(args ...interface{}) (bool, error) {
+func (h *BoolHandler) HandleBool(args ...any) (bool, error) {
 	callArgs := h.mock.Called(args...)
 	return testutil.HandleTwoValueReturn[bool](callArgs)
 }
@@ -88,7 +88,7 @@ func NewStringHandler(m *mock.Mock) *StringHandler {
 }
 
 // HandleString handles a mock call that returns (string, error)
-func (h *StringHandler) HandleString(args ...interface{}) (string, error) {
+func (h *StringHandler) HandleString(args ...any) (string, error) {
 	callArgs := h.mock.Called(args...)
 	return testutil.HandleTwoValueReturn[string](callArgs)
 }
@@ -108,7 +108,7 @@ func NewSliceHandler[T any](m *mock.Mock) *SliceHandler[T] {
 }
 
 // HandleSlice handles a mock call that returns ([]T, error)
-func (h *SliceHandler[T]) HandleSlice(args ...interface{}) ([]T, error) {
+func (h *SliceHandler[T]) HandleSlice(args ...any) ([]T, error) {
 	callArgs := h.mock.Called(args...)
 	return testutil.HandleTwoValueReturn[[]T](callArgs)
 }
@@ -128,7 +128,7 @@ func NewMapHandler[K comparable, V any](m *mock.Mock) *MapHandler[K, V] {
 }
 
 // HandleMap handles a mock call that returns (map[K]V, error)
-func (h *MapHandler[K, V]) HandleMap(args ...interface{}) (map[K]V, error) {
+func (h *MapHandler[K, V]) HandleMap(args ...any) (map[K]V, error) {
 	callArgs := h.mock.Called(args...)
 	return testutil.HandleTwoValueReturn[map[K]V](callArgs)
 }
@@ -153,7 +153,7 @@ func NewMockBase() *MockBase {
 
 // Error is a convenience method for error-only returns.
 // Panics if MockBase was not initialized via NewMockBase().
-func (m *MockBase) Error(args ...interface{}) error {
+func (m *MockBase) Error(args ...any) error {
 	if m.ErrorHandler == nil {
 		panic("mocks: MockBase not initialized - use NewMockBase()")
 	}
@@ -162,7 +162,7 @@ func (m *MockBase) Error(args ...interface{}) error {
 
 // Bool is a convenience method for bool returns.
 // Panics if MockBase was not initialized via NewMockBase().
-func (m *MockBase) Bool(args ...interface{}) (bool, error) {
+func (m *MockBase) Bool(args ...any) (bool, error) {
 	if m.BoolHandler == nil {
 		panic("mocks: MockBase not initialized - use NewMockBase()")
 	}
@@ -171,7 +171,7 @@ func (m *MockBase) Bool(args ...interface{}) (bool, error) {
 
 // String is a convenience method for string returns.
 // Panics if MockBase was not initialized via NewMockBase().
-func (m *MockBase) String(args ...interface{}) (string, error) {
+func (m *MockBase) String(args ...any) (string, error) {
 	if m.StringHandler == nil {
 		panic("mocks: MockBase not initialized - use NewMockBase()")
 	}

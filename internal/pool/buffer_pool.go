@@ -33,17 +33,17 @@ type BufferPool struct {
 func NewBufferPool() *BufferPool {
 	return &BufferPool{
 		smallBufferPool: &sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				return bytes.NewBuffer(make([]byte, 0, 1024)) // 1KB capacity
 			},
 		},
 		mediumBufferPool: &sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				return bytes.NewBuffer(make([]byte, 0, 8192)) // 8KB capacity
 			},
 		},
 		largeBufferPool: &sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				return bytes.NewBuffer(make([]byte, 0, 65536)) // 64KB capacity
 			},
 		},
@@ -390,29 +390,21 @@ func EstimateBufferSize(operation string, dataSize int) int {
 	switch operation {
 	case "json_marshal":
 		// JSON typically expands by 20-50% due to quotes and structure
-		return maxInt(dataSize*2, SmallBufferThreshold)
+		return max(dataSize*2, SmallBufferThreshold)
 	case "string_concat":
 		// String concatenation - use exact size plus some padding
-		return maxInt(dataSize+256, SmallBufferThreshold)
+		return max(dataSize+256, SmallBufferThreshold)
 	case "template_transform":
 		// Template transformation can expand significantly
-		return maxInt(dataSize*3, MediumBufferThreshold)
+		return max(dataSize*3, MediumBufferThreshold)
 	case "file_content":
 		// File content processing - use file size as baseline
-		return maxInt(dataSize+1024, MediumBufferThreshold)
+		return max(dataSize+1024, MediumBufferThreshold)
 	case "git_diff":
 		// Git diffs can be much larger than original content
-		return maxInt(dataSize*5, LargeBufferThreshold)
+		return max(dataSize*5, LargeBufferThreshold)
 	default:
 		// Default to medium buffer for unknown operations
 		return MediumBufferThreshold
 	}
-}
-
-// Helper function for max calculation
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }

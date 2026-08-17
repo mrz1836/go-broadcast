@@ -163,12 +163,12 @@ func (m *MockClient) DiscoverOrgRepos(ctx context.Context, org string) ([]RepoIn
 }
 
 // ExecuteGraphQL mock implementation
-func (m *MockClient) ExecuteGraphQL(ctx context.Context, query string) (map[string]interface{}, error) {
+func (m *MockClient) ExecuteGraphQL(ctx context.Context, query string) (map[string]any, error) {
 	args := m.Called(ctx, query)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(map[string]interface{}), args.Error(1)
+	return args.Get(0).(map[string]any), args.Error(1)
 }
 
 // GetDependabotAlerts mock implementation

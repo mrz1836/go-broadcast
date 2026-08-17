@@ -710,7 +710,7 @@ func (ps *ProfileSuite) cleanupOldSessions() {
 
 	// Collect directories to delete before modifying session history
 	dirsToDelete := make([]string, toRemove)
-	for i := 0; i < toRemove; i++ {
+	for i := range toRemove {
 		dirsToDelete[i] = ps.sessionHistory[i].OutputDir
 	}
 

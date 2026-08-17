@@ -123,7 +123,7 @@ func (sp *StreamProcessor) ProcessFile(ctx context.Context, inputPath, outputPat
 }
 
 // JSONStreamHandler represents a function that processes individual JSON objects
-type JSONStreamHandler func(interface{}) error
+type JSONStreamHandler func(any) error
 
 // ProcessLargeJSON processes large JSON files without loading the entire content into memory
 // This is particularly useful for GitHub API responses with many items (branches, PRs, etc.)
@@ -187,7 +187,7 @@ func (sp *StreamProcessor) ProcessLargeJSON(ctx context.Context, inputPath strin
 			default:
 			}
 
-			var item interface{}
+			var item any
 			if err := decoder.Decode(&item); err != nil {
 				atomic.AddInt64(&sp.stats.errorCount, 1)
 				return fmt.Errorf("failed to decode JSON item %d: %w", itemCount, err)
@@ -224,14 +224,14 @@ func (sp *StreamProcessor) ProcessLargeJSON(ctx context.Context, inputPath strin
 			}
 
 			// Read property value
-			var value interface{}
+			var value any
 			if err := decoder.Decode(&value); err != nil {
 				atomic.AddInt64(&sp.stats.errorCount, 1)
 				return fmt.Errorf("failed to decode property value: %w", err)
 			}
 
 			// Create property object for handler
-			property := map[string]interface{}{
+			property := map[string]any{
 				keyToken.(string): value,
 			}
 

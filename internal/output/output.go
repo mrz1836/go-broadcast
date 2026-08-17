@@ -16,15 +16,15 @@ import (
 // Writer defines the interface for output operations
 type Writer interface {
 	Success(msg string)
-	Successf(format string, args ...interface{})
+	Successf(format string, args ...any)
 	Info(msg string)
-	Infof(format string, args ...interface{})
+	Infof(format string, args ...any)
 	Warn(msg string)
-	Warnf(format string, args ...interface{})
+	Warnf(format string, args ...any)
 	Error(msg string)
-	Errorf(format string, args ...interface{})
+	Errorf(format string, args ...any)
 	Plain(msg string)
-	Plainf(format string, args ...interface{})
+	Plainf(format string, args ...any)
 }
 
 // Compile-time interface check
@@ -68,7 +68,7 @@ func (w *ColoredWriter) Success(msg string) {
 }
 
 // Successf prints a formatted success message
-func (w *ColoredWriter) Successf(format string, args ...interface{}) {
+func (w *ColoredWriter) Successf(format string, args ...any) {
 	w.Success(fmt.Sprintf(format, args...))
 }
 
@@ -80,7 +80,7 @@ func (w *ColoredWriter) Info(msg string) {
 }
 
 // Infof prints a formatted info message
-func (w *ColoredWriter) Infof(format string, args ...interface{}) {
+func (w *ColoredWriter) Infof(format string, args ...any) {
 	w.Info(fmt.Sprintf(format, args...))
 }
 
@@ -92,7 +92,7 @@ func (w *ColoredWriter) Warn(msg string) {
 }
 
 // Warnf prints a formatted warning message
-func (w *ColoredWriter) Warnf(format string, args ...interface{}) {
+func (w *ColoredWriter) Warnf(format string, args ...any) {
 	w.Warn(fmt.Sprintf(format, args...))
 }
 
@@ -104,7 +104,7 @@ func (w *ColoredWriter) Error(msg string) {
 }
 
 // Errorf prints a formatted error message
-func (w *ColoredWriter) Errorf(format string, args ...interface{}) {
+func (w *ColoredWriter) Errorf(format string, args ...any) {
 	w.Error(fmt.Sprintf(format, args...))
 }
 
@@ -116,7 +116,7 @@ func (w *ColoredWriter) Plain(msg string) {
 }
 
 // Plainf prints a formatted message without color
-func (w *ColoredWriter) Plainf(format string, args ...interface{}) {
+func (w *ColoredWriter) Plainf(format string, args ...any) {
 	w.Plain(fmt.Sprintf(format, args...))
 }
 
@@ -182,7 +182,7 @@ func Success(msg string) {
 }
 
 // Successf prints a formatted success message
-func Successf(format string, args ...interface{}) {
+func Successf(format string, args ...any) {
 	Success(fmt.Sprintf(format, args...))
 }
 
@@ -194,7 +194,7 @@ func Info(msg string) {
 }
 
 // Infof prints a formatted info message
-func Infof(format string, args ...interface{}) {
+func Infof(format string, args ...any) {
 	Info(fmt.Sprintf(format, args...))
 }
 
@@ -206,7 +206,7 @@ func Warn(msg string) {
 }
 
 // Warnf prints a formatted warning message
-func Warnf(format string, args ...interface{}) {
+func Warnf(format string, args ...any) {
 	Warn(fmt.Sprintf(format, args...))
 }
 
@@ -218,7 +218,7 @@ func Error(msg string) {
 }
 
 // Errorf prints a formatted error message
-func Errorf(format string, args ...interface{}) {
+func Errorf(format string, args ...any) {
 	Error(fmt.Sprintf(format, args...))
 }
 
@@ -230,7 +230,7 @@ func Plain(msg string) {
 }
 
 // Plainf prints a formatted message without color
-func Plainf(format string, args ...interface{}) {
+func Plainf(format string, args ...any) {
 	Plain(fmt.Sprintf(format, args...))
 }
 

@@ -50,7 +50,7 @@ func TestStructuredFormatter_Format(t *testing.T) {
 				Data:    logrus.Fields{},
 			},
 			validate: func(t *testing.T, output []byte) {
-				var result map[string]interface{}
+				var result map[string]any
 				err := json.Unmarshal(output, &result)
 				require.NoError(t, err, "output should be valid JSON")
 
@@ -73,7 +73,7 @@ func TestStructuredFormatter_Format(t *testing.T) {
 				},
 			},
 			validate: func(t *testing.T, output []byte) {
-				var result map[string]interface{}
+				var result map[string]any
 				err := json.Unmarshal(output, &result)
 				require.NoError(t, err, "output should be valid JSON")
 
@@ -100,7 +100,7 @@ func TestStructuredFormatter_Format(t *testing.T) {
 				},
 			},
 			validate: func(t *testing.T, output []byte) {
-				var result map[string]interface{}
+				var result map[string]any
 				err := json.Unmarshal(output, &result)
 				require.NoError(t, err, "output should be valid JSON")
 
@@ -121,18 +121,18 @@ func TestStructuredFormatter_Format(t *testing.T) {
 				Level:   logrus.WarnLevel,
 				Message: "Warning message",
 				Data: logrus.Fields{
-					"config": map[string]interface{}{
+					"config": map[string]any{
 						"path":  "/path/to/config",
 						"valid": true,
 					},
-					"metrics": map[string]interface{}{
+					"metrics": map[string]any{
 						"count": 42,
 						"rate":  1.5,
 					},
 				},
 			},
 			validate: func(t *testing.T, output []byte) {
-				var result map[string]interface{}
+				var result map[string]any
 				err := json.Unmarshal(output, &result)
 				require.NoError(t, err, "output should be valid JSON")
 
@@ -140,13 +140,13 @@ func TestStructuredFormatter_Format(t *testing.T) {
 				assert.Equal(t, "Warning message", result["message"], "message should be correct")
 
 				// Check nested config object
-				config, ok := result["config"].(map[string]interface{})
+				config, ok := result["config"].(map[string]any)
 				assert.True(t, ok, "config should be a nested object")
 				assert.Equal(t, "/path/to/config", config["path"], "nested config path should be preserved")
 				assert.Equal(t, true, config["valid"], "nested config valid should be preserved")
 
 				// Check nested metrics object
-				metrics, ok := result["metrics"].(map[string]interface{})
+				metrics, ok := result["metrics"].(map[string]any)
 				assert.True(t, ok, "metrics should be a nested object")
 				assert.InDelta(t, float64(42), metrics["count"], 0.001, "nested metrics count should be preserved")
 				assert.InEpsilon(t, 1.5, metrics["rate"], 0.001, "nested metrics rate should be preserved")
@@ -350,7 +350,7 @@ func TestConfigureLogger_Integration(t *testing.T) {
 				}).Debug("Debug message")
 			},
 			validate: func(t *testing.T, output string) {
-				var result map[string]interface{}
+				var result map[string]any
 				err := json.Unmarshal([]byte(strings.TrimSpace(output)), &result)
 				require.NoError(t, err, "output should be valid JSON")
 
@@ -469,7 +469,7 @@ func TestWithStandardFields_ContextPropagation(t *testing.T) {
 	output := buffer.String()
 	assert.NotEmpty(t, output, "should have logged output")
 
-	var result map[string]interface{}
+	var result map[string]any
 	err = json.Unmarshal([]byte(strings.TrimSpace(output)), &result)
 	require.NoError(t, err, "output should be valid JSON")
 

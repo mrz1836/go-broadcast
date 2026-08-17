@@ -133,8 +133,8 @@ func runDBImport(cmd *cobra.Command, _ []string) error {
 
 // collectFileMetadata collects metadata about the source file
 // Returns a map with file information or partial data on errors (non-fatal)
-func collectFileMetadata(path string) map[string]interface{} {
-	metadata := make(map[string]interface{})
+func collectFileMetadata(path string) map[string]any {
+	metadata := make(map[string]any)
 
 	// Handle special cases
 	if path == "" || path == "-" {
@@ -211,7 +211,7 @@ func buildCompleteMetadata(cfg *config.Config, filePath string) db.Metadata {
 	metadata := make(db.Metadata)
 
 	// Import context
-	importContext := map[string]interface{}{
+	importContext := map[string]any{
 		"timestamp":        time.Now().UTC().Format(time.RFC3339),
 		"source_type":      "cli",
 		"enriched_version": "1.0",

@@ -60,7 +60,7 @@ const MaxGenerateCount = 100_000
 // For independent copies, callers should use value types or copy manually.
 //
 // Returns an error if count is negative or exceeds MaxGenerateCount.
-func GenerateTestJSON(count int, template interface{}) ([]byte, error) {
+func GenerateTestJSON(count int, template any) ([]byte, error) {
 	if count < 0 {
 		return nil, fmt.Errorf("%w: got %d", errNegativeCount, count)
 	}
@@ -68,8 +68,8 @@ func GenerateTestJSON(count int, template interface{}) ([]byte, error) {
 		return nil, fmt.Errorf("%w: %d (max: %d)", errCountTooLarge, count, MaxGenerateCount)
 	}
 
-	items := make([]interface{}, count)
-	for i := 0; i < count; i++ {
+	items := make([]any, count)
+	for i := range count {
 		items[i] = template
 	}
 
@@ -82,7 +82,7 @@ func GenerateTestJSON(count int, template interface{}) ([]byte, error) {
 
 // PrettyPrint formats JSON for human-readable output with proper indentation.
 // It returns a formatted string representation of the provided value.
-func PrettyPrint(v interface{}) (string, error) {
+func PrettyPrint(v any) (string, error) {
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return "", appErrors.WrapWithContext(err, "pretty print JSON")
@@ -109,7 +109,7 @@ func CompactJSON(data []byte) ([]byte, error) {
 // All inputs must be valid JSON objects (not arrays, primitives, or null).
 // Returns an error if any input is nil, empty, or not a JSON object.
 func MergeJSON(jsons ...[]byte) ([]byte, error) {
-	result := make(map[string]interface{})
+	result := make(map[string]any)
 
 	for i, data := range jsons {
 		if data == nil {
@@ -119,7 +119,7 @@ func MergeJSON(jsons ...[]byte) ([]byte, error) {
 			return nil, fmt.Errorf("%w at index %d", errEmptyJSONData, i)
 		}
 
-		var obj map[string]interface{}
+		var obj map[string]any
 		if err := json.Unmarshal(data, &obj); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal JSON at index %d: %w", i, err)
 		}

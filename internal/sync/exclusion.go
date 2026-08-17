@@ -128,7 +128,7 @@ func (e *ExclusionEngine) IsDirectoryExcluded(dirPath string) bool {
 
 // ClearCache clears the pattern matching cache
 func (e *ExclusionEngine) ClearCache() {
-	e.cache.Range(func(key, _ interface{}) bool {
+	e.cache.Range(func(key, _ any) bool {
 		e.cache.Delete(key)
 		return true
 	})
