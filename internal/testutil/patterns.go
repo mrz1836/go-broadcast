@@ -110,6 +110,7 @@ type BenchmarkCase struct {
 
 // RunBenchmarkCases runs a set of benchmark cases with consistent patterns.
 func RunBenchmarkCases(b *testing.B, cases []BenchmarkCase, runner func(*testing.B, BenchmarkCase)) {
+	b.Helper()
 	for _, bc := range cases {
 		b.Run(bc.Name, func(b *testing.B) {
 			if bc.Setup != nil {
@@ -125,6 +126,7 @@ func RunBenchmarkCases(b *testing.B, cases []BenchmarkCase, runner func(*testing
 
 // SkipIfShort skips a test if running in short mode.
 func SkipIfShort(t testing.TB) {
+	t.Helper()
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -132,6 +134,7 @@ func SkipIfShort(t testing.TB) {
 
 // SkipIfNoNetwork skips a test that requires network access.
 func SkipIfNoNetwork(t testing.TB) {
+	t.Helper()
 	// This could be enhanced to actually check network availability
 	if testing.Short() {
 		t.Skip("skipping network test in short mode")
