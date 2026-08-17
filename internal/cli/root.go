@@ -707,7 +707,7 @@ func createRunStatus(flags *Flags) func(*cobra.Command, []string) error {
 		}
 
 		// Load configuration using existing utility
-		cfg, err := loadConfigWithFlags(flags, logger)
+		cfg, err := loadConfigWithFlags(ctx, flags, logger)
 		if err != nil {
 			return fmt.Errorf("failed to load configuration: %w", err)
 		}
@@ -728,12 +728,12 @@ func createRunValidate(flags *Flags) func(*cobra.Command, []string) error {
 			logger = logrus.StandardLogger()
 		}
 
-		cfg, err := loadConfigWithFlags(flags, logger)
+		cfg, err := loadConfigWithFlags(ctx, flags, logger)
 		if err != nil {
 			return fmt.Errorf("failed to load configuration: %w", err)
 		}
 
-		if err := cfg.ValidateWithLogging(context.Background(), nil); err != nil {
+		if err := cfg.ValidateWithLogging(ctx, nil); err != nil {
 			return fmt.Errorf("validation failed: %w", err)
 		}
 
@@ -762,7 +762,7 @@ func createRunSyncWithVerbose(config *LogConfig) func(*cobra.Command, []string) 
 		// In later phases, this will include component-specific debugging
 
 		// Load configuration using LogConfig
-		cfg, err := loadConfigWithLogConfig(config)
+		cfg, err := loadConfigWithLogConfig(ctx, config)
 		if err != nil {
 			return fmt.Errorf("failed to load configuration: %w", err)
 		}
@@ -812,7 +812,7 @@ func createRunStatusWithVerbose(config *LogConfig) func(*cobra.Command, []string
 		ctx := cmd.Context()
 
 		// Load configuration using LogConfig
-		cfg, err := loadConfigWithLogConfig(config)
+		cfg, err := loadConfigWithLogConfig(ctx, config)
 		if err != nil {
 			return fmt.Errorf("failed to load configuration: %w", err)
 		}
@@ -833,13 +833,14 @@ func createRunStatusWithVerbose(config *LogConfig) func(*cobra.Command, []string
 // Returns:
 // - Function that can be used as RunE for Cobra validate commands
 func createRunValidateWithVerbose(config *LogConfig) func(*cobra.Command, []string) error {
-	return func(_ *cobra.Command, _ []string) error {
-		cfg, err := loadConfigWithLogConfig(config)
+	return func(cmd *cobra.Command, _ []string) error {
+		ctx := cmdContext(cmd)
+		cfg, err := loadConfigWithLogConfig(ctx, config)
 		if err != nil {
 			return fmt.Errorf("failed to load configuration: %w", err)
 		}
 
-		if err := cfg.ValidateWithLogging(context.Background(), config); err != nil {
+		if err := cfg.ValidateWithLogging(ctx, config); err != nil {
 			return fmt.Errorf("validation failed: %w", err)
 		}
 

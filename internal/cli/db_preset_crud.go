@@ -80,15 +80,15 @@ func newDBPresetListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List all settings presets",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runPresetList(jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runPresetList(cmdContext(cmd), jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	return cmd
 }
 
-func runPresetList(jsonOutput bool) error {
+func runPresetList(ctx context.Context, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("preset", "listed", err.Error(),
@@ -96,7 +96,6 @@ func runPresetList(jsonOutput bool) error {
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	presetRepo := db.NewSettingsPresetRepository(database.DB())
 	presets, err := presetRepo.List(ctx)
 	if err != nil {
@@ -140,22 +139,21 @@ func newDBPresetShowCmd() *cobra.Command {
 		Use:   "show <id>",
 		Short: "Show preset details",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runPresetShow(args[0], jsonOutput)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runPresetShow(cmdContext(cmd), args[0], jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	return cmd
 }
 
-func runPresetShow(externalID string, jsonOutput bool) error {
+func runPresetShow(ctx context.Context, externalID string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("preset", "show", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	presetRepo := db.NewSettingsPresetRepository(database.DB())
 	preset, err := presetRepo.GetByExternalID(ctx, externalID)
 	if err != nil {
@@ -240,8 +238,8 @@ func newDBPresetCreateCmd() *cobra.Command {
 		Use:   "create <id>",
 		Short: "Create a new settings preset with defaults",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runPresetCreate(args[0], name, description, jsonOutput)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runPresetCreate(cmdContext(cmd), args[0], name, description, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -250,7 +248,7 @@ func newDBPresetCreateCmd() *cobra.Command {
 	return cmd
 }
 
-func runPresetCreate(id, name, description string, jsonOutput bool) error {
+func runPresetCreate(ctx context.Context, id, name, description string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("preset", "created", err.Error(), "", jsonOutput)
@@ -261,7 +259,6 @@ func runPresetCreate(id, name, description string, jsonOutput bool) error {
 		name = id
 	}
 
-	ctx := context.Background()
 	presetRepo := db.NewSettingsPresetRepository(database.DB())
 
 	// Check for duplicate
@@ -328,8 +325,8 @@ func newDBPresetDeleteCmd() *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a settings preset",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runPresetDelete(args[0], hard, jsonOutput)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runPresetDelete(cmdContext(cmd), args[0], hard, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -337,14 +334,13 @@ func newDBPresetDeleteCmd() *cobra.Command {
 	return cmd
 }
 
-func runPresetDelete(externalID string, hard, jsonOutput bool) error {
+func runPresetDelete(ctx context.Context, externalID string, hard, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("preset", "deleted", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	presetRepo := db.NewSettingsPresetRepository(database.DB())
 	preset, err := presetRepo.GetByExternalID(ctx, externalID)
 	if err != nil {
@@ -383,22 +379,21 @@ func newDBPresetAssignCmd() *cobra.Command {
 		Use:   "assign <preset-id> <repo>",
 		Short: "Assign a preset to a repository",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runPresetAssign(args[0], args[1], jsonOutput)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runPresetAssign(cmdContext(cmd), args[0], args[1], jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	return cmd
 }
 
-func runPresetAssign(presetExternalID, repoFullName string, jsonOutput bool) error {
+func runPresetAssign(ctx context.Context, presetExternalID, repoFullName string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("preset", "assigned", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	presetRepo := db.NewSettingsPresetRepository(gormDB)
@@ -448,19 +443,19 @@ func newDBPresetImportCmd() *cobra.Command {
 		Use:   "import [config-file]",
 		Short: "Import presets from sync.yaml configuration",
 		Args:  cobra.MaximumNArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			configFile := globalFlags.ConfigFile
 			if len(args) > 0 {
 				configFile = args[0]
 			}
-			return runPresetImport(configFile, jsonOutput)
+			return runPresetImport(cmdContext(cmd), configFile, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	return cmd
 }
 
-func runPresetImport(configFile string, jsonOutput bool) error {
+func runPresetImport(ctx context.Context, configFile string, jsonOutput bool) error {
 	cfg, err := config.Load(configFile)
 	if err != nil {
 		return printErrorResponse("preset", "imported", err.Error(),
@@ -480,7 +475,6 @@ func runPresetImport(configFile string, jsonOutput bool) error {
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	presetRepo := db.NewSettingsPresetRepository(database.DB())
 
 	if IsDryRun() {

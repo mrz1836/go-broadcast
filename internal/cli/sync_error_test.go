@@ -34,7 +34,7 @@ func (m *mockConfigLoader) LoadConfig(_ string) (*config.Config, error) {
 	return m.config, nil
 }
 
-func (m *mockConfigLoader) ValidateConfig(_ *config.Config) error {
+func (m *mockConfigLoader) ValidateConfig(_ context.Context, _ *config.Config) error {
 	return m.validateErr
 }
 

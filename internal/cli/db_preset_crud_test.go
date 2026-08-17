@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -40,7 +41,7 @@ func TestPresetList_Empty(t *testing.T) {
 
 	t.Run("json output", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runPresetList(true)
+			return runPresetList(context.Background(), true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -50,7 +51,7 @@ func TestPresetList_Empty(t *testing.T) {
 	})
 
 	t.Run("human output", func(t *testing.T) {
-		err := runPresetList(false)
+		err := runPresetList(context.Background(), false)
 		require.NoError(t, err)
 	})
 }
@@ -61,7 +62,7 @@ func TestPresetCreate_And_List(t *testing.T) {
 
 	// Create
 	resp, err := captureJSON(t, func() error {
-		return runPresetCreate("test-preset", "Test Preset", "A test preset", true)
+		return runPresetCreate(context.Background(), "test-preset", "Test Preset", "A test preset", true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -69,7 +70,7 @@ func TestPresetCreate_And_List(t *testing.T) {
 
 	// List should show 1
 	resp, err = captureJSON(t, func() error {
-		return runPresetList(true)
+		return runPresetList(context.Background(), true)
 	})
 	require.NoError(t, err)
 	assert.Equal(t, 1, resp.Count)
@@ -81,13 +82,13 @@ func TestPresetCreate_Duplicate(t *testing.T) {
 
 	// Create first
 	_, err := captureJSON(t, func() error {
-		return runPresetCreate("dup-test", "Dup", "", true)
+		return runPresetCreate(context.Background(), "dup-test", "Dup", "", true)
 	})
 	require.NoError(t, err)
 
 	// Create duplicate
 	resp, err := captureJSON(t, func() error {
-		return runPresetCreate("dup-test", "Dup2", "", true)
+		return runPresetCreate(context.Background(), "dup-test", "Dup2", "", true)
 	})
 	require.NoError(t, err)
 	assert.False(t, resp.Success)
@@ -100,12 +101,12 @@ func TestPresetShow(t *testing.T) {
 
 	// Create first
 	_, _ = captureJSON(t, func() error {
-		return runPresetCreate("show-test", "Show Test", "desc", true)
+		return runPresetCreate(context.Background(), "show-test", "Show Test", "desc", true)
 	})
 
 	t.Run("found", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runPresetShow("show-test", true)
+			return runPresetShow(context.Background(), "show-test", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -114,14 +115,14 @@ func TestPresetShow(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runPresetShow("nonexistent", true)
+			return runPresetShow(context.Background(), "nonexistent", true)
 		})
 		require.NoError(t, err)
 		assert.False(t, resp.Success)
 	})
 
 	t.Run("human output", func(t *testing.T) {
-		err := runPresetShow("show-test", false)
+		err := runPresetShow(context.Background(), "show-test", false)
 		require.NoError(t, err)
 	})
 }
@@ -132,12 +133,12 @@ func TestPresetDelete(t *testing.T) {
 
 	// Create
 	_, _ = captureJSON(t, func() error {
-		return runPresetCreate("del-test", "Delete Test", "", true)
+		return runPresetCreate(context.Background(), "del-test", "Delete Test", "", true)
 	})
 
 	// Delete
 	resp, err := captureJSON(t, func() error {
-		return runPresetDelete("del-test", false, true)
+		return runPresetDelete(context.Background(), "del-test", false, true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -149,7 +150,7 @@ func TestPresetDelete_NotFound(t *testing.T) {
 	defer cleanup()
 
 	resp, err := captureJSON(t, func() error {
-		return runPresetDelete("nonexistent", false, true)
+		return runPresetDelete(context.Background(), "nonexistent", false, true)
 	})
 	require.NoError(t, err)
 	assert.False(t, resp.Success)
@@ -210,12 +211,12 @@ func TestPresetAssign_Success(t *testing.T) {
 
 	// Create a preset first
 	_, err := captureJSON(t, func() error {
-		return runPresetCreate("assign-test", "Assign Test", "desc", true)
+		return runPresetCreate(context.Background(), "assign-test", "Assign Test", "desc", true)
 	})
 	require.NoError(t, err)
 
 	resp, err := captureJSON(t, func() error {
-		return runPresetAssign("assign-test", "owner/repo", true)
+		return runPresetAssign(context.Background(), "assign-test", "owner/repo", true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -227,7 +228,7 @@ func TestPresetAssign_PresetNotFound(t *testing.T) {
 	defer cleanup()
 
 	resp, err := captureJSON(t, func() error {
-		return runPresetAssign("nonexistent-preset", "owner/repo", true)
+		return runPresetAssign(context.Background(), "nonexistent-preset", "owner/repo", true)
 	})
 	require.NoError(t, err)
 	assert.False(t, resp.Success)
@@ -239,12 +240,12 @@ func TestPresetAssign_JSONOutput(t *testing.T) {
 	defer cleanup()
 
 	_, err := captureJSON(t, func() error {
-		return runPresetCreate("json-assign", "JSON Assign", "", true)
+		return runPresetCreate(context.Background(), "json-assign", "JSON Assign", "", true)
 	})
 	require.NoError(t, err)
 
 	resp, err := captureJSON(t, func() error {
-		return runPresetAssign("json-assign", "acme/my-repo", true)
+		return runPresetAssign(context.Background(), "json-assign", "acme/my-repo", true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -268,7 +269,7 @@ settings_presets:
 	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0o600))
 
 	resp, err := captureJSON(t, func() error {
-		return runPresetImport(configPath, true)
+		return runPresetImport(context.Background(), configPath, true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -284,7 +285,7 @@ groups: []
 	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0o600))
 
 	resp, err := captureJSON(t, func() error {
-		return runPresetImport(configPath, true)
+		return runPresetImport(context.Background(), configPath, true)
 	})
 	require.NoError(t, err)
 	assert.False(t, resp.Success)
@@ -293,7 +294,7 @@ groups: []
 
 func TestPresetImport_InvalidConfigPath(t *testing.T) {
 	resp, err := captureJSON(t, func() error {
-		return runPresetImport("/nonexistent/path/sync.yaml", true)
+		return runPresetImport(context.Background(), "/nonexistent/path/sync.yaml", true)
 	})
 	require.NoError(t, err)
 	assert.False(t, resp.Success)
@@ -320,7 +321,7 @@ settings_presets:
 	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0o600))
 
 	resp, err := captureJSON(t, func() error {
-		return runPresetImport(configPath, true)
+		return runPresetImport(context.Background(), configPath, true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -332,12 +333,12 @@ func TestPresetDelete_HardDelete(t *testing.T) {
 	defer cleanup()
 
 	_, err := captureJSON(t, func() error {
-		return runPresetCreate("hard-del-test", "Hard Delete Test", "", true)
+		return runPresetCreate(context.Background(), "hard-del-test", "Hard Delete Test", "", true)
 	})
 	require.NoError(t, err)
 
 	resp, err := captureJSON(t, func() error {
-		return runPresetDelete("hard-del-test", true, true)
+		return runPresetDelete(context.Background(), "hard-del-test", true, true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)

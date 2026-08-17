@@ -102,7 +102,7 @@ func runValidateWithFlags(flags *Flags, cmd *cobra.Command) error {
 	log.Debug("Configuration parsed successfully")
 
 	// Validate configuration
-	if err := cfg.ValidateWithLogging(context.Background(), nil); err != nil {
+	if err := cfg.ValidateWithLogging(cmdContext(cmd), nil); err != nil {
 		output.Error(fmt.Sprintf("Configuration validation failed: %v", err))
 		return fmt.Errorf("configuration validation failed: %w", err)
 	}
@@ -125,7 +125,7 @@ func runValidateFromDB(flags *Flags, cmd *cobra.Command) error {
 	output.Info("Configuration validation")
 	output.Info("========================")
 
-	cfg, err := loadConfigFromDB()
+	cfg, err := loadConfigFromDB(cmdContext(cmd))
 	if err != nil {
 		output.Error(fmt.Sprintf("Database configuration validation failed: %v", err))
 		return err
@@ -141,7 +141,7 @@ func runValidateFromDB(flags *Flags, cmd *cobra.Command) error {
 	output.Info("Database integrity")
 	output.Info("==================")
 
-	result, err := runDBValidation(getDBPath())
+	result, err := runDBValidation(cmdContext(cmd), getDBPath())
 	if err != nil {
 		return err
 	}
@@ -256,13 +256,13 @@ func runRemoteValidationChecks(flags *Flags, cmd *cobra.Command, cfg *config.Con
 		}
 
 		// Validate repository accessibility
-		if err := validateRepositoryAccessibility(context.Background(), cfg, logConfig, sourceOnly); err != nil {
+		if err := validateRepositoryAccessibility(cmdContext(cmd), cfg, logConfig, sourceOnly); err != nil {
 			output.Error(fmt.Sprintf("Repository accessibility check failed: %v", err))
 			// Don't return error - this is a warning, not a fatal error
 		}
 
 		// Validate source file existence
-		validateSourceFilesExist(context.Background(), cfg, logConfig)
+		validateSourceFilesExist(cmdContext(cmd), cfg, logConfig)
 	} else {
 		output.Info("")
 		output.Info("Remote validation: (skipped)")

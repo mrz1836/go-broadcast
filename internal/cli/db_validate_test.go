@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -549,7 +550,7 @@ func TestDBValidateEmptyTarget(t *testing.T) {
 			}
 			require.NoError(t, database.Close())
 
-			result, err := runDBValidation(tmpPath)
+			result, err := runDBValidation(context.Background(), tmpPath)
 			require.NoError(t, err)
 			assert.Equal(t, tc.wantValid, result.Valid)
 

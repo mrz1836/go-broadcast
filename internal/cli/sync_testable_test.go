@@ -32,7 +32,7 @@ func (m *MockConfigLoader) LoadConfig(configPath string) (*config.Config, error)
 	return args.Get(0).(*config.Config), args.Error(1)
 }
 
-func (m *MockConfigLoader) ValidateConfig(cfg *config.Config) error {
+func (m *MockConfigLoader) ValidateConfig(_ context.Context, cfg *config.Config) error {
 	args := m.Called(cfg)
 	return args.Error(0)
 }
@@ -369,7 +369,7 @@ func TestDefaultConfigLoader(t *testing.T) {
 			}},
 		}
 
-		err := loader.ValidateConfig(cfg)
+		err := loader.ValidateConfig(context.Background(), cfg)
 
 		// This should not error for a valid config
 		require.NoError(t, err)

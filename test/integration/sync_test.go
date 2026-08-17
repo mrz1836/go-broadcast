@@ -438,42 +438,6 @@ func TestStateDiscovery(t *testing.T) {
 
 		assert.Equal(t, expected, branchName)
 	})
-
-	t.Run("branch prefix validation", func(t *testing.T) {
-		testCases := []struct {
-			name      string
-			prefix    string
-			expectErr bool
-		}{
-			{
-				name:      "valid prefix",
-				prefix:    "chore/sync-files",
-				expectErr: false,
-			},
-			{
-				name:      "empty prefix",
-				prefix:    "",
-				expectErr: true,
-			},
-			{
-				name:      "invalid characters",
-				prefix:    "chore/sync-files@invalid",
-				expectErr: true,
-			},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.name, func(t *testing.T) {
-				err := state.ValidateBranchPrefix(tc.prefix)
-
-				if tc.expectErr {
-					assert.Error(t, err)
-				} else {
-					assert.NoError(t, err)
-				}
-			})
-		}
-	})
 }
 
 // TestTransformEngine tests the transform engine functionality

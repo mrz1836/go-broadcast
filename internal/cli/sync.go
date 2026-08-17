@@ -30,7 +30,7 @@ type SyncService interface {
 // ConfigLoader defines the interface for configuration loading
 type ConfigLoader interface {
 	LoadConfig(configPath string) (*config.Config, error)
-	ValidateConfig(cfg *config.Config) error
+	ValidateConfig(ctx context.Context, cfg *config.Config) error
 }
 
 // SyncEngineFactory defines the interface for creating sync engines
@@ -53,8 +53,8 @@ func (d *DefaultConfigLoader) LoadConfig(configPath string) (*config.Config, err
 }
 
 // ValidateConfig validates the configuration
-func (d *DefaultConfigLoader) ValidateConfig(cfg *config.Config) error {
-	return cfg.ValidateWithLogging(context.Background(), nil)
+func (d *DefaultConfigLoader) ValidateConfig(ctx context.Context, cfg *config.Config) error {
+	return cfg.ValidateWithLogging(ctx, nil)
 }
 
 // DefaultSyncEngineFactory implements SyncEngineFactory
@@ -102,7 +102,7 @@ func (s *SyncCommand) ExecuteSync(ctx context.Context, flags *Flags, args []stri
 	}
 
 	// Validate configuration
-	if validateErr := s.configLoader.ValidateConfig(cfg); validateErr != nil {
+	if validateErr := s.configLoader.ValidateConfig(ctx, cfg); validateErr != nil {
 		return fmt.Errorf("invalid configuration: %w", validateErr)
 	}
 
@@ -383,7 +383,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 	log := logrus.WithField("command", "sync")
 
 	// Load configuration
-	cfg, err := loadConfig()
+	cfg, err := loadConfig(ctx)
 	if err != nil {
 		// Display configuration error to user before returning
 		if strings.Contains(err.Error(), "invalid configuration") {
@@ -449,7 +449,7 @@ func createRunSync(flags *Flags) func(*cobra.Command, []string) error {
 		log := logger.WithField("command", "sync")
 
 		// Load configuration
-		cfg, err := loadConfigWithFlags(flags, logger)
+		cfg, err := loadConfigWithFlags(ctx, flags, logger)
 		if err != nil {
 			return fmt.Errorf("failed to load configuration: %w", err)
 		}
@@ -487,7 +487,7 @@ func createRunSync(flags *Flags) func(*cobra.Command, []string) error {
 	}
 }
 
-func loadConfig() (*config.Config, error) {
+func loadConfig(ctx context.Context) (*config.Config, error) {
 	// Warn if both flags are specified
 	if GetFromDB() && GetConfigFile() != "sync.yaml" {
 		logrus.Warn("Both --from-db and --config specified; using --from-db (--config ignored)")
@@ -495,7 +495,7 @@ func loadConfig() (*config.Config, error) {
 
 	// Check if loading from database
 	if GetFromDB() {
-		return loadConfigFromDB()
+		return loadConfigFromDB(ctx)
 	}
 
 	configPath := GetConfigFile()
@@ -512,7 +512,7 @@ func loadConfig() (*config.Config, error) {
 	}
 
 	// Validate configuration
-	if err := cfg.ValidateWithLogging(context.Background(), nil); err != nil {
+	if err := cfg.ValidateWithLogging(ctx, nil); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
@@ -520,9 +520,7 @@ func loadConfig() (*config.Config, error) {
 }
 
 // loadConfigFromDB loads configuration from the database
-func loadConfigFromDB() (*config.Config, error) {
-	ctx := context.Background()
-
+func loadConfigFromDB(ctx context.Context) (*config.Config, error) {
 	// Open database using shared helper (handles existence check + auto-migration)
 	database, err := openDatabase()
 	if err != nil {
@@ -551,7 +549,7 @@ func loadConfigFromDB() (*config.Config, error) {
 	}
 
 	// Validate configuration
-	if err := cfg.ValidateWithLogging(context.Background(), nil); err != nil {
+	if err := cfg.ValidateWithLogging(ctx, nil); err != nil {
 		return nil, fmt.Errorf("invalid configuration from database: %w", err)
 	}
 
@@ -559,7 +557,7 @@ func loadConfigFromDB() (*config.Config, error) {
 }
 
 // loadConfigWithFlags loads configuration using the given flags instead of global state
-func loadConfigWithFlags(flags *Flags, logger *logrus.Logger) (*config.Config, error) {
+func loadConfigWithFlags(ctx context.Context, flags *Flags, logger *logrus.Logger) (*config.Config, error) {
 	configPath := flags.ConfigFile
 
 	// Check if config file exists
@@ -574,7 +572,7 @@ func loadConfigWithFlags(flags *Flags, logger *logrus.Logger) (*config.Config, e
 	}
 
 	// Validate configuration
-	if err := cfg.ValidateWithLogging(context.Background(), nil); err != nil {
+	if err := cfg.ValidateWithLogging(ctx, nil); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
@@ -831,7 +829,7 @@ repoTransformerAdded2:
 //
 // Side Effects:
 // - Logs configuration details when debug logging is enabled
-func loadConfigWithLogConfig(logConfig *LogConfig) (*config.Config, error) {
+func loadConfigWithLogConfig(ctx context.Context, logConfig *LogConfig) (*config.Config, error) {
 	configPath := logConfig.ConfigFile
 
 	// Check if config file exists
@@ -846,7 +844,7 @@ func loadConfigWithLogConfig(logConfig *LogConfig) (*config.Config, error) {
 	}
 
 	// Validate configuration with LogConfig
-	if err := cfg.ValidateWithLogging(context.Background(), logConfig); err != nil {
+	if err := cfg.ValidateWithLogging(ctx, logConfig); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 

@@ -43,8 +43,8 @@ func newDBBulkAddFileListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add-file-list",
 		Short: "Add a file list to all targets in a group",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runBulkAddFileList(groupID, fileListID, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runBulkAddFileList(cmdContext(cmd), groupID, fileListID, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -55,14 +55,13 @@ func newDBBulkAddFileListCmd() *cobra.Command {
 	return cmd
 }
 
-func runBulkAddFileList(groupExternalID, fileListExternalID string, jsonOutput bool) error {
+func runBulkAddFileList(ctx context.Context, groupExternalID, fileListExternalID string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("bulk", "add-file-list", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, groupExternalID)
@@ -112,8 +111,8 @@ func newDBBulkRemoveFileListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove-file-list",
 		Short: "Remove a file list from all targets in a group",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runBulkRemoveFileList(groupID, fileListID, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runBulkRemoveFileList(cmdContext(cmd), groupID, fileListID, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -124,14 +123,13 @@ func newDBBulkRemoveFileListCmd() *cobra.Command {
 	return cmd
 }
 
-func runBulkRemoveFileList(groupExternalID, fileListExternalID string, jsonOutput bool) error {
+func runBulkRemoveFileList(ctx context.Context, groupExternalID, fileListExternalID string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("bulk", "remove-file-list", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, groupExternalID)
@@ -181,8 +179,8 @@ func newDBBulkAddDirListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add-dir-list",
 		Short: "Add a directory list to all targets in a group",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runBulkAddDirList(groupID, dirListID, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runBulkAddDirList(cmdContext(cmd), groupID, dirListID, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -193,14 +191,13 @@ func newDBBulkAddDirListCmd() *cobra.Command {
 	return cmd
 }
 
-func runBulkAddDirList(groupExternalID, dirListExternalID string, jsonOutput bool) error {
+func runBulkAddDirList(ctx context.Context, groupExternalID, dirListExternalID string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("bulk", "add-dir-list", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, groupExternalID)
@@ -250,8 +247,8 @@ func newDBBulkRemoveDirListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove-dir-list",
 		Short: "Remove a directory list from all targets in a group",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runBulkRemoveDirList(groupID, dirListID, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runBulkRemoveDirList(cmdContext(cmd), groupID, dirListID, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -262,14 +259,13 @@ func newDBBulkRemoveDirListCmd() *cobra.Command {
 	return cmd
 }
 
-func runBulkRemoveDirList(groupExternalID, dirListExternalID string, jsonOutput bool) error {
+func runBulkRemoveDirList(ctx context.Context, groupExternalID, dirListExternalID string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("bulk", "remove-dir-list", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, groupExternalID)

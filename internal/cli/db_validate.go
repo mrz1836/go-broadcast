@@ -69,10 +69,10 @@ type ValidationCheck struct {
 }
 
 // runDBValidate executes the database validation command
-func runDBValidate(_ *cobra.Command, _ []string) error {
+func runDBValidate(cmd *cobra.Command, _ []string) error {
 	path := getDBPath()
 
-	result, err := runDBValidation(path)
+	result, err := runDBValidation(cmdContext(cmd), path)
 	if err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func runDBValidate(_ *cobra.Command, _ []string) error {
 }
 
 // runDBValidation executes database validation checks and returns the result without printing.
-func runDBValidation(path string) (ValidationResult, error) {
+func runDBValidation(ctx context.Context, path string) (ValidationResult, error) {
 	// Check if database exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return ValidationResult{}, fmt.Errorf("database does not exist: %s (run 'go-broadcast db init' to create)", path) //nolint:err113 // user-facing CLI error
@@ -98,7 +98,6 @@ func runDBValidation(path string) (ValidationResult, error) {
 	defer func() { _ = database.Close() }()
 
 	gormDB := database.DB()
-	ctx := context.Background()
 
 	result := ValidationResult{
 		Valid:  true,

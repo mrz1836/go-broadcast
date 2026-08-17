@@ -156,7 +156,7 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 	_ = logrus.WithField("command", "status")
 
 	// Load configuration
-	cfg, err := loadConfig()
+	cfg, err := loadConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}

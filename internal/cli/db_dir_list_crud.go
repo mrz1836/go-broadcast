@@ -44,22 +44,21 @@ func newDBDirListListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List all directory lists",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runDirListList(jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runDirListList(cmdContext(cmd), jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	return cmd
 }
 
-func runDirListList(jsonOutput bool) error {
+func runDirListList(ctx context.Context, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("directory_list", "listed", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	cfg, err := getDefaultConfig(ctx, gormDB)
@@ -109,22 +108,21 @@ func newDBDirListGetCmd() *cobra.Command {
 		Use:   "get <id>",
 		Short: "Show directory list with all mappings",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runDirListGet(args[0], jsonOutput)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDirListGet(cmdContext(cmd), args[0], jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	return cmd
 }
 
-func runDirListGet(externalID string, jsonOutput bool) error {
+func runDirListGet(ctx context.Context, externalID string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("directory_list", "get", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	dl, err := resolveDirectoryList(ctx, gormDB, externalID)
@@ -195,8 +193,8 @@ func newDBDirListCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create an empty directory list",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runDirListCreate(id, name, description, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runDirListCreate(cmdContext(cmd), id, name, description, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -208,14 +206,13 @@ func newDBDirListCreateCmd() *cobra.Command {
 	return cmd
 }
 
-func runDirListCreate(id, name, description string, jsonOutput bool) error {
+func runDirListCreate(ctx context.Context, id, name, description string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("directory_list", "created", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	cfg, err := getDefaultConfig(ctx, gormDB)
@@ -285,8 +282,8 @@ func newDBDirListDeleteCmd() *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a directory list",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runDirListDelete(args[0], hard, jsonOutput)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDirListDelete(cmdContext(cmd), args[0], hard, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -294,14 +291,13 @@ func newDBDirListDeleteCmd() *cobra.Command {
 	return cmd
 }
 
-func runDirListDelete(externalID string, hard, jsonOutput bool) error {
+func runDirListDelete(ctx context.Context, externalID string, hard, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("directory_list", "deleted", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	dl, err := resolveDirectoryList(ctx, gormDB, externalID)
@@ -350,8 +346,8 @@ func newDBDirListAddDirCmd() *cobra.Command {
 		Use:   "add-dir <id>",
 		Short: "Add a directory mapping to a directory list",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runDirListAddDir(args[0], src, dest, exclude, includeOnly, preserveStructure, deleteFlag, jsonOutput)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDirListAddDir(cmdContext(cmd), args[0], src, dest, exclude, includeOnly, preserveStructure, deleteFlag, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -365,14 +361,13 @@ func newDBDirListAddDirCmd() *cobra.Command {
 	return cmd
 }
 
-func runDirListAddDir(externalID, src, dest, exclude, includeOnly string, preserveStructure, deleteFlag, jsonOutput bool) error {
+func runDirListAddDir(ctx context.Context, externalID, src, dest, exclude, includeOnly string, preserveStructure, deleteFlag, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("directory_mapping", "created", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	dl, err := resolveDirectoryList(ctx, gormDB, externalID)
@@ -444,8 +439,8 @@ func newDBDirListRemoveDirCmd() *cobra.Command {
 		Use:   "remove-dir <id>",
 		Short: "Remove a directory mapping from a directory list",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runDirListRemoveDir(args[0], dest, jsonOutput)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDirListRemoveDir(cmdContext(cmd), args[0], dest, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -454,14 +449,13 @@ func newDBDirListRemoveDirCmd() *cobra.Command {
 	return cmd
 }
 
-func runDirListRemoveDir(externalID, dest string, jsonOutput bool) error {
+func runDirListRemoveDir(ctx context.Context, externalID, dest string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("directory_mapping", "deleted", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	dl, err := resolveDirectoryList(ctx, gormDB, externalID)

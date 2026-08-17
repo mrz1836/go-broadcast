@@ -6,11 +6,25 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
 	"github.com/mrz1836/go-broadcast/internal/db"
 )
+
+// cmdContext returns the command's context, falling back to context.Background()
+// when the command is nil or was invoked without one (e.g., in direct unit tests).
+// This lets RunE handlers propagate Ctrl-C/SIGTERM cancellation into the operations
+// they call.
+func cmdContext(cmd *cobra.Command) context.Context {
+	if cmd != nil {
+		if ctx := cmd.Context(); ctx != nil {
+			return ctx
+		}
+	}
+	return context.Background()
+}
 
 // openDatabase opens the database at the given path (or default) and returns it.
 // The caller must close the returned database.

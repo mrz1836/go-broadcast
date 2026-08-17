@@ -133,11 +133,11 @@ func init() {
 }
 
 func runListModules(cmd *cobra.Command, _ []string) error {
-	_ = cmd.Context()
+	ctx := cmd.Context()
 	_ = logrus.WithField("command", "modules-list")
 
 	// Load configuration
-	cfg, err := loadConfig()
+	cfg, err := loadConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
@@ -197,12 +197,12 @@ func runListModules(cmd *cobra.Command, _ []string) error {
 }
 
 func runShowModule(cmd *cobra.Command, args []string) error {
-	_ = cmd.Context()
+	ctx := cmd.Context()
 	modulePath := args[0]
 	_ = logrus.WithField("command", "modules-show")
 
 	// Load configuration
-	cfg, err := loadConfig()
+	cfg, err := loadConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
@@ -268,7 +268,7 @@ func runModuleVersions(cmd *cobra.Command, args []string) error {
 	logger := logrus.StandardLogger()
 
 	// Load configuration
-	cfg, err := loadConfig()
+	cfg, err := loadConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
@@ -355,7 +355,7 @@ func runValidateModules(cmd *cobra.Command, _ []string) error {
 	logger := logrus.StandardLogger()
 
 	// Load configuration
-	cfg, err := loadConfig()
+	cfg, err := loadConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}

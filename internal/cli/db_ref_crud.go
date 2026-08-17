@@ -37,8 +37,8 @@ func newDBRefAddFileListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add-file-list",
 		Short: "Attach a file list to a target",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runRefAddFileList(groupID, repo, fileListID, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runRefAddFileList(cmdContext(cmd), groupID, repo, fileListID, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -51,14 +51,13 @@ func newDBRefAddFileListCmd() *cobra.Command {
 	return cmd
 }
 
-func runRefAddFileList(groupExternalID, repoFullName, fileListExternalID string, jsonOutput bool) error {
+func runRefAddFileList(ctx context.Context, groupExternalID, repoFullName, fileListExternalID string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("ref", "attached", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, groupExternalID)
@@ -140,8 +139,8 @@ func newDBRefRemoveFileListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove-file-list",
 		Short: "Detach a file list from a target",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runRefRemoveFileList(groupID, repo, fileListID, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runRefRemoveFileList(cmdContext(cmd), groupID, repo, fileListID, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -154,14 +153,13 @@ func newDBRefRemoveFileListCmd() *cobra.Command {
 	return cmd
 }
 
-func runRefRemoveFileList(groupExternalID, repoFullName, fileListExternalID string, jsonOutput bool) error {
+func runRefRemoveFileList(ctx context.Context, groupExternalID, repoFullName, fileListExternalID string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("ref", "detached", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, groupExternalID)
@@ -219,8 +217,8 @@ func newDBRefAddDirListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add-dir-list",
 		Short: "Attach a directory list to a target",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runRefAddDirList(groupID, repo, dirListID, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runRefAddDirList(cmdContext(cmd), groupID, repo, dirListID, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -233,14 +231,13 @@ func newDBRefAddDirListCmd() *cobra.Command {
 	return cmd
 }
 
-func runRefAddDirList(groupExternalID, repoFullName, dirListExternalID string, jsonOutput bool) error {
+func runRefAddDirList(ctx context.Context, groupExternalID, repoFullName, dirListExternalID string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("ref", "attached", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, groupExternalID)
@@ -320,8 +317,8 @@ func newDBRefRemoveDirListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove-dir-list",
 		Short: "Detach a directory list from a target",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runRefRemoveDirList(groupID, repo, dirListID, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runRefRemoveDirList(cmdContext(cmd), groupID, repo, dirListID, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -334,14 +331,13 @@ func newDBRefRemoveDirListCmd() *cobra.Command {
 	return cmd
 }
 
-func runRefRemoveDirList(groupExternalID, repoFullName, dirListExternalID string, jsonOutput bool) error {
+func runRefRemoveDirList(ctx context.Context, groupExternalID, repoFullName, dirListExternalID string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("ref", "detached", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, groupExternalID)

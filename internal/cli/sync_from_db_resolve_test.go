@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -20,7 +21,7 @@ func TestSync_FromDB_ResolvesFileListRefs(t *testing.T) {
 	// setupTestDB wires target1 (acme/test-repo-1) → TargetFileListRef → ai-files.
 	// ai-files contains ".cursorrules". target1 also has inline ".editorconfig".
 	// After loadConfigFromDB resolves refs, both must appear in target.Files.
-	cfg, err := loadConfigFromDB()
+	cfg, err := loadConfigFromDB(context.Background())
 	require.NoError(t, err)
 	require.Len(t, cfg.Groups, 1)
 
@@ -67,7 +68,7 @@ func TestSync_FromDB_ResolvesDirectoryListRefs(t *testing.T) {
 		require.NoError(t, database.Close())
 	}
 
-	cfg, err := loadConfigFromDB()
+	cfg, err := loadConfigFromDB(context.Background())
 	require.NoError(t, err)
 	require.Len(t, cfg.Groups, 1)
 
@@ -167,7 +168,7 @@ func TestSync_FromDB_MissingFileListRef_Errors(t *testing.T) {
 
 	require.NoError(t, database.Close())
 
-	_, err = loadConfigFromDB()
+	_, err = loadConfigFromDB(context.Background())
 	require.Error(t, err)
 	require.ErrorIs(t, err, config.ErrListReferenceNotFound)
 	assert.Contains(t, err.Error(), "available file_lists",
@@ -213,7 +214,7 @@ func TestSync_FromDB_InlineOverridesRef_OnDestCollision(t *testing.T) {
 		require.NoError(t, database.Close())
 	}
 
-	cfg, err := loadConfigFromDB()
+	cfg, err := loadConfigFromDB(context.Background())
 	require.NoError(t, err)
 	require.Len(t, cfg.Groups, 1)
 

@@ -181,7 +181,7 @@ func runCancel(cmd *cobra.Command, args []string) error {
 	log := logrus.WithField("command", "cancel")
 
 	// Load configuration
-	cfg, err := loadConfig()
+	cfg, err := loadConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}

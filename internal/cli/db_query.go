@@ -69,7 +69,7 @@ type QueryResult struct {
 }
 
 // runDBQuery executes the database query command
-func runDBQuery(_ *cobra.Command, _ []string) error {
+func runDBQuery(cmd *cobra.Command, _ []string) error {
 	// Validate exactly one query flag is specified
 	flagCount := 0
 	if dbQueryFile != "" {
@@ -110,7 +110,7 @@ func runDBQuery(_ *cobra.Command, _ []string) error {
 	defer func() { _ = database.Close() }()
 
 	queryRepo := db.NewQueryRepository(database.DB())
-	ctx := context.Background()
+	ctx := cmdContext(cmd)
 
 	// Execute the appropriate query
 	switch {

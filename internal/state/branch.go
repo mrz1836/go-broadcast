@@ -11,9 +11,6 @@ import (
 
 // Cached regex patterns for performance - compiled once at package init
 var (
-	// invalidCharsPattern validates branch prefix characters
-	invalidCharsPattern = regexp.MustCompile(`[^a-zA-Z0-9/_-]`)
-
 	// invalidScopeCharsPattern matches characters not allowed in the scope segment
 	// of a sync branch name, which must stay within the branch parsing charset
 	invalidScopeCharsPattern = regexp.MustCompile(`[^a-zA-Z0-9_-]+`)
@@ -24,11 +21,7 @@ var (
 )
 
 // Branch validation errors
-var (
-	ErrBranchPrefixEmpty   = errors.New("branch prefix cannot be empty")
-	ErrBranchPrefixInvalid = errors.New("branch prefix contains invalid characters")
-	ErrNotSyncBranch       = errors.New("not a sync branch")
-)
+var ErrNotSyncBranch = errors.New("not a sync branch")
 
 // getBranchPattern returns a cached compiled regex for the given branch prefix.
 // This avoids recompiling the same regex pattern on every call.
@@ -139,18 +132,4 @@ func FormatBranchScope(repo string) string {
 	}
 
 	return name
-}
-
-// ValidateBranchPrefix checks if a branch prefix is valid
-func ValidateBranchPrefix(prefix string) error {
-	if prefix == "" {
-		return ErrBranchPrefixEmpty
-	}
-
-	// Check for invalid characters using cached pattern
-	if invalidCharsPattern.MatchString(prefix) {
-		return ErrBranchPrefixInvalid
-	}
-
-	return nil
 }

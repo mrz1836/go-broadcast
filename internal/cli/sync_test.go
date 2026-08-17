@@ -190,7 +190,7 @@ func TestLoadConfig(t *testing.T) {
 			SetFlags(originalFlags)
 		}()
 
-		cfg, err := loadConfig()
+		cfg, err := loadConfig(context.Background())
 		require.Error(t, err)
 		assert.Nil(t, cfg)
 		assert.ErrorIs(t, err, ErrConfigFileNotFound)
@@ -216,7 +216,7 @@ func TestLoadConfig(t *testing.T) {
 			SetFlags(originalFlags)
 		}()
 
-		cfg, err := loadConfig()
+		cfg, err := loadConfig(context.Background())
 		require.NoError(t, err)
 		require.NotNil(t, cfg)
 
@@ -245,7 +245,7 @@ func TestLoadConfig(t *testing.T) {
 			SetFlags(originalFlags)
 		}()
 
-		cfg, err := loadConfig()
+		cfg, err := loadConfig(context.Background())
 		require.Error(t, err)
 		assert.Nil(t, cfg)
 	})
@@ -260,7 +260,7 @@ func TestLoadConfigWithFlags(t *testing.T) {
 			ConfigFile: "/non/existent/file.yml",
 		}
 
-		cfg, err := loadConfigWithFlags(flags, logger)
+		cfg, err := loadConfigWithFlags(context.Background(), flags, logger)
 		require.Error(t, err)
 		assert.Nil(t, cfg)
 		assert.ErrorIs(t, err, ErrConfigFileNotFound)
@@ -303,7 +303,7 @@ groups:
 		logger.SetOutput(&buf)
 		logger.SetLevel(logrus.DebugLevel)
 
-		cfg, err := loadConfigWithFlags(flags, logger)
+		cfg, err := loadConfigWithFlags(context.Background(), flags, logger)
 		require.NoError(t, err)
 		require.NotNil(t, cfg)
 
@@ -329,7 +329,7 @@ func TestLoadConfigWithLogConfig(t *testing.T) {
 			ConfigFile: "/non/existent/file.yml",
 		}
 
-		cfg, err := loadConfigWithLogConfig(logConfig)
+		cfg, err := loadConfigWithLogConfig(context.Background(), logConfig)
 		require.Error(t, err)
 		assert.Nil(t, cfg)
 		assert.ErrorIs(t, err, ErrConfigFileNotFound)
@@ -360,7 +360,7 @@ func TestLoadConfigWithLogConfig(t *testing.T) {
 			},
 		}
 
-		cfg, err := loadConfigWithLogConfig(logConfig)
+		cfg, err := loadConfigWithLogConfig(context.Background(), logConfig)
 		require.NoError(t, err)
 		require.NotNil(t, cfg)
 
@@ -392,7 +392,7 @@ func TestLoadConfigWithLogConfig(t *testing.T) {
 			Verbose:    1,
 		}
 
-		cfg, err := loadConfigWithLogConfig(logConfig)
+		cfg, err := loadConfigWithLogConfig(context.Background(), logConfig)
 		require.NoError(t, err)
 		require.NotNil(t, cfg)
 
@@ -818,7 +818,7 @@ groups: []`
 		logger.SetLevel(logrus.DebugLevel)
 
 		// This should not panic with index out of bounds
-		cfg, err := loadConfigWithFlags(flags, logger)
+		cfg, err := loadConfigWithFlags(context.Background(), flags, logger)
 
 		// Config may fail validation (no groups), but should not panic
 		if err != nil {

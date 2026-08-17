@@ -44,22 +44,21 @@ func newDBFileListListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List all file lists",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runFileListList(jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runFileListList(cmdContext(cmd), jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	return cmd
 }
 
-func runFileListList(jsonOutput bool) error {
+func runFileListList(ctx context.Context, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("file_list", "listed", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	cfg, err := getDefaultConfig(ctx, gormDB)
@@ -109,22 +108,21 @@ func newDBFileListGetCmd() *cobra.Command {
 		Use:   "get <id>",
 		Short: "Show file list with all mappings",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runFileListGet(args[0], jsonOutput)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runFileListGet(cmdContext(cmd), args[0], jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	return cmd
 }
 
-func runFileListGet(externalID string, jsonOutput bool) error {
+func runFileListGet(ctx context.Context, externalID string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("file_list", "get", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	fl, err := resolveFileList(ctx, gormDB, externalID)
@@ -193,8 +191,8 @@ func newDBFileListCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create an empty file list",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runFileListCreate(id, name, description, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runFileListCreate(cmdContext(cmd), id, name, description, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -206,14 +204,13 @@ func newDBFileListCreateCmd() *cobra.Command {
 	return cmd
 }
 
-func runFileListCreate(id, name, description string, jsonOutput bool) error {
+func runFileListCreate(ctx context.Context, id, name, description string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("file_list", "created", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	cfg, err := getDefaultConfig(ctx, gormDB)
@@ -285,8 +282,8 @@ func newDBFileListDeleteCmd() *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a file list",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runFileListDelete(args[0], hard, jsonOutput)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runFileListDelete(cmdContext(cmd), args[0], hard, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -294,14 +291,13 @@ func newDBFileListDeleteCmd() *cobra.Command {
 	return cmd
 }
 
-func runFileListDelete(externalID string, hard, jsonOutput bool) error {
+func runFileListDelete(ctx context.Context, externalID string, hard, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("file_list", "deleted", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	fl, err := resolveFileList(ctx, gormDB, externalID)
@@ -347,8 +343,8 @@ func newDBFileListAddFileCmd() *cobra.Command {
 		Use:   "add-file <id>",
 		Short: "Add a file mapping to a file list",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runFileListAddFile(args[0], src, dest, deleteFlag, jsonOutput)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runFileListAddFile(cmdContext(cmd), args[0], src, dest, deleteFlag, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -359,14 +355,13 @@ func newDBFileListAddFileCmd() *cobra.Command {
 	return cmd
 }
 
-func runFileListAddFile(externalID, src, dest string, deleteFlag, jsonOutput bool) error {
+func runFileListAddFile(ctx context.Context, externalID, src, dest string, deleteFlag, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("file_mapping", "created", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	fl, err := resolveFileList(ctx, gormDB, externalID)
@@ -434,8 +429,8 @@ func newDBFileListRemoveFileCmd() *cobra.Command {
 		Use:   "remove-file <id>",
 		Short: "Remove a file mapping from a file list",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runFileListRemoveFile(args[0], dest, jsonOutput)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runFileListRemoveFile(cmdContext(cmd), args[0], dest, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -444,14 +439,13 @@ func newDBFileListRemoveFileCmd() *cobra.Command {
 	return cmd
 }
 
-func runFileListRemoveFile(externalID, dest string, jsonOutput bool) error {
+func runFileListRemoveFile(ctx context.Context, externalID, dest string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("file_mapping", "deleted", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	fl, err := resolveFileList(ctx, gormDB, externalID)

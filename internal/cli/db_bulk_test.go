@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -78,7 +79,7 @@ func setupBulkTestDB(t *testing.T, seed bool) {
 func TestRunBulkAddFileList_GroupNotFound(t *testing.T) {
 	setupBulkTestDB(t, false)
 
-	err := runBulkAddFileList("nonexistent-group", "any-list", false)
+	err := runBulkAddFileList(context.Background(), "nonexistent-group", "any-list", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -86,7 +87,7 @@ func TestRunBulkAddFileList_GroupNotFound(t *testing.T) {
 func TestRunBulkAddFileList_FileListNotFound(t *testing.T) {
 	setupBulkTestDB(t, true)
 
-	err := runBulkAddFileList("my-tools", "nonexistent-file-list", false)
+	err := runBulkAddFileList(context.Background(), "my-tools", "nonexistent-file-list", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -96,7 +97,7 @@ func TestRunBulkAddFileList_FileListNotFound(t *testing.T) {
 func TestRunBulkRemoveFileList_GroupNotFound(t *testing.T) {
 	setupBulkTestDB(t, false)
 
-	err := runBulkRemoveFileList("nonexistent-group", "any-list", false)
+	err := runBulkRemoveFileList(context.Background(), "nonexistent-group", "any-list", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -104,7 +105,7 @@ func TestRunBulkRemoveFileList_GroupNotFound(t *testing.T) {
 func TestRunBulkRemoveFileList_FileListNotFound(t *testing.T) {
 	setupBulkTestDB(t, true)
 
-	err := runBulkRemoveFileList("my-tools", "nonexistent-file-list", false)
+	err := runBulkRemoveFileList(context.Background(), "my-tools", "nonexistent-file-list", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -114,7 +115,7 @@ func TestRunBulkRemoveFileList_FileListNotFound(t *testing.T) {
 func TestRunBulkAddDirList_GroupNotFound(t *testing.T) {
 	setupBulkTestDB(t, false)
 
-	err := runBulkAddDirList("nonexistent-group", "any-list", false)
+	err := runBulkAddDirList(context.Background(), "nonexistent-group", "any-list", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -122,7 +123,7 @@ func TestRunBulkAddDirList_GroupNotFound(t *testing.T) {
 func TestRunBulkAddDirList_DirListNotFound(t *testing.T) {
 	setupBulkTestDB(t, true)
 
-	err := runBulkAddDirList("my-tools", "nonexistent-dir-list", false)
+	err := runBulkAddDirList(context.Background(), "my-tools", "nonexistent-dir-list", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -132,7 +133,7 @@ func TestRunBulkAddDirList_DirListNotFound(t *testing.T) {
 func TestRunBulkRemoveDirList_GroupNotFound(t *testing.T) {
 	setupBulkTestDB(t, false)
 
-	err := runBulkRemoveDirList("nonexistent-group", "any-list", false)
+	err := runBulkRemoveDirList(context.Background(), "nonexistent-group", "any-list", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -140,7 +141,7 @@ func TestRunBulkRemoveDirList_GroupNotFound(t *testing.T) {
 func TestRunBulkRemoveDirList_DirListNotFound(t *testing.T) {
 	setupBulkTestDB(t, true)
 
-	err := runBulkRemoveDirList("my-tools", "nonexistent-dir-list", false)
+	err := runBulkRemoveDirList(context.Background(), "my-tools", "nonexistent-dir-list", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }

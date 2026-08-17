@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"os"
@@ -149,7 +150,7 @@ func TestGroupList(t *testing.T) {
 
 	t.Run("json output", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runGroupList(true)
+			return runGroupList(context.Background(), true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -159,7 +160,7 @@ func TestGroupList(t *testing.T) {
 	})
 
 	t.Run("human output", func(t *testing.T) {
-		err := runGroupList(false)
+		err := runGroupList(context.Background(), false)
 		require.NoError(t, err)
 	})
 }
@@ -170,7 +171,7 @@ func TestGroupGet(t *testing.T) {
 
 	t.Run("existing group", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runGroupGet("my-tools", true)
+			return runGroupGet(context.Background(), "my-tools", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -179,7 +180,7 @@ func TestGroupGet(t *testing.T) {
 
 	t.Run("non-existent group", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runGroupGet("nonexistent", true)
+			return runGroupGet(context.Background(), "nonexistent", true)
 		})
 		require.NoError(t, err) // JSON mode returns via stdout, not error
 		assert.False(t, resp.Success)
@@ -188,7 +189,7 @@ func TestGroupGet(t *testing.T) {
 	})
 
 	t.Run("human output", func(t *testing.T) {
-		err := runGroupGet("my-tools", false)
+		err := runGroupGet(context.Background(), "my-tools", false)
 		require.NoError(t, err)
 	})
 }
@@ -199,7 +200,7 @@ func TestGroupCreate(t *testing.T) {
 
 	t.Run("create new group", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runGroupCreate("new-group", "New Group", "acme/go-broadcast", "main", "A new group", 5, false, true)
+			return runGroupCreate(context.Background(), "new-group", "New Group", "acme/go-broadcast", "main", "A new group", 5, false, true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -208,7 +209,7 @@ func TestGroupCreate(t *testing.T) {
 
 	t.Run("duplicate group fails", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runGroupCreate("my-tools", "Dup", "acme/go-broadcast", "main", "", 0, false, true)
+			return runGroupCreate(context.Background(), "my-tools", "Dup", "acme/go-broadcast", "main", "", 0, false, true)
 		})
 		require.NoError(t, err)
 		assert.False(t, resp.Success)
@@ -217,7 +218,7 @@ func TestGroupCreate(t *testing.T) {
 
 	t.Run("create disabled group", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runGroupCreate("disabled-grp", "Disabled Group", "acme/go-broadcast", "main", "", 0, true, true)
+			return runGroupCreate(context.Background(), "disabled-grp", "Disabled Group", "acme/go-broadcast", "main", "", 0, true, true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -231,12 +232,12 @@ func TestGroupDelete(t *testing.T) {
 	t.Run("soft delete", func(t *testing.T) {
 		// Create first, then delete
 		_, err := captureJSON(t, func() error {
-			return runGroupCreate("del-test", "Delete Test", "acme/go-broadcast", "main", "", 0, false, true)
+			return runGroupCreate(context.Background(), "del-test", "Delete Test", "acme/go-broadcast", "main", "", 0, false, true)
 		})
 		require.NoError(t, err)
 
 		resp, err := captureJSON(t, func() error {
-			return runGroupDelete("del-test", false, true)
+			return runGroupDelete(context.Background(), "del-test", false, true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -249,14 +250,14 @@ func TestGroupDelete(t *testing.T) {
 		// the supported workflow. Test that hard-delete with FK error gives
 		// a clear error response.
 		createResp, err := captureJSON(t, func() error {
-			return runGroupCreate("del-hard", "Hard Delete", "acme/go-broadcast", "main", "", 0, false, true)
+			return runGroupCreate(context.Background(), "del-hard", "Hard Delete", "acme/go-broadcast", "main", "", 0, false, true)
 		})
 		require.NoError(t, err)
 		require.True(t, createResp.Success, "create failed: %s (hint: %s)", createResp.Error, createResp.Hint)
 
 		// Hard-delete fails because of FK constraints (expected behavior)
 		resp, err := captureJSON(t, func() error {
-			return runGroupDelete("del-hard", true, true)
+			return runGroupDelete(context.Background(), "del-hard", true, true)
 		})
 		require.NoError(t, err)
 		assert.False(t, resp.Success) // FK constraint prevents hard delete of group with associations
@@ -264,7 +265,7 @@ func TestGroupDelete(t *testing.T) {
 
 		// But soft delete works
 		resp, err = captureJSON(t, func() error {
-			return runGroupDelete("del-hard", false, true)
+			return runGroupDelete(context.Background(), "del-hard", false, true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -273,7 +274,7 @@ func TestGroupDelete(t *testing.T) {
 
 	t.Run("nonexistent group", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runGroupDelete("nonexistent", false, true)
+			return runGroupDelete(context.Background(), "nonexistent", false, true)
 		})
 		require.NoError(t, err)
 		assert.False(t, resp.Success)
@@ -286,7 +287,7 @@ func TestGroupEnableDisable(t *testing.T) {
 
 	t.Run("disable group", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runGroupSetEnabled("my-tools", false, true)
+			return runGroupSetEnabled(context.Background(), "my-tools", false, true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -295,7 +296,7 @@ func TestGroupEnableDisable(t *testing.T) {
 
 	t.Run("enable group", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runGroupSetEnabled("my-tools", true, true)
+			return runGroupSetEnabled(context.Background(), "my-tools", true, true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -304,7 +305,7 @@ func TestGroupEnableDisable(t *testing.T) {
 
 	t.Run("nonexistent group", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runGroupSetEnabled("nonexistent", true, true)
+			return runGroupSetEnabled(context.Background(), "nonexistent", true, true)
 		})
 		require.NoError(t, err)
 		assert.False(t, resp.Success)
@@ -343,7 +344,7 @@ func TestTargetList(t *testing.T) {
 
 	t.Run("json output", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runTargetList("my-tools", true)
+			return runTargetList(context.Background(), "my-tools", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -351,13 +352,13 @@ func TestTargetList(t *testing.T) {
 	})
 
 	t.Run("human output", func(t *testing.T) {
-		err := runTargetList("my-tools", false)
+		err := runTargetList(context.Background(), "my-tools", false)
 		require.NoError(t, err)
 	})
 
 	t.Run("nonexistent group", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runTargetList("nonexistent", true)
+			return runTargetList(context.Background(), "nonexistent", true)
 		})
 		require.NoError(t, err)
 		assert.False(t, resp.Success)
@@ -370,7 +371,7 @@ func TestTargetAdd(t *testing.T) {
 
 	t.Run("add new target", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runTargetAdd("my-tools", "acme/new-repo", "main", true)
+			return runTargetAdd(context.Background(), "my-tools", "acme/new-repo", "main", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -379,7 +380,7 @@ func TestTargetAdd(t *testing.T) {
 
 	t.Run("idempotent add", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runTargetAdd("my-tools", "acme/test-repo-1", "main", true)
+			return runTargetAdd(context.Background(), "my-tools", "acme/test-repo-1", "main", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -397,7 +398,7 @@ func TestTargetAdd(t *testing.T) {
 		require.NoError(t, database.DB().Model(&db.Target{}).Count(&before).Error)
 
 		resp, err := captureJSON(t, func() error {
-			return runTargetAdd("my-tools", "acme/dry-run-target", "main", true)
+			return runTargetAdd(context.Background(), "my-tools", "acme/dry-run-target", "main", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -416,7 +417,7 @@ func TestTargetRemove(t *testing.T) {
 
 	t.Run("remove existing target", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runTargetRemove("my-tools", "acme/test-repo-2", false, true)
+			return runTargetRemove(context.Background(), "my-tools", "acme/test-repo-2", false, true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -424,7 +425,7 @@ func TestTargetRemove(t *testing.T) {
 
 	t.Run("remove nonexistent target", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runTargetRemove("my-tools", "acme/nonexistent", false, true)
+			return runTargetRemove(context.Background(), "my-tools", "acme/nonexistent", false, true)
 		})
 		require.NoError(t, err)
 		assert.False(t, resp.Success)
@@ -578,7 +579,7 @@ func TestTargetGet(t *testing.T) {
 
 	t.Run("existing target", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runTargetGet("my-tools", "acme/test-repo-1", true)
+			return runTargetGet(context.Background(), "my-tools", "acme/test-repo-1", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -587,7 +588,7 @@ func TestTargetGet(t *testing.T) {
 
 	t.Run("nonexistent target", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runTargetGet("my-tools", "acme/nonexistent", true)
+			return runTargetGet(context.Background(), "my-tools", "acme/nonexistent", true)
 		})
 		require.NoError(t, err)
 		assert.False(t, resp.Success)
@@ -604,7 +605,7 @@ func TestFileListList(t *testing.T) {
 
 	t.Run("json output", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runFileListList(true)
+			return runFileListList(context.Background(), true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -618,7 +619,7 @@ func TestFileListGet(t *testing.T) {
 
 	t.Run("existing", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runFileListGet("ai-files", true)
+			return runFileListGet(context.Background(), "ai-files", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -626,7 +627,7 @@ func TestFileListGet(t *testing.T) {
 
 	t.Run("nonexistent", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runFileListGet("nonexistent", true)
+			return runFileListGet(context.Background(), "nonexistent", true)
 		})
 		require.NoError(t, err)
 		assert.False(t, resp.Success)
@@ -639,7 +640,7 @@ func TestFileListCreate(t *testing.T) {
 
 	t.Run("create new", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runFileListCreate("security-files", "Security Files", "Security related files", true)
+			return runFileListCreate(context.Background(), "security-files", "Security Files", "Security related files", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -648,7 +649,7 @@ func TestFileListCreate(t *testing.T) {
 
 	t.Run("duplicate fails", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runFileListCreate("ai-files", "Dup", "", true)
+			return runFileListCreate(context.Background(), "ai-files", "Dup", "", true)
 		})
 		require.NoError(t, err)
 		assert.False(t, resp.Success)
@@ -662,12 +663,12 @@ func TestFileListDelete(t *testing.T) {
 
 	// Create then delete
 	_, err := captureJSON(t, func() error {
-		return runFileListCreate("to-delete", "To Delete", "", true)
+		return runFileListCreate(context.Background(), "to-delete", "To Delete", "", true)
 	})
 	require.NoError(t, err)
 
 	resp, err := captureJSON(t, func() error {
-		return runFileListDelete("to-delete", false, true)
+		return runFileListDelete(context.Background(), "to-delete", false, true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -679,7 +680,7 @@ func TestFileListAddFile(t *testing.T) {
 
 	t.Run("add file", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runFileListAddFile("ai-files", "SECURITY.md", "SECURITY.md", false, true)
+			return runFileListAddFile(context.Background(), "ai-files", "SECURITY.md", "SECURITY.md", false, true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -688,7 +689,7 @@ func TestFileListAddFile(t *testing.T) {
 
 	t.Run("duplicate dest fails", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runFileListAddFile("ai-files", "x", ".cursorrules", false, true)
+			return runFileListAddFile(context.Background(), "ai-files", "x", ".cursorrules", false, true)
 		})
 		require.NoError(t, err)
 		assert.False(t, resp.Success)
@@ -702,7 +703,7 @@ func TestFileListRemoveFile(t *testing.T) {
 
 	t.Run("remove existing", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runFileListRemoveFile("ai-files", ".cursorrules", true)
+			return runFileListRemoveFile(context.Background(), "ai-files", ".cursorrules", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -710,7 +711,7 @@ func TestFileListRemoveFile(t *testing.T) {
 
 	t.Run("remove nonexistent", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runFileListRemoveFile("ai-files", "nonexistent.txt", true)
+			return runFileListRemoveFile(context.Background(), "ai-files", "nonexistent.txt", true)
 		})
 		require.NoError(t, err)
 		assert.False(t, resp.Success)
@@ -726,7 +727,7 @@ func TestDirListList(t *testing.T) {
 	defer cleanup()
 
 	resp, err := captureJSON(t, func() error {
-		return runDirListList(true)
+		return runDirListList(context.Background(), true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -739,7 +740,7 @@ func TestDirListGet(t *testing.T) {
 
 	t.Run("existing", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runDirListGet("github-workflows", true)
+			return runDirListGet(context.Background(), "github-workflows", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -751,7 +752,7 @@ func TestDirListCreate(t *testing.T) {
 	defer cleanup()
 
 	resp, err := captureJSON(t, func() error {
-		return runDirListCreate("new-dirs", "New Dirs", "A directory list", true)
+		return runDirListCreate(context.Background(), "new-dirs", "New Dirs", "A directory list", true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -763,12 +764,12 @@ func TestDirListDelete(t *testing.T) {
 	defer cleanup()
 
 	_, err := captureJSON(t, func() error {
-		return runDirListCreate("to-del-dl", "To Del", "", true)
+		return runDirListCreate(context.Background(), "to-del-dl", "To Del", "", true)
 	})
 	require.NoError(t, err)
 
 	resp, err := captureJSON(t, func() error {
-		return runDirListDelete("to-del-dl", true, true)
+		return runDirListDelete(context.Background(), "to-del-dl", true, true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -779,7 +780,7 @@ func TestDirListAddDir(t *testing.T) {
 	defer cleanup()
 
 	resp, err := captureJSON(t, func() error {
-		return runDirListAddDir("github-workflows", ".ci", ".ci", "", "", true, false, true)
+		return runDirListAddDir(context.Background(), "github-workflows", ".ci", ".ci", "", "", true, false, true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -791,12 +792,12 @@ func TestDirListRemoveDir(t *testing.T) {
 
 	// Add then remove
 	_, err := captureJSON(t, func() error {
-		return runDirListAddDir("github-workflows", "tmp", "tmp", "", "", true, false, true)
+		return runDirListAddDir(context.Background(), "github-workflows", "tmp", "tmp", "", "", true, false, true)
 	})
 	require.NoError(t, err)
 
 	resp, err := captureJSON(t, func() error {
-		return runDirListRemoveDir("github-workflows", "tmp", true)
+		return runDirListRemoveDir(context.Background(), "github-workflows", "tmp", true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -811,7 +812,7 @@ func TestFileAdd(t *testing.T) {
 	defer cleanup()
 
 	resp, err := captureJSON(t, func() error {
-		return runFileAdd("my-tools", "acme/test-repo-1", "README.md", "README.md", false, true)
+		return runFileAdd(context.Background(), "my-tools", "acme/test-repo-1", "README.md", "README.md", false, true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -830,7 +831,7 @@ func TestFileAdd(t *testing.T) {
 		require.NoError(t, database.DB().Model(&db.FileMapping{}).Where("owner_type = ? AND owner_id = ?", "target", target.ID).Count(&before).Error)
 
 		resp, err := captureJSON(t, func() error {
-			return runFileAdd("my-tools", "acme/test-repo-1", "LICENSE", "LICENSE", false, true)
+			return runFileAdd(context.Background(), "my-tools", "acme/test-repo-1", "LICENSE", "LICENSE", false, true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -848,7 +849,7 @@ func TestFileRemove(t *testing.T) {
 	defer cleanup()
 
 	resp, err := captureJSON(t, func() error {
-		return runFileRemove("my-tools", "acme/test-repo-1", ".editorconfig", true)
+		return runFileRemove(context.Background(), "my-tools", "acme/test-repo-1", ".editorconfig", true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -859,7 +860,7 @@ func TestFileListMappings(t *testing.T) {
 	defer cleanup()
 
 	resp, err := captureJSON(t, func() error {
-		return runFileListMappings("my-tools", "acme/test-repo-1", true)
+		return runFileListMappings(context.Background(), "my-tools", "acme/test-repo-1", true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -875,7 +876,7 @@ func TestDirAdd(t *testing.T) {
 	defer cleanup()
 
 	resp, err := captureJSON(t, func() error {
-		return runDirAdd("my-tools", "acme/test-repo-1", ".github", ".github", "", "", true, false, true)
+		return runDirAdd(context.Background(), "my-tools", "acme/test-repo-1", ".github", ".github", "", "", true, false, true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -887,12 +888,12 @@ func TestDirRemove(t *testing.T) {
 
 	// Add then remove
 	_, err := captureJSON(t, func() error {
-		return runDirAdd("my-tools", "acme/test-repo-1", "tmp", "tmp", "", "", true, false, true)
+		return runDirAdd(context.Background(), "my-tools", "acme/test-repo-1", "tmp", "tmp", "", "", true, false, true)
 	})
 	require.NoError(t, err)
 
 	resp, err := captureJSON(t, func() error {
-		return runDirRemove("my-tools", "acme/test-repo-1", "tmp", true)
+		return runDirRemove(context.Background(), "my-tools", "acme/test-repo-1", "tmp", true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -903,7 +904,7 @@ func TestDirListMappings(t *testing.T) {
 	defer cleanup()
 
 	resp, err := captureJSON(t, func() error {
-		return runDirListMappings("my-tools", "acme/test-repo-1", true)
+		return runDirListMappings(context.Background(), "my-tools", "acme/test-repo-1", true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -920,7 +921,7 @@ func TestRefAddFileList(t *testing.T) {
 
 	t.Run("add ref to target without it", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runRefAddFileList("my-tools", "acme/test-repo-2", "ai-files", true)
+			return runRefAddFileList(context.Background(), "my-tools", "acme/test-repo-2", "ai-files", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -929,7 +930,7 @@ func TestRefAddFileList(t *testing.T) {
 
 	t.Run("idempotent add", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runRefAddFileList("my-tools", "acme/test-repo-1", "ai-files", true)
+			return runRefAddFileList(context.Background(), "my-tools", "acme/test-repo-1", "ai-files", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -940,7 +941,7 @@ func TestRefAddFileList(t *testing.T) {
 		// Create a fresh target with no existing refs so we hit the writer path,
 		// not the idempotent "already_attached" branch.
 		_, err := captureJSON(t, func() error {
-			return runTargetAdd("my-tools", "acme/ref-fl-dry-target", "main", true)
+			return runTargetAdd(context.Background(), "my-tools", "acme/ref-fl-dry-target", "main", true)
 		})
 		require.NoError(t, err)
 
@@ -954,7 +955,7 @@ func TestRefAddFileList(t *testing.T) {
 		require.NoError(t, database.DB().Model(&db.TargetFileListRef{}).Count(&before).Error)
 
 		resp, err := captureJSON(t, func() error {
-			return runRefAddFileList("my-tools", "acme/ref-fl-dry-target", "ai-files", true)
+			return runRefAddFileList(context.Background(), "my-tools", "acme/ref-fl-dry-target", "ai-files", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -973,7 +974,7 @@ func TestRefRemoveFileList(t *testing.T) {
 
 	t.Run("remove existing ref", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runRefRemoveFileList("my-tools", "acme/test-repo-1", "ai-files", true)
+			return runRefRemoveFileList(context.Background(), "my-tools", "acme/test-repo-1", "ai-files", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -983,7 +984,7 @@ func TestRefRemoveFileList(t *testing.T) {
 	t.Run("dry-run does not detach file list ref", func(t *testing.T) {
 		// Re-attach to set up the row, then dry-run remove and confirm it stays
 		_, err := captureJSON(t, func() error {
-			return runRefAddFileList("my-tools", "acme/test-repo-1", "ai-files", true)
+			return runRefAddFileList(context.Background(), "my-tools", "acme/test-repo-1", "ai-files", true)
 		})
 		require.NoError(t, err)
 
@@ -997,7 +998,7 @@ func TestRefRemoveFileList(t *testing.T) {
 		require.NoError(t, database.DB().Model(&db.TargetFileListRef{}).Count(&before).Error)
 
 		resp, err := captureJSON(t, func() error {
-			return runRefRemoveFileList("my-tools", "acme/test-repo-1", "ai-files", true)
+			return runRefRemoveFileList(context.Background(), "my-tools", "acme/test-repo-1", "ai-files", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -1016,7 +1017,7 @@ func TestRefAddDirList(t *testing.T) {
 
 	t.Run("add ref", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runRefAddDirList("my-tools", "acme/test-repo-1", "github-workflows", true)
+			return runRefAddDirList(context.Background(), "my-tools", "acme/test-repo-1", "github-workflows", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -1025,7 +1026,7 @@ func TestRefAddDirList(t *testing.T) {
 
 	t.Run("idempotent add", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runRefAddDirList("my-tools", "acme/test-repo-2", "github-workflows", true)
+			return runRefAddDirList(context.Background(), "my-tools", "acme/test-repo-2", "github-workflows", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -1036,7 +1037,7 @@ func TestRefAddDirList(t *testing.T) {
 		// Create a fresh target with no existing refs so we hit the writer path,
 		// not the idempotent "already_attached" branch.
 		_, err := captureJSON(t, func() error {
-			return runTargetAdd("my-tools", "acme/ref-dl-dry-target", "main", true)
+			return runTargetAdd(context.Background(), "my-tools", "acme/ref-dl-dry-target", "main", true)
 		})
 		require.NoError(t, err)
 
@@ -1050,7 +1051,7 @@ func TestRefAddDirList(t *testing.T) {
 		require.NoError(t, database.DB().Model(&db.TargetDirectoryListRef{}).Count(&before).Error)
 
 		resp, err := captureJSON(t, func() error {
-			return runRefAddDirList("my-tools", "acme/ref-dl-dry-target", "github-workflows", true)
+			return runRefAddDirList(context.Background(), "my-tools", "acme/ref-dl-dry-target", "github-workflows", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -1069,7 +1070,7 @@ func TestRefRemoveDirList(t *testing.T) {
 
 	t.Run("remove existing ref", func(t *testing.T) {
 		resp, err := captureJSON(t, func() error {
-			return runRefRemoveDirList("my-tools", "acme/test-repo-2", "github-workflows", true)
+			return runRefRemoveDirList(context.Background(), "my-tools", "acme/test-repo-2", "github-workflows", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -1079,7 +1080,7 @@ func TestRefRemoveDirList(t *testing.T) {
 	t.Run("dry-run does not detach dir list ref", func(t *testing.T) {
 		// Re-attach to set up the row, then dry-run remove and confirm it stays
 		_, err := captureJSON(t, func() error {
-			return runRefAddDirList("my-tools", "acme/test-repo-2", "github-workflows", true)
+			return runRefAddDirList(context.Background(), "my-tools", "acme/test-repo-2", "github-workflows", true)
 		})
 		require.NoError(t, err)
 
@@ -1093,7 +1094,7 @@ func TestRefRemoveDirList(t *testing.T) {
 		require.NoError(t, database.DB().Model(&db.TargetDirectoryListRef{}).Count(&before).Error)
 
 		resp, err := captureJSON(t, func() error {
-			return runRefRemoveDirList("my-tools", "acme/test-repo-2", "github-workflows", true)
+			return runRefRemoveDirList(context.Background(), "my-tools", "acme/test-repo-2", "github-workflows", true)
 		})
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
@@ -1116,12 +1117,12 @@ func TestBulkAddFileList(t *testing.T) {
 
 	// Create a new file list first
 	_, err := captureJSON(t, func() error {
-		return runFileListCreate("bulk-fl", "Bulk FL", "", true)
+		return runFileListCreate(context.Background(), "bulk-fl", "Bulk FL", "", true)
 	})
 	require.NoError(t, err)
 
 	resp, err := captureJSON(t, func() error {
-		return runBulkAddFileList("my-tools", "bulk-fl", true)
+		return runBulkAddFileList(context.Background(), "my-tools", "bulk-fl", true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -1135,16 +1136,16 @@ func TestBulkRemoveFileList(t *testing.T) {
 
 	// Add to all first
 	_, err := captureJSON(t, func() error {
-		return runFileListCreate("bulk-rm-fl", "Bulk RM FL", "", true)
+		return runFileListCreate(context.Background(), "bulk-rm-fl", "Bulk RM FL", "", true)
 	})
 	require.NoError(t, err)
 	_, err = captureJSON(t, func() error {
-		return runBulkAddFileList("my-tools", "bulk-rm-fl", true)
+		return runBulkAddFileList(context.Background(), "my-tools", "bulk-rm-fl", true)
 	})
 	require.NoError(t, err)
 
 	resp, err := captureJSON(t, func() error {
-		return runBulkRemoveFileList("my-tools", "bulk-rm-fl", true)
+		return runBulkRemoveFileList(context.Background(), "my-tools", "bulk-rm-fl", true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -1157,12 +1158,12 @@ func TestBulkAddDirList(t *testing.T) {
 	defer cleanup()
 
 	_, err := captureJSON(t, func() error {
-		return runDirListCreate("bulk-dl", "Bulk DL", "", true)
+		return runDirListCreate(context.Background(), "bulk-dl", "Bulk DL", "", true)
 	})
 	require.NoError(t, err)
 
 	resp, err := captureJSON(t, func() error {
-		return runBulkAddDirList("my-tools", "bulk-dl", true)
+		return runBulkAddDirList(context.Background(), "my-tools", "bulk-dl", true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -1174,16 +1175,16 @@ func TestBulkRemoveDirList(t *testing.T) {
 	defer cleanup()
 
 	_, err := captureJSON(t, func() error {
-		return runDirListCreate("bulk-rm-dl", "Bulk RM DL", "", true)
+		return runDirListCreate(context.Background(), "bulk-rm-dl", "Bulk RM DL", "", true)
 	})
 	require.NoError(t, err)
 	_, err = captureJSON(t, func() error {
-		return runBulkAddDirList("my-tools", "bulk-rm-dl", true)
+		return runBulkAddDirList(context.Background(), "my-tools", "bulk-rm-dl", true)
 	})
 	require.NoError(t, err)
 
 	resp, err := captureJSON(t, func() error {
-		return runBulkRemoveDirList("my-tools", "bulk-rm-dl", true)
+		return runBulkRemoveDirList(context.Background(), "my-tools", "bulk-rm-dl", true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -1627,7 +1628,7 @@ func TestCLIResponse_JSON_Structure(t *testing.T) {
 	defer cleanup()
 
 	resp, err := captureJSON(t, func() error {
-		return runGroupList(true)
+		return runGroupList(context.Background(), true)
 	})
 	require.NoError(t, err)
 
@@ -1644,7 +1645,7 @@ func TestCLIResponse_Error_Structure(t *testing.T) {
 	defer cleanup()
 
 	resp, err := captureJSON(t, func() error {
-		return runGroupGet("nonexistent", true)
+		return runGroupGet(context.Background(), "nonexistent", true)
 	})
 	require.NoError(t, err)
 
@@ -1713,7 +1714,7 @@ func TestGroupList_NoDB(t *testing.T) {
 	dbPath = "/tmp/nonexistent-path-for-test/db.sqlite"
 	defer func() { dbPath = oldDBPath }()
 
-	err := runGroupList(false)
+	err := runGroupList(context.Background(), false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "database does not exist")
 }
@@ -1728,7 +1729,7 @@ func TestFullWorkflow(t *testing.T) {
 
 	// 1. List groups
 	resp, err := captureJSON(t, func() error {
-		return runGroupList(true)
+		return runGroupList(context.Background(), true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -1736,28 +1737,28 @@ func TestFullWorkflow(t *testing.T) {
 
 	// 2. Create a new file list
 	resp, err = captureJSON(t, func() error {
-		return runFileListCreate("security-files", "Security Files", "Security-related config", true)
+		return runFileListCreate(context.Background(), "security-files", "Security Files", "Security-related config", true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
 
 	// 3. Add files to the file list
 	resp, err = captureJSON(t, func() error {
-		return runFileListAddFile("security-files", "SECURITY.md", "SECURITY.md", false, true)
+		return runFileListAddFile(context.Background(), "security-files", "SECURITY.md", "SECURITY.md", false, true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
 
 	// 4. Add a new target
 	resp, err = captureJSON(t, func() error {
-		return runTargetAdd("my-tools", "acme/new-project", "main", true)
+		return runTargetAdd(context.Background(), "my-tools", "acme/new-project", "main", true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
 
 	// 5. Bulk add file list to all targets
 	resp, err = captureJSON(t, func() error {
-		return runBulkAddFileList("my-tools", "security-files", true)
+		return runBulkAddFileList(context.Background(), "my-tools", "security-files", true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -1765,21 +1766,21 @@ func TestFullWorkflow(t *testing.T) {
 
 	// 6. Add an inline file to the new target
 	resp, err = captureJSON(t, func() error {
-		return runFileAdd("my-tools", "acme/new-project", "LICENSE", "LICENSE", false, true)
+		return runFileAdd(context.Background(), "my-tools", "acme/new-project", "LICENSE", "LICENSE", false, true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
 
 	// 7. Verify target get shows everything
 	resp, err = captureJSON(t, func() error {
-		return runTargetGet("my-tools", "acme/new-project", true)
+		return runTargetGet(context.Background(), "my-tools", "acme/new-project", true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
 
 	// 8. Disable the group
 	resp, err = captureJSON(t, func() error {
-		return runGroupSetEnabled("my-tools", false, true)
+		return runGroupSetEnabled(context.Background(), "my-tools", false, true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
@@ -1787,7 +1788,7 @@ func TestFullWorkflow(t *testing.T) {
 
 	// 9. Re-enable the group
 	resp, err = captureJSON(t, func() error {
-		return runGroupSetEnabled("my-tools", true, true)
+		return runGroupSetEnabled(context.Background(), "my-tools", true, true)
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)

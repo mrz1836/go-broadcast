@@ -11,6 +11,7 @@ import (
 	"time"
 
 	internalerrors "github.com/mrz1836/go-broadcast/internal/errors"
+	"github.com/mrz1836/go-broadcast/internal/validation"
 )
 
 // TransformErrorCategory categorizes different types of transform errors
@@ -520,21 +521,11 @@ func ValidateTransformContext(filePath, sourceRepo, targetRepo string) error {
 	return nil
 }
 
-// isValidRepoFormat checks if a repository string follows the org/repo format
+// isValidRepoFormat reports whether a repository string is a valid org/repo name,
+// delegating to the canonical validation.ValidateRepoName rules so repo-format
+// validation stays consistent across the codebase.
 func isValidRepoFormat(repo string) bool {
-	parts := strings.Split(repo, "/")
-	if len(parts) != 2 {
-		return false
-	}
-
-	// Check that both parts are non-empty and don't contain invalid characters
-	for _, part := range parts {
-		if part == "" || strings.ContainsAny(part, " \t\n\r") {
-			return false
-		}
-	}
-
-	return true
+	return validation.ValidateRepoName(repo) == nil
 }
 
 // WrapTransformError wraps a regular error as a TransformError if it isn't already

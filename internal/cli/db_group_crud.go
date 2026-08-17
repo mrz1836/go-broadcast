@@ -90,15 +90,15 @@ func newDBGroupListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List all groups",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runGroupList(jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runGroupList(cmdContext(cmd), jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	return cmd
 }
 
-func runGroupList(jsonOutput bool) error {
+func runGroupList(ctx context.Context, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("group", "listed", err.Error(),
@@ -106,7 +106,6 @@ func runGroupList(jsonOutput bool) error {
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	cfg, err := getDefaultConfig(ctx, gormDB)
@@ -163,22 +162,21 @@ func newDBGroupGetCmd() *cobra.Command {
 		Use:   "get <id>",
 		Short: "Show full group details",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runGroupGet(args[0], jsonOutput)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runGroupGet(cmdContext(cmd), args[0], jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	return cmd
 }
 
-func runGroupGet(externalID string, jsonOutput bool) error {
+func runGroupGet(ctx context.Context, externalID string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("group", "get", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, externalID)
@@ -314,8 +312,8 @@ func newDBGroupCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new sync group",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runGroupCreate(id, name, sourceRepo, sourceBranch, description, priority, disabled, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runGroupCreate(cmdContext(cmd), id, name, sourceRepo, sourceBranch, description, priority, disabled, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -333,14 +331,13 @@ func newDBGroupCreateCmd() *cobra.Command {
 	return cmd
 }
 
-func runGroupCreate(id, name, sourceRepo, sourceBranch, description string, priority int, disabled, jsonOutput bool) error {
+func runGroupCreate(ctx context.Context, id, name, sourceRepo, sourceBranch, description string, priority int, disabled, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("group", "created", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	cfg, err := getDefaultConfig(ctx, gormDB)
@@ -481,7 +478,7 @@ func runGroupUpdate(cmd *cobra.Command, externalID, name, description string, pr
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
+	ctx := cmdContext(cmd)
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, externalID)
@@ -546,8 +543,8 @@ func newDBGroupDeleteCmd() *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a group",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runGroupDelete(args[0], hard, jsonOutput)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runGroupDelete(cmdContext(cmd), args[0], hard, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -555,14 +552,13 @@ func newDBGroupDeleteCmd() *cobra.Command {
 	return cmd
 }
 
-func runGroupDelete(externalID string, hard, jsonOutput bool) error {
+func runGroupDelete(ctx context.Context, externalID string, hard, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("group", "deleted", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, externalID)
@@ -603,8 +599,8 @@ func newDBGroupEnableCmd() *cobra.Command {
 		Use:   "enable <id>",
 		Short: "Enable a group",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runGroupSetEnabled(args[0], true, jsonOutput)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runGroupSetEnabled(cmdContext(cmd), args[0], true, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -617,22 +613,21 @@ func newDBGroupDisableCmd() *cobra.Command {
 		Use:   "disable <id>",
 		Short: "Disable a group",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runGroupSetEnabled(args[0], false, jsonOutput)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runGroupSetEnabled(cmdContext(cmd), args[0], false, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	return cmd
 }
 
-func runGroupSetEnabled(externalID string, enabled, jsonOutput bool) error {
+func runGroupSetEnabled(ctx context.Context, externalID string, enabled, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("group", "updated", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, externalID)

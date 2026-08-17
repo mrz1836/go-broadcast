@@ -42,8 +42,8 @@ func newDBDirAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add a directory mapping to a target",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runDirAdd(groupID, repo, src, dest, exclude, includeOnly, preserveStructure, deleteFlag, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runDirAdd(cmdContext(cmd), groupID, repo, src, dest, exclude, includeOnly, preserveStructure, deleteFlag, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -61,14 +61,13 @@ func newDBDirAddCmd() *cobra.Command {
 	return cmd
 }
 
-func runDirAdd(groupExternalID, repoFullName, src, dest, exclude, includeOnly string, preserveStructure, deleteFlag, jsonOutput bool) error {
+func runDirAdd(ctx context.Context, groupExternalID, repoFullName, src, dest, exclude, includeOnly string, preserveStructure, deleteFlag, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("directory_mapping", "created", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, groupExternalID)
@@ -152,8 +151,8 @@ func newDBDirRemoveCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove",
 		Short: "Remove a directory mapping from a target",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runDirRemove(groupID, repo, dest, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runDirRemove(cmdContext(cmd), groupID, repo, dest, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -166,14 +165,13 @@ func newDBDirRemoveCmd() *cobra.Command {
 	return cmd
 }
 
-func runDirRemove(groupExternalID, repoFullName, dest string, jsonOutput bool) error {
+func runDirRemove(ctx context.Context, groupExternalID, repoFullName, dest string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("directory_mapping", "deleted", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, groupExternalID)
@@ -232,8 +230,8 @@ func newDBDirListMappingsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List directory mappings on a target",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runDirListMappings(groupID, repo, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runDirListMappings(cmdContext(cmd), groupID, repo, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -244,14 +242,13 @@ func newDBDirListMappingsCmd() *cobra.Command {
 	return cmd
 }
 
-func runDirListMappings(groupExternalID, repoFullName string, jsonOutput bool) error {
+func runDirListMappings(ctx context.Context, groupExternalID, repoFullName string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("directory_mapping", "listed", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, groupExternalID)

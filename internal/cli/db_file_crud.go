@@ -39,8 +39,8 @@ func newDBFileAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add a file mapping to a target",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runFileAdd(groupID, repo, src, dest, deleteFlag, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runFileAdd(cmdContext(cmd), groupID, repo, src, dest, deleteFlag, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -55,14 +55,13 @@ func newDBFileAddCmd() *cobra.Command {
 	return cmd
 }
 
-func runFileAdd(groupExternalID, repoFullName, src, dest string, deleteFlag, jsonOutput bool) error {
+func runFileAdd(ctx context.Context, groupExternalID, repoFullName, src, dest string, deleteFlag, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("file_mapping", "created", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, groupExternalID)
@@ -138,8 +137,8 @@ func newDBFileRemoveCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove",
 		Short: "Remove a file mapping from a target",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runFileRemove(groupID, repo, dest, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runFileRemove(cmdContext(cmd), groupID, repo, dest, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -152,14 +151,13 @@ func newDBFileRemoveCmd() *cobra.Command {
 	return cmd
 }
 
-func runFileRemove(groupExternalID, repoFullName, dest string, jsonOutput bool) error {
+func runFileRemove(ctx context.Context, groupExternalID, repoFullName, dest string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("file_mapping", "deleted", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, groupExternalID)
@@ -218,8 +216,8 @@ func newDBFileListMappingsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List file mappings on a target",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runFileListMappings(groupID, repo, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runFileListMappings(cmdContext(cmd), groupID, repo, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -230,14 +228,13 @@ func newDBFileListMappingsCmd() *cobra.Command {
 	return cmd
 }
 
-func runFileListMappings(groupExternalID, repoFullName string, jsonOutput bool) error {
+func runFileListMappings(ctx context.Context, groupExternalID, repoFullName string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("file_mapping", "listed", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, groupExternalID)

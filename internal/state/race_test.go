@@ -82,46 +82,6 @@ func TestParseSyncBranchNameWithPrefixRace(t *testing.T) {
 	wg.Wait()
 }
 
-// TestValidateBranchPrefixRace tests concurrent prefix validation
-func TestValidateBranchPrefixRace(t *testing.T) {
-	const (
-		numGoroutines = 50
-		numIterations = 100
-	)
-
-	prefixes := []struct {
-		prefix string
-		valid  bool
-	}{
-		{"chore/sync-files", true},
-		{"sync/deploy", true},
-		{"invalid prefix", false},
-		{"test@invalid", false},
-		{"valid_prefix", true},
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(numGoroutines)
-
-	for i := 0; i < numGoroutines; i++ {
-		go func(id int) {
-			defer wg.Done()
-			for j := 0; j < numIterations; j++ {
-				testCase := prefixes[(id+j)%len(prefixes)]
-				err := ValidateBranchPrefix(testCase.prefix)
-
-				if testCase.valid {
-					assert.NoError(t, err)
-				} else {
-					assert.Error(t, err)
-				}
-			}
-		}(i)
-	}
-
-	wg.Wait()
-}
-
 // TestStateTargetsMapConcurrentRead tests concurrent read access to State.Targets
 func TestStateTargetsMapConcurrentRead(_ *testing.T) {
 	const numGoroutines = 50

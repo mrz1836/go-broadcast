@@ -163,56 +163,6 @@ func TestFormatSyncBranchName(t *testing.T) {
 	}
 }
 
-func TestValidateBranchPrefix(t *testing.T) {
-	tests := []struct {
-		name        string
-		prefix      string
-		expectError bool
-	}{
-		{
-			name:        "valid prefix",
-			prefix:      "chore/sync-files",
-			expectError: false,
-		},
-		{
-			name:        "valid with underscore",
-			prefix:      "chore/sync-files_v2",
-			expectError: false,
-		},
-		{
-			name:        "valid with dash",
-			prefix:      "chore/sync-files-prod",
-			expectError: false,
-		},
-		{
-			name:        "empty prefix",
-			prefix:      "",
-			expectError: true,
-		},
-		{
-			name:        "invalid characters - space",
-			prefix:      "chore/sync-files prod",
-			expectError: true,
-		},
-		{
-			name:        "invalid characters - special",
-			prefix:      "chore/sync-files@prod",
-			expectError: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateBranchPrefix(tt.prefix)
-			if tt.expectError {
-				assert.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
-		})
-	}
-}
-
 func TestBranchParsingRoundTrip(t *testing.T) {
 	// Test that formatting and parsing are inverse operations
 	prefix := "chore/sync-files"

@@ -83,8 +83,8 @@ func newDBTargetListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List targets in a group",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runTargetList(groupID, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runTargetList(cmdContext(cmd), groupID, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -93,14 +93,13 @@ func newDBTargetListCmd() *cobra.Command {
 	return cmd
 }
 
-func runTargetList(groupExternalID string, jsonOutput bool) error {
+func runTargetList(ctx context.Context, groupExternalID string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("target", "listed", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, groupExternalID)
@@ -157,8 +156,8 @@ func newDBTargetGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get",
 		Short: "Show target details",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runTargetGet(groupID, repo, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runTargetGet(cmdContext(cmd), groupID, repo, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -169,14 +168,13 @@ func newDBTargetGetCmd() *cobra.Command {
 	return cmd
 }
 
-func runTargetGet(groupExternalID, repoFullName string, jsonOutput bool) error {
+func runTargetGet(ctx context.Context, groupExternalID, repoFullName string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("target", "get", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, groupExternalID)
@@ -271,8 +269,8 @@ func newDBTargetAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add a target to a group",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runTargetAdd(groupID, repo, branch, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runTargetAdd(cmdContext(cmd), groupID, repo, branch, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -284,14 +282,13 @@ func newDBTargetAddCmd() *cobra.Command {
 	return cmd
 }
 
-func runTargetAdd(groupExternalID, repoFullName, branch string, jsonOutput bool) error {
+func runTargetAdd(ctx context.Context, groupExternalID, repoFullName, branch string, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("target", "created", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, groupExternalID)
@@ -381,8 +378,8 @@ func newDBTargetRemoveCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove",
 		Short: "Remove a target from a group",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runTargetRemove(groupID, repo, hard, jsonOutput)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runTargetRemove(cmdContext(cmd), groupID, repo, hard, jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
@@ -394,14 +391,13 @@ func newDBTargetRemoveCmd() *cobra.Command {
 	return cmd
 }
 
-func runTargetRemove(groupExternalID, repoFullName string, hard, jsonOutput bool) error {
+func runTargetRemove(ctx context.Context, groupExternalID, repoFullName string, hard, jsonOutput bool) error {
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("target", "deleted", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, groupExternalID)
@@ -488,7 +484,7 @@ func runTargetUpdate(cmd *cobra.Command, groupExternalID, repoFullName, branch, 
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
+	ctx := cmdContext(cmd)
 	gormDB := database.DB()
 
 	group, err := resolveGroup(ctx, gormDB, groupExternalID)
@@ -654,10 +650,7 @@ With --create-repo, also creates the GitHub repository using the scaffold flow b
 }
 
 func runTargetClone(cmd *cobra.Command, groupExternalID, fromRepo, toRepo, branch, prLabels, prAssignees, prReviewers, prTeamReviewers, securityEmail, supportEmail string, jsonOutput bool) error {
-	ctx := cmd.Context()
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx := cmdContext(cmd)
 
 	// If --create-repo is set, run scaffold flow first
 	if cmd.Flags().Changed("create-repo") {
