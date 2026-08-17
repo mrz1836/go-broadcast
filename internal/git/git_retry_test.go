@@ -206,6 +206,59 @@ func TestGitClient_CloneWithRetry(t *testing.T) {
 	})
 }
 
+// TestGitClient_CloneWithRetry_NetworkFailure exercises the real cloneWithRetry
+// retry/cleanup/backoff loop (as opposed to the simulateClone mock reimplementation)
+// by cloning from a refused local endpoint. git reports the refused connection as
+// "Connection refused", which isRetryableNetworkError treats as retryable, driving
+// the retry path that is otherwise only covered against the mock.
+func TestGitClient_CloneWithRetry_NetworkFailure(t *testing.T) {
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+
+	// git:// to a closed local port fails fast with "Connection refused".
+	const refusedURL = "git://127.0.0.1:1/repo.git"
+
+	t.Run("context canceled during retry backoff", func(t *testing.T) {
+		client, err := NewClient(logger, &logging.LogConfig{})
+		require.NoError(t, err)
+
+		repoPath := filepath.Join(testutil.CreateTempDir(t), "canceled-during-backoff")
+
+		// The first attempt fails almost immediately (refused connection); the
+		// timeout then fires during the ~1s backoff before the second attempt,
+		// exercising the ctx.Done() branch of the backoff select.
+		ctx, cancel := context.WithTimeout(context.Background(), 700*time.Millisecond)
+		defer cancel()
+
+		start := time.Now()
+		err = client.Clone(ctx, refusedURL, repoPath, nil)
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+		// It returned during the backoff, not after exhausting every retry (~3s).
+		assert.Less(t, time.Since(start), 2*time.Second)
+	})
+
+	t.Run("retries exhausted after repeated network failures", func(t *testing.T) {
+		if testing.Short() {
+			t.Skip("skipping slow retry-exhaustion test (~3s of backoff) in short mode")
+		}
+
+		client, err := NewClient(logger, &logging.LogConfig{})
+		require.NoError(t, err)
+
+		repoPath := filepath.Join(testutil.CreateTempDir(t), "exhausted")
+
+		err = client.Clone(context.Background(), refusedURL, repoPath, nil)
+		require.Error(t, err)
+		// Every attempt failed with a retryable error, so Clone wraps the last
+		// failure via WrapWithContext("clone repository").
+		assert.Contains(t, err.Error(), "clone repository")
+		assert.Contains(t, err.Error(), "refused")
+		// The partial clone directory is cleaned up between attempts.
+		_, statErr := os.Stat(repoPath)
+		assert.True(t, os.IsNotExist(statErr), "partial clone directory should be removed after failed retries")
+	})
+}
+
 // mockGitClientForRetryTesting provides controlled failure simulation
 type mockGitClientForRetryTesting struct {
 	*gitClient
