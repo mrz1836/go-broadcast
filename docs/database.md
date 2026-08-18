@@ -1836,7 +1836,7 @@ go-broadcast metrics
 go-broadcast metrics --last 7d
 
 # Show sync history for a specific target repository
-go-broadcast metrics --repo owner/go-paymail
+go-broadcast metrics --repo owner/example-repo
 
 # Show detailed information for a specific run
 go-broadcast metrics --run SR-20260215-abc123
