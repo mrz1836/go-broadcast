@@ -64,7 +64,7 @@ Modes:
   go-broadcast metrics --last 7d
 
   # Show sync history for specific repo
-  go-broadcast metrics --repo mrz1836/go-paymail
+  go-broadcast metrics --repo owner/example-repo
 
   # Show details for specific run
   go-broadcast metrics --run SR-20260215-abc123

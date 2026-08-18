@@ -158,7 +158,7 @@ func TestOrphanCleanup_BoundaryAtMinAge(t *testing.T) {
 // TestOrphanCleanup_HandlesLegacyGroupScopedBranches ensures branches created under
 // the previous group-scoped naming are still recognized and cleaned up.
 func TestOrphanCleanup_HandlesLegacyGroupScopedBranches(t *testing.T) {
-	legacy := "chore/sync-files-bsv-blockchain-forks-20240115-120530-ee542e5"
+	legacy := "chore/sync-files-owner-forks-20240115-120530-ee542e5"
 
 	ghClient := &TestValidationMockGHClient{
 		branches: []gh.Branch{{Name: legacy}},
@@ -178,7 +178,7 @@ func TestCreateSyncBranch_ScopedToTargetRepo(t *testing.T) {
 			config: &config.Config{
 				Groups: []config.Group{
 					{
-						ID: "bsv-blockchain-forks",
+						ID: "owner-forks",
 						Defaults: config.DefaultConfig{
 							BranchPrefix: "chore/sync-files",
 						},
@@ -187,20 +187,20 @@ func TestCreateSyncBranch_ScopedToTargetRepo(t *testing.T) {
 			},
 			options: &Options{DryRun: true},
 		},
-		target:      config.TargetConfig{Repo: "bsv-blockchain/go-paymail"},
+		target:      config.TargetConfig{Repo: "owner/repo-one"},
 		sourceState: &state.SourceState{LatestCommit: "ee542e508233d6a91ca83c444cdefb557e6cc0c4"},
 		logger:      logrus.NewEntry(logrus.New()),
 	}
 
 	branch := rs.createSyncBranch(context.Background())
 
-	assert.Contains(t, branch, "chore/sync-files-go-paymail-")
-	assert.NotContains(t, branch, "bsv-blockchain-forks", "group ID must not appear in the branch name")
+	assert.Contains(t, branch, "chore/sync-files-repo-one-")
+	assert.NotContains(t, branch, "owner-forks", "group ID must not appear in the branch name")
 	assert.Contains(t, branch, "ee542e5", "short source SHA should be present")
 
 	metadata, err := state.ParseSyncBranchName(branch, "chore/sync-files")
 	require.NoError(t, err, "generated branch must be parseable")
-	assert.Equal(t, "go-paymail", metadata.Scope)
+	assert.Equal(t, "repo-one", metadata.Scope)
 	assert.Equal(t, "ee542e5", metadata.CommitSHA)
 }
 
@@ -209,17 +209,17 @@ func TestCreateSyncBranch_ScopedToTargetRepo(t *testing.T) {
 // second. Scoping by target repo is what keeps them distinct.
 func TestCreateSyncBranch_DistinctPerTargetInSameSecond(t *testing.T) {
 	targets := []string{
-		"bsv-blockchain/go-bt",
-		"bsv-blockchain/go-paymail",
-		"bsv-blockchain/go-bc",
-		"bsv-blockchain/go-bn",
+		"owner/repo-two",
+		"owner/repo-one",
+		"owner/repo-three",
+		"owner/repo-four",
 	}
 
 	engine := &Engine{
 		config: &config.Config{
 			Groups: []config.Group{
 				{
-					ID:       "bsv-blockchain-forks",
+					ID:       "owner-forks",
 					Defaults: config.DefaultConfig{BranchPrefix: "chore/sync-files"},
 				},
 			},

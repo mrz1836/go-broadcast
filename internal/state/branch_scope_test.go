@@ -16,8 +16,8 @@ func TestFormatBranchScope(t *testing.T) {
 	}{
 		{
 			name:     "owner/repo keeps only the repo name",
-			repo:     "bsv-blockchain/go-paymail",
-			expected: "go-paymail",
+			repo:     "owner/repo-one",
+			expected: "repo-one",
 		},
 		{
 			name:     "bare repo name passes through",
@@ -72,7 +72,7 @@ func TestFormatBranchScope(t *testing.T) {
 // whatever a repo is named, the generated branch must survive a round trip.
 func TestFormatBranchScope_AlwaysProducesParseableBranch(t *testing.T) {
 	repos := []string{
-		"bsv-blockchain/go-paymail",
+		"owner/repo-one",
 		"owner/go-broadcast.v2",
 		"owner/my_repo",
 		"owner/weird!!!name",
@@ -102,10 +102,10 @@ func TestFormatBranchScope_AlwaysProducesParseableBranch(t *testing.T) {
 func TestBranchNamesUniquePerTargetWithinSameSecond(t *testing.T) {
 	timestamp := time.Date(2026, 7, 29, 10, 53, 18, 0, time.UTC)
 	targets := []string{
-		"bsv-blockchain/go-bt",
-		"bsv-blockchain/go-paymail",
-		"bsv-blockchain/go-bc",
-		"bsv-blockchain/go-bn",
+		"owner/repo-two",
+		"owner/repo-one",
+		"owner/repo-three",
+		"owner/repo-four",
 	}
 
 	seen := make(map[string]string, len(targets))
@@ -119,7 +119,7 @@ func TestBranchNamesUniquePerTargetWithinSameSecond(t *testing.T) {
 	}
 
 	assert.Len(t, seen, len(targets))
-	assert.Contains(t, seen, "chore/sync-files-go-paymail-20260729-105318-ee542e5")
+	assert.Contains(t, seen, "chore/sync-files-repo-one-20260729-105318-ee542e5")
 }
 
 // TestBranchNamesOmitGroupID verifies group identifiers stay internal to the config
@@ -127,10 +127,10 @@ func TestBranchNamesUniquePerTargetWithinSameSecond(t *testing.T) {
 func TestBranchNamesOmitGroupID(t *testing.T) {
 	timestamp := time.Date(2026, 7, 29, 10, 53, 18, 0, time.UTC)
 
-	branch := FormatSyncBranchName("chore/sync-files", FormatBranchScope("bsv-blockchain/go-paymail"), timestamp, "ee542e5")
+	branch := FormatSyncBranchName("chore/sync-files", FormatBranchScope("owner/repo-one"), timestamp, "ee542e5")
 
-	assert.NotContains(t, branch, "bsv-blockchain-forks", "group name must not leak into the branch")
-	assert.Equal(t, "chore/sync-files-go-paymail-20260729-105318-ee542e5", branch)
+	assert.NotContains(t, branch, "owner-forks", "group name must not leak into the branch")
+	assert.Equal(t, "chore/sync-files-repo-one-20260729-105318-ee542e5", branch)
 }
 
 // TestBranchTimestampRoundTripsAcrossTimezones guards a bug that silently breaks any
@@ -146,7 +146,7 @@ func TestBranchTimestampRoundTripsAcrossTimezones(t *testing.T) {
 			require.NoError(t, err)
 
 			// Same instant, expressed in a different zone
-			branch := FormatSyncBranchName("chore/sync-files", "go-paymail", instant.In(location), "ee542e5")
+			branch := FormatSyncBranchName("chore/sync-files", "repo-one", instant.In(location), "ee542e5")
 
 			metadata, err := ParseSyncBranchName(branch, "chore/sync-files")
 			require.NoError(t, err)
@@ -159,7 +159,7 @@ func TestBranchTimestampRoundTripsAcrossTimezones(t *testing.T) {
 // TestBranchAgeIsAccurateWhenGeneratedLocally is the practical consequence of the
 // round trip above: a freshly created branch must not look old.
 func TestBranchAgeIsAccurateWhenGeneratedLocally(t *testing.T) {
-	branch := FormatSyncBranchName("chore/sync-files", "go-paymail", time.Now(), "ee542e5")
+	branch := FormatSyncBranchName("chore/sync-files", "repo-one", time.Now(), "ee542e5")
 
 	metadata, err := ParseSyncBranchName(branch, "chore/sync-files")
 	require.NoError(t, err)
@@ -172,11 +172,11 @@ func TestBranchAgeIsAccurateWhenGeneratedLocally(t *testing.T) {
 // the scope segment changed meaning still parse. Live repos hold these today, and
 // failing to parse them would make cleanup and state discovery blind to them.
 func TestParseSyncBranchName_LegacyGroupScopedBranches(t *testing.T) {
-	legacy := "chore/sync-files-bsv-blockchain-forks-20260729-105318-ee542e5"
+	legacy := "chore/sync-files-owner-forks-20260729-105318-ee542e5"
 
 	metadata, err := ParseSyncBranchName(legacy, "chore/sync-files")
 	require.NoError(t, err)
-	assert.Equal(t, "bsv-blockchain-forks", metadata.Scope)
+	assert.Equal(t, "owner-forks", metadata.Scope)
 	assert.Equal(t, "ee542e5", metadata.CommitSHA)
 	assert.Equal(t, time.Date(2026, 7, 29, 10, 53, 18, 0, time.UTC), metadata.Timestamp)
 }
@@ -189,9 +189,9 @@ func TestParseSyncBranchName_RejectsPrefixOnlyMatches(t *testing.T) {
 		"chore/sync-files-manual-fix",
 		"chore/sync-files-wip",
 		"chore/sync-files-20260729-105318-ee542e5",       // missing scope segment
-		"chore/sync-files-go-bt-2026-07-29-105318-abc12", // wrong date shape
-		"chore/sync-files-go-bt-20260729-105318-nothex",  // commit is not hex
-		"chore/sync-files-go-bt-20260729-105318-abc-x",   // trailing segment
+		"chore/sync-files-repo-two-2026-07-29-105318-abc12", // wrong date shape
+		"chore/sync-files-repo-two-20260729-105318-nothex",  // commit is not hex
+		"chore/sync-files-repo-two-20260729-105318-abc-x",   // trailing segment
 	}
 
 	for _, name := range notSyncBranches {
@@ -205,7 +205,7 @@ func TestParseSyncBranchName_RejectsPrefixOnlyMatches(t *testing.T) {
 // TestParseSyncBranchName_RejectsInvalidTimestamp covers a name that matches the
 // shape but encodes an impossible date.
 func TestParseSyncBranchName_RejectsInvalidTimestamp(t *testing.T) {
-	_, err := ParseSyncBranchName("chore/sync-files-go-bt-20261345-995918-abc123", "chore/sync-files")
+	_, err := ParseSyncBranchName("chore/sync-files-repo-two-20261345-995918-abc123", "chore/sync-files")
 	require.Error(t, err)
 	assert.NotErrorIs(t, err, ErrNotSyncBranch, "shape matched, so the failure should be the timestamp")
 }
