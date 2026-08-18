@@ -92,6 +92,32 @@ export GITHUB_TOKEN="your_personal_access_token"
 3. **Check repository existence**: Use `gh repo view owner/repo` to verify the repository exists
 4. **Private repositories**: Ensure your GitHub token has appropriate scopes (`repo` for private repos)
 
+### CI: `go mod download` fails with "Repository not found" (private cross-org module)
+
+**Problem**: A fortress CI job fails during `magex deps:download` / `go mod download` with:
+
+```
+git ls-remote -q ... https://github.com/<org>/<repo> ... exit status 128
+remote: Repository not found.
+fatal: repository 'https://github.com/<org>/<repo>/' not found
+```
+
+The repository exists — this is a 404 masking a permissions error. The job is authenticating with
+the built-in `GITHUB_TOKEN`, which is scoped to the **current** repo and cannot read a private
+module in another org/repo.
+
+**Solution**:
+1. Create a fine-grained PAT owned by the module's org — **Contents: Read-only**, scoped to only
+   the private module repos.
+2. Store it as an **org-level** Actions secret named exactly `GH_PRIVATE_REPO_TOKEN`. The fortress
+   workflows prefer it over the built-in token via
+   `secrets.GH_PRIVATE_REPO_TOKEN || secrets.GITHUB_TOKEN` (fork PRs still get an empty token).
+3. Ensure `GOPRIVATE` is set for the module path (e.g. `GOPRIVATE=github.com/<org>/*`) — the CI
+   auth step only configures the token when `GOPRIVATE` is non-empty.
+
+See [Private Dependencies](../.github/tech-conventions/dependency-management.md#-private-dependencies)
+for the full setup.
+
 ### "Permission denied (publickey)"
 
 **Problem**: Git authentication failure when pushing changes.
