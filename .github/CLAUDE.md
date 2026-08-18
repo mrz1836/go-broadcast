@@ -147,6 +147,9 @@ This project uses 60+ linters via golangci-lint with strict standards.
 - Always check error returns: `if err := foo(); err != nil { ... }`
 - Use context-aware functions: `DialContext`, `CommandContext`
 - Create static error variables and wrap with context
+- **Never use real org/repo names** in code, tests, examples, or docs. Use dummy placeholders
+  (e.g. `owner/repo`, `owner/repo-one`, `owner/example-repo`) — never real companies, customers,
+  or third-party orgs
 
 **Code Quality:**
 - Add comments to all exported functions, types, and constants
@@ -201,6 +204,7 @@ govulncheck ./... # Security scan
 **Key Rules:**
 - **`AGENTS.md` is the ultimate authority** - When in doubt, refer to it first
 - **Never tag releases** - Only repository code-owners handle releases
+- **No real repo names** - Use dummy placeholders (`owner/repo`, `owner/example-repo`) in code, tests, and examples; never real companies, customers, or third-party orgs
 - **Security first** - Run `govulncheck` and validate external dependencies
 - **Test thoroughly** - Use both unit tests and go-broadcast validation commands
 
