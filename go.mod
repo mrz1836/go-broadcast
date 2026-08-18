@@ -5,11 +5,11 @@ go 1.25.8
 require (
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/fatih/color v1.19.0
-	github.com/firebase/genkit/go v1.11.0
+	github.com/firebase/genkit/go v1.12.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/magefile/mage v1.17.2
 	github.com/mattn/go-isatty v0.0.24
-	github.com/mrz1836/go-selfupdate v0.1.3
+	github.com/mrz1836/go-selfupdate v0.1.4
 	github.com/openai/openai-go v1.12.0
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 	github.com/sirupsen/logrus v1.10.0
@@ -36,7 +36,7 @@ require (
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
-	github.com/google/dotprompt/go v0.0.0-20260812031305-a5295d602904 // indirect
+	github.com/google/dotprompt/go v0.0.0-20260817214335-64acecd48c54 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -74,7 +74,7 @@ require (
 	golang.org/x/text v0.41.0 // indirect
 	google.golang.org/api v0.293.0 // indirect
 	google.golang.org/genai v1.68.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260810153831-ec0a7760b754 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260817212433-ac3dfec99bb1 // indirect
 	google.golang.org/grpc v1.83.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	modernc.org/libc v1.75.3 // indirect
