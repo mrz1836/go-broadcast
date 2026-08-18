@@ -188,7 +188,7 @@ func TestParseSyncBranchName_RejectsPrefixOnlyMatches(t *testing.T) {
 		"chore/sync-files",
 		"chore/sync-files-manual-fix",
 		"chore/sync-files-wip",
-		"chore/sync-files-20260729-105318-ee542e5",       // missing scope segment
+		"chore/sync-files-20260729-105318-ee542e5",          // missing scope segment
 		"chore/sync-files-repo-two-2026-07-29-105318-abc12", // wrong date shape
 		"chore/sync-files-repo-two-20260729-105318-nothex",  // commit is not hex
 		"chore/sync-files-repo-two-20260729-105318-abc-x",   // trailing segment
