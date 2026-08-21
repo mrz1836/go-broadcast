@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -27,9 +28,25 @@ var (
 	ErrNoEnvFiles     = errors.New("no env files found")
 )
 
+const (
+	// benchstatModulePath is the Go module that provides the benchstat command.
+	benchstatModulePath = "golang.org/x/perf"
+	// benchstatLatestToolKey is the tool key that tracks the newest benchstat build.
+	benchstatLatestToolKey = "benchstat"
+	// benchstatMinGoEnvVar carries the Go version the newest benchstat build requires.
+	// setup-benchstat reads it to decide, per runner, whether to install the latest build
+	// or fall back to the Go 1.25-compatible pin (MAGE_X_BENCHSTAT_VERSION).
+	benchstatMinGoEnvVar = "MAGE_X_BENCHSTAT_VERSION_LATEST_MIN_GO"
+)
+
 // VersionChecker defines the interface for checking latest tool versions from GitHub or Go proxy.
 type VersionChecker interface {
 	CheckLatestVersion(ctx context.Context, repoURL, goModulePath string) (string, error)
+	// CheckModuleGoRequirement returns the major and minor Go version required by the
+	// 'go' directive in the given module version's go.mod (e.g. 1, 26 for "go 1.26.0").
+	// Used to hold Go-version-constrained pins back when a newer build would require a
+	// toolchain the project does not run.
+	CheckModuleGoRequirement(ctx context.Context, goModulePath, version string) (major, minor int, err error)
 }
 
 // FileUpdater defines the interface for file operations.
@@ -53,6 +70,10 @@ type ToolInfo struct {
 	RepoOwner    string   // GitHub owner
 	RepoName     string   // GitHub repository name
 	GoModulePath string   // Go module path for proxy.golang.org lookup (optional, takes precedence over GitHub)
+	// MaxGoMinor pins this tool to builds that still support Go 1.<MaxGoMinor>. When the
+	// resolved latest version's go.mod 'go' directive requires a newer toolchain than the
+	// project runs, the update is held back so `go install` keeps working. 0 = no constraint.
+	MaxGoMinor int
 }
 
 // CheckResult represents the result of a version check.
@@ -273,6 +294,62 @@ func (r *realVersionChecker) checkGoProxyVersion(ctx context.Context, modulePath
 	return info.Version, nil
 }
 
+// goDirectiveRegexp matches the 'go' directive in a go.mod file, capturing major and
+// minor (e.g. "go 1.26.0" -> "1", "26"; "go 1.26rc1" -> "1", "26").
+var goDirectiveRegexp = regexp.MustCompile(`(?m)^go[ \t]+(\d+)\.(\d+)`)
+
+// ErrGoModDirective is returned when a module's go.mod 'go' directive cannot be resolved.
+var ErrGoModDirective = errors.New("go.mod 'go' directive error")
+
+// CheckModuleGoRequirement fetches the go.mod for a specific module version from the Go
+// proxy and returns the major and minor Go version required by its 'go' directive.
+func (r *realVersionChecker) CheckModuleGoRequirement(ctx context.Context, modulePath, version string) (int, int, error) {
+	// Build the proxy URL: https://proxy.golang.org/{module}/@v/{version}.mod
+	apiURL := fmt.Sprintf("%s/%s/@v/%s.mod", GoProxyAPIURL, modulePath, version)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	resp, err := r.httpClient.Do(req)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			_ = closeErr
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return 0, 0, fmt.Errorf("%w: status %d: %s", ErrGoModDirective, resp.StatusCode, string(body))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	matches := goDirectiveRegexp.FindSubmatch(body)
+	if len(matches) < 3 {
+		// No 'go' directive found; treat as unconstrained (very old modules omit it).
+		return 0, 0, nil
+	}
+
+	major, err := strconv.Atoi(string(matches[1]))
+	if err != nil {
+		return 0, 0, fmt.Errorf("%w: invalid major %q", ErrGoModDirective, matches[1])
+	}
+	minor, err := strconv.Atoi(string(matches[2]))
+	if err != nil {
+		return 0, 0, fmt.Errorf("%w: invalid minor %q", ErrGoModDirective, matches[2])
+	}
+
+	return major, minor, nil
+}
+
 // realFileUpdater implements FileUpdater using os package.
 type realFileUpdater struct{}
 
@@ -396,8 +473,14 @@ func GetToolDefinitions() map[string]*ToolInfo {
 		{"swag", []string{"MAGE_X_SWAG_VERSION"}, "swaggo", "swag", "github.com/swaggo/swag"},
 		{"yamlfmt", []string{"MAGE_X_YAMLFMT_VERSION"}, "google", "yamlfmt", "github.com/google/yamlfmt"},
 		{"mage", []string{"MAGE_X_MAGE_VERSION"}, "magefile", "mage", "github.com/magefile/mage"},
-		// Go proxy-based tool with no semver tags (pseudo-versions like v0.0.0-YYYYMMDDHHMMSS-commitSHA)
-		{"benchstat", []string{"MAGE_X_BENCHSTAT_VERSION"}, "", "", "golang.org/x/perf"},
+		// Go proxy-based tool with no semver tags (pseudo-versions like v0.0.0-YYYYMMDDHHMMSS-commitSHA).
+		// benchstat is tracked as two pins because golang.org/x/perf periodically raises its go.mod
+		// 'go' directive, breaking `go install` on older toolchains (see 10-mage-x.env):
+		//   - benchstat        -> MAGE_X_BENCHSTAT_VERSION_LATEST: always the proxy @latest.
+		//   - benchstat-go125  -> MAGE_X_BENCHSTAT_VERSION: held to builds supporting Go 1.25
+		//                         (MaxGoMinor set below) so 1.25.x runners keep working.
+		{"benchstat", []string{"MAGE_X_BENCHSTAT_VERSION_LATEST"}, "", "", "golang.org/x/perf"},
+		{"benchstat-go125", []string{"MAGE_X_BENCHSTAT_VERSION"}, "", "", "golang.org/x/perf"},
 		// --- binary-download / CalVer tools: version resolved via GitHub Releases ---
 		{"mage-x", []string{"MAGE_X_VERSION"}, "mrz1836", "mage-x", ""},                                                                     // release tarball asset
 		{"go-pre-commit", []string{"GO_PRE_COMMIT_VERSION"}, "mrz1836", "go-pre-commit", ""},                                                // release tarball asset
@@ -424,6 +507,10 @@ func GetToolDefinitions() map[string]*ToolInfo {
 			GoModulePath: def.goModulePath,
 		}
 	}
+
+	// benchstat-go125 must keep installing on this project's Go 1.25.x toolchain, so hold
+	// it back whenever the proxy @latest bumps golang.org/x/perf's 'go' directive past 1.25.
+	tools["benchstat-go125"].MaxGoMinor = 25
 
 	// Special case: Go itself uses go.dev API instead of GitHub releases
 	tools["go"] = &ToolInfo{
@@ -477,6 +564,10 @@ func (s *VersionUpdateService) Run(ctx context.Context, envFiles []string) error
 
 	// Check latest versions
 	results := s.checkVersions(ctx, tools, currentVersions)
+
+	// Keep the benchstat Go-version boundary in sync with the resolved latest build so the
+	// setup-benchstat action's per-runner selection stays correct across Go releases.
+	results = s.maintainBenchstatMinGo(ctx, results, combinedContent)
 
 	// Add blank line before results table
 	s.logger.Info("")
@@ -548,6 +639,16 @@ func (s *VersionUpdateService) checkVersions(ctx context.Context, tools map[stri
 		currentVersion := currentVersions[toolKey]
 		latestVersion, err := s.checker.CheckLatestVersion(ctx, tool.RepoURL, tool.GoModulePath)
 
+		// Hold Go-version-constrained pins back when the resolved latest would require a
+		// newer toolchain than the project runs (e.g. benchstat raising its go.mod 'go'
+		// directive to 1.26 while this project builds on Go 1.25.x). Only worth checking
+		// when there is actually a newer version to move to.
+		heldForGoVersion := false
+		if err == nil && tool.MaxGoMinor > 0 && tool.GoModulePath != "" && latestVersion != "" &&
+			s.normalizeVersion(currentVersion) != s.normalizeVersion(latestVersion) {
+			heldForGoVersion = s.exceedsGoConstraint(ctx, toolKey, tool, currentVersion, latestVersion)
+		}
+
 		result := CheckResult{
 			Tool:           toolKey,
 			EnvVars:        tool.EnvVars,
@@ -558,6 +659,9 @@ func (s *VersionUpdateService) checkVersions(ctx context.Context, tools map[stri
 		if err != nil {
 			result.Status = "error"
 			result.Error = err
+		} else if heldForGoVersion {
+			// Newer build exists but requires a newer Go than the project runs: keep the pin.
+			result.Status = "go-version-held"
 		} else if currentVersion == "latest" {
 			// Special case: "latest" resolves to actual version - recommend pinning for reproducibility
 			result.Status = "pin-recommended"
@@ -576,6 +680,8 @@ func (s *VersionUpdateService) checkVersions(ctx context.Context, tools map[stri
 			s.logger.Warn(fmt.Sprintf("       %s: error fetching version: %v", toolKey, err))
 		case "up-to-date":
 			s.logger.Info(fmt.Sprintf("       %s: %s (up-to-date)", toolKey, latestVersion))
+		case "go-version-held":
+			s.logger.Info(fmt.Sprintf("       %s: holding at %s (latest %s needs a newer Go than 1.%d)", toolKey, currentVersion, latestVersion, tool.MaxGoMinor))
 		case "update-available":
 			s.logger.Info(fmt.Sprintf("       %s: %s -> %s (update available)", toolKey, currentVersion, latestVersion))
 		case "major-skipped":
@@ -588,6 +694,82 @@ func (s *VersionUpdateService) checkVersions(ctx context.Context, tools map[stri
 	}
 
 	return results
+}
+
+// exceedsGoConstraint reports whether the module version's go.mod 'go' directive requires
+// a newer Go than tool.MaxGoMinor allows, meaning the update must be held so the pinned
+// build keeps installing on the project's toolchain. It is conservative: if the Go
+// requirement cannot be verified, the update is held and a warning is logged.
+func (s *VersionUpdateService) exceedsGoConstraint(ctx context.Context, toolKey string, tool *ToolInfo, currentVersion, latestVersion string) bool {
+	major, minor, err := s.checker.CheckModuleGoRequirement(ctx, tool.GoModulePath, latestVersion)
+	if err != nil {
+		s.logger.Warn(fmt.Sprintf("       %s: could not verify Go requirement for %s (%v); holding at %s",
+			toolKey, latestVersion, err, currentVersion))
+		return true
+	}
+	// Require major==1; any go.mod requiring Go 2.x (or higher minor than allowed) is too new.
+	return major > 1 || minor > tool.MaxGoMinor
+}
+
+// maintainBenchstatMinGo appends a synthetic result that keeps benchstatMinGoEnvVar in sync
+// with the Go version required by the resolved latest benchstat build. The setup-benchstat
+// action uses that boundary to pick, per runner, between the latest and Go 1.25-held pins,
+// so it stays correct as golang.org/x/perf raises its 'go' directive over time. Results are
+// returned unchanged when the benchstat check failed or the env var is absent from the files.
+func (s *VersionUpdateService) maintainBenchstatMinGo(ctx context.Context, results []CheckResult, combinedContent []byte) []CheckResult {
+	// Find the resolved latest benchstat version (skip on error/empty).
+	latest := ""
+	for _, r := range results {
+		if r.Tool == benchstatLatestToolKey && r.Status != "error" {
+			latest = r.LatestVersion
+			break
+		}
+	}
+	if latest == "" {
+		return results
+	}
+
+	// Only maintain the boundary when the env var is actually present in the files, so
+	// projects that have not adopted it are left untouched.
+	current := extractEnvValue(combinedContent, benchstatMinGoEnvVar)
+	if current == "" {
+		return results
+	}
+
+	major, minor, err := s.checker.CheckModuleGoRequirement(ctx, benchstatModulePath, latest)
+	if err != nil {
+		s.logger.Warn(fmt.Sprintf("       %s: could not resolve Go requirement for latest benchstat %s (%v); leaving at %s",
+			benchstatMinGoEnvVar, latest, err, current))
+		return results
+	}
+	if major == 0 && minor == 0 {
+		// No 'go' directive found; leave the existing boundary as-is.
+		return results
+	}
+
+	newBoundary := fmt.Sprintf("%d.%d", major, minor)
+	status := "up-to-date"
+	if current != newBoundary {
+		status = "update-available"
+	}
+
+	return append(results, CheckResult{
+		Tool:           "benchstat-min-go",
+		EnvVars:        []string{benchstatMinGoEnvVar},
+		CurrentVersion: current,
+		LatestVersion:  newBoundary,
+		Status:         status,
+	})
+}
+
+// extractEnvValue returns the value of the first `NAME=value` line for envVar in content,
+// or "" when the variable is not present. Comments and surrounding whitespace are ignored.
+func extractEnvValue(content []byte, envVar string) string {
+	pattern := regexp.MustCompile(fmt.Sprintf(`(?m)^%s=([^#\s]+)`, regexp.QuoteMeta(envVar)))
+	if matches := pattern.FindSubmatch(content); len(matches) > 1 {
+		return strings.TrimSpace(string(matches[1]))
+	}
+	return ""
 }
 
 // normalizeVersion normalizes version strings for comparison.
@@ -671,6 +853,7 @@ func (s *VersionUpdateService) displayResults(results []CheckResult) {
 	upToDate := 0
 	updates := 0
 	majorSkipped := 0
+	goVersionHeld := 0
 	pinRecommended := 0
 	errors := 0
 
@@ -681,6 +864,9 @@ func (s *VersionUpdateService) displayResults(results []CheckResult) {
 		case "up-to-date":
 			statusIcon = "✓ Up to date"
 			upToDate++
+		case "go-version-held":
+			statusIcon = "⏸ Held (needs newer Go)"
+			goVersionHeld++
 		case "update-available":
 			statusIcon = "⬆ Update available"
 			updates++
@@ -715,6 +901,9 @@ func (s *VersionUpdateService) displayResults(results []CheckResult) {
 	_, _ = fmt.Fprintf(os.Stdout, "⬆ %d tools with updates available\n", updates)
 	if majorSkipped > 0 {
 		_, _ = fmt.Fprintf(os.Stdout, "⏭ %d major upgrades skipped (use ALLOW_MAJOR_UPGRADES=true to apply)\n", majorSkipped)
+	}
+	if goVersionHeld > 0 {
+		_, _ = fmt.Fprintf(os.Stdout, "⏸ %d tools held back (newer build requires a newer Go toolchain)\n", goVersionHeld)
 	}
 	if pinRecommended > 0 {
 		_, _ = fmt.Fprintf(os.Stdout, "📌 %d tools recommend version pinning\n", pinRecommended)

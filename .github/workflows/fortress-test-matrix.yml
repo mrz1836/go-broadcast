@@ -190,6 +190,8 @@ jobs:
         uses: ./.github/actions/setup-benchstat
         with:
           benchstat-version: ${{ env.MAGE_X_BENCHSTAT_VERSION }}
+          benchstat-version-latest: ${{ env.MAGE_X_BENCHSTAT_VERSION_LATEST }}
+          benchstat-latest-min-go: ${{ env.MAGE_X_BENCHSTAT_VERSION_LATEST_MIN_GO }}
           runner-os: ${{ matrix.os }}
           go-version: ${{ matrix.go-version }}
 

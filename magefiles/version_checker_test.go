@@ -22,19 +22,30 @@ var (
 	errFileNotFound     = errors.New("file not found")
 )
 
+// goRequirement is a mocked go.mod 'go' directive (major.minor) for a module version.
+type goRequirement struct {
+	major int
+	minor int
+	err   error
+}
+
 // MockVersionChecker is a mock implementation of VersionChecker for testing.
 type MockVersionChecker struct {
-	versions map[string]string // repoURL -> version
-	errors   map[string]error  // repoURL -> error
-	calls    []string          // Track calls
+	versions       map[string]string        // repoURL -> version
+	errors         map[string]error         // repoURL -> error
+	calls          []string                 // Track calls
+	goRequirements map[string]goRequirement // "module@version" -> go.mod 'go' directive
+	goReqCalls     []string                 // Track CheckModuleGoRequirement calls ("module@version")
 }
 
 // NewMockVersionChecker creates a new mock version checker.
 func NewMockVersionChecker() *MockVersionChecker {
 	return &MockVersionChecker{
-		versions: make(map[string]string),
-		errors:   make(map[string]error),
-		calls:    make([]string, 0),
+		versions:       make(map[string]string),
+		errors:         make(map[string]error),
+		calls:          make([]string, 0),
+		goRequirements: make(map[string]goRequirement),
+		goReqCalls:     make([]string, 0),
 	}
 }
 
@@ -55,9 +66,30 @@ func (m *MockVersionChecker) CheckLatestVersion(_ context.Context, repoURL, goMo
 	return "", errNotFound
 }
 
+// CheckModuleGoRequirement returns the mocked go.mod 'go' directive for a module version.
+// Unset versions default to (0, 0, nil), i.e. unconstrained/compatible.
+func (m *MockVersionChecker) CheckModuleGoRequirement(_ context.Context, goModulePath, version string) (int, int, error) {
+	key := goModulePath + "@" + version
+	m.goReqCalls = append(m.goReqCalls, key)
+	if req, ok := m.goRequirements[key]; ok {
+		return req.major, req.minor, req.err
+	}
+	return 0, 0, nil
+}
+
 // SetVersion sets the version to return for a repo.
 func (m *MockVersionChecker) SetVersion(repoURL, version string) {
 	m.versions[repoURL] = version
+}
+
+// SetGoRequirement sets the mocked go.mod 'go' directive (major.minor) for a module version.
+func (m *MockVersionChecker) SetGoRequirement(goModulePath, version string, major, minor int) {
+	m.goRequirements[goModulePath+"@"+version] = goRequirement{major: major, minor: minor}
+}
+
+// SetGoRequirementError sets an error to return when resolving a module version's go.mod.
+func (m *MockVersionChecker) SetGoRequirementError(goModulePath, version string, err error) {
+	m.goRequirements[goModulePath+"@"+version] = goRequirement{err: err}
 }
 
 // SetError sets the error to return for a repo.
@@ -207,6 +239,7 @@ func TestGetToolDefinitions(t *testing.T) {
 		"yamlfmt",
 		"go-pre-commit",
 		"benchstat",
+		"benchstat-go125",
 		"act",
 		"actionlint",
 		"go-sarif",
@@ -270,10 +303,13 @@ func TestGetToolDefinitions(t *testing.T) {
 			"osv-scanner": "github.com/google/osv-scanner/v2",
 			// swag's "latest" GitHub Release is a pre-release (v2.0.0-rc5); the proxy
 			// correctly resolves to the stable v1.16.6 that `go install @latest` uses.
-			"swag":      "github.com/swaggo/swag",
-			"yamlfmt":   "github.com/google/yamlfmt",
-			"mage":      "github.com/magefile/mage",
-			"benchstat": "golang.org/x/perf",
+			"swag":    "github.com/swaggo/swag",
+			"yamlfmt": "github.com/google/yamlfmt",
+			"mage":    "github.com/magefile/mage",
+			// benchstat is split into two proxy pins (latest + Go 1.25-held); see
+			// GetToolDefinitions. Both resolve golang.org/x/perf via the proxy.
+			"benchstat":       "golang.org/x/perf",
+			"benchstat-go125": "golang.org/x/perf",
 		}
 		for name, wantModule := range proxyTools {
 			assert.Equal(t, wantModule, tools[name].GoModulePath, "tool %s must resolve via the Go module proxy", name)
@@ -1376,4 +1412,291 @@ func TestVersionUpdateService_Run_WithMajorUpgradesAllowed(t *testing.T) {
 	writtenData := string(updater.GetWrittenData(mageXFile))
 	assert.Contains(t, writtenData, "MAGE_X_SWAG_VERSION=v2.0.0")
 	assert.Contains(t, writtenData, "MAGE_X_VERSION=v1.15.6")
+}
+
+// --- benchstat two-pin / Go-version-held coverage -------------------------------------
+
+func TestGetToolDefinitions_Benchstat(t *testing.T) {
+	tools := GetToolDefinitions()
+
+	t.Run("latest pin tracks the newest build unconstrained", func(t *testing.T) {
+		tool, ok := tools["benchstat"]
+		require.True(t, ok)
+		assert.Equal(t, []string{"MAGE_X_BENCHSTAT_VERSION_LATEST"}, tool.EnvVars)
+		assert.Equal(t, "golang.org/x/perf", tool.GoModulePath)
+		assert.Equal(t, 0, tool.MaxGoMinor, "latest pin must not be Go-version-constrained")
+	})
+
+	t.Run("go125 pin is held to Go 1.25", func(t *testing.T) {
+		tool, ok := tools["benchstat-go125"]
+		require.True(t, ok)
+		assert.Equal(t, []string{"MAGE_X_BENCHSTAT_VERSION"}, tool.EnvVars)
+		assert.Equal(t, "golang.org/x/perf", tool.GoModulePath)
+		assert.Equal(t, 25, tool.MaxGoMinor, "go125 pin must be held to Go 1.25")
+	})
+}
+
+func TestVersionUpdateService_CheckVersions_GoVersionHeld(t *testing.T) {
+	const (
+		perf    = "golang.org/x/perf"
+		current = "v0.0.0-20260813145340-fd4a688df892" // requires go 1.25
+		latest  = "v0.0.0-20260819171926-ebcb4798430d" // requires go 1.26
+	)
+
+	newService := func(checker *MockVersionChecker) *VersionUpdateService {
+		return NewVersionUpdateService(checker, NewMockFileUpdater(), NewMockLogger(), true, false, 0)
+	}
+	go125Tool := map[string]*ToolInfo{
+		"benchstat-go125": {
+			EnvVars:      []string{"MAGE_X_BENCHSTAT_VERSION"},
+			GoModulePath: perf,
+			MaxGoMinor:   25,
+		},
+	}
+
+	t.Run("holds when latest requires a newer Go than allowed", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetVersion(perf, latest)
+		checker.SetGoRequirement(perf, latest, 1, 26)
+		service := newService(checker)
+
+		results := service.checkVersions(context.Background(), go125Tool, map[string]string{"benchstat-go125": current})
+
+		require.Len(t, results, 1)
+		assert.Equal(t, "go-version-held", results[0].Status)
+		// The real (incompatible) latest is still surfaced for visibility...
+		assert.Equal(t, latest, results[0].LatestVersion)
+		assert.Equal(t, current, results[0].CurrentVersion)
+		// ...but it must not count as an update, so no file write happens.
+		assert.False(t, service.hasUpdates(results))
+	})
+
+	t.Run("updates when latest still supports the allowed Go", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetVersion(perf, latest)
+		checker.SetGoRequirement(perf, latest, 1, 25) // still Go 1.25
+		service := newService(checker)
+
+		results := service.checkVersions(context.Background(), go125Tool, map[string]string{"benchstat-go125": current})
+
+		require.Len(t, results, 1)
+		assert.Equal(t, "update-available", results[0].Status)
+		assert.Equal(t, latest, results[0].LatestVersion)
+	})
+
+	t.Run("holds conservatively when the Go requirement cannot be resolved", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetVersion(perf, latest)
+		checker.SetGoRequirementError(perf, latest, errNotFound)
+		service := newService(checker)
+
+		results := service.checkVersions(context.Background(), go125Tool, map[string]string{"benchstat-go125": current})
+
+		require.Len(t, results, 1)
+		assert.Equal(t, "go-version-held", results[0].Status)
+	})
+
+	t.Run("holds when latest requires a new major Go", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetVersion(perf, latest)
+		checker.SetGoRequirement(perf, latest, 2, 0) // hypothetical Go 2.0
+		service := newService(checker)
+
+		results := service.checkVersions(context.Background(), go125Tool, map[string]string{"benchstat-go125": current})
+
+		require.Len(t, results, 1)
+		assert.Equal(t, "go-version-held", results[0].Status)
+	})
+
+	t.Run("no go.mod lookup when already up to date", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetVersion(perf, current) // latest == current
+		service := newService(checker)
+
+		results := service.checkVersions(context.Background(), go125Tool, map[string]string{"benchstat-go125": current})
+
+		require.Len(t, results, 1)
+		assert.Equal(t, "up-to-date", results[0].Status)
+		assert.Empty(t, checker.goReqCalls, "no Go requirement lookup needed when unchanged")
+	})
+
+	t.Run("unconstrained tools never trigger a go.mod lookup", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetVersion(perf, latest)
+		service := newService(checker)
+
+		latestTool := map[string]*ToolInfo{
+			"benchstat": {EnvVars: []string{"MAGE_X_BENCHSTAT_VERSION_LATEST"}, GoModulePath: perf}, // MaxGoMinor 0
+		}
+		results := service.checkVersions(context.Background(), latestTool, map[string]string{"benchstat": current})
+
+		require.Len(t, results, 1)
+		assert.Equal(t, "update-available", results[0].Status)
+		assert.Empty(t, checker.goReqCalls)
+	})
+}
+
+func TestVersionUpdateService_HasUpdates_ExcludesGoVersionHeld(t *testing.T) {
+	service := NewVersionUpdateService(NewMockVersionChecker(), NewMockFileUpdater(), NewMockLogger(), true, false, 0)
+
+	assert.False(t, service.hasUpdates([]CheckResult{{Status: "up-to-date"}, {Status: "go-version-held"}}))
+	assert.True(t, service.hasUpdates([]CheckResult{{Status: "go-version-held"}, {Status: "update-available"}}))
+}
+
+func TestVersionUpdateService_UpdateFiles_SkipsGoVersionHeld(t *testing.T) {
+	updater := NewMockFileUpdater()
+	service := NewVersionUpdateService(NewMockVersionChecker(), updater, NewMockLogger(), false, false, 0)
+
+	const file = ".github/env/10-mage-x.env"
+	updater.SetContent(file, []byte("MAGE_X_BENCHSTAT_VERSION=v0.0.0-20260813145340-fd4a688df892\n"))
+
+	results := []CheckResult{{
+		Tool:           "benchstat-go125",
+		EnvVars:        []string{"MAGE_X_BENCHSTAT_VERSION"},
+		CurrentVersion: "v0.0.0-20260813145340-fd4a688df892",
+		LatestVersion:  "v0.0.0-20260819171926-ebcb4798430d",
+		Status:         "go-version-held",
+	}}
+
+	require.NoError(t, service.updateFiles(map[string][]byte{file: updater.contents[file]}, results))
+	// Held pins must be left untouched on disk.
+	assert.Empty(t, updater.GetWrittenData(file), "held pin should not be written")
+}
+
+func TestExtractEnvValue(t *testing.T) {
+	content := []byte("# comment\nMAGE_X_BENCHSTAT_VERSION_LATEST_MIN_GO=1.26\nOTHER=x\n")
+
+	assert.Equal(t, "1.26", extractEnvValue(content, "MAGE_X_BENCHSTAT_VERSION_LATEST_MIN_GO"))
+	assert.Equal(t, "x", extractEnvValue(content, "OTHER"))
+	assert.Empty(t, extractEnvValue(content, "MISSING"))
+	// Must not match a variable whose name is a prefix of the queried one.
+	assert.Empty(t, extractEnvValue([]byte("MAGE_X_BENCHSTAT_VERSION=v1\n"), "MAGE_X_BENCHSTAT_VERSION_LATEST_MIN_GO"))
+}
+
+func TestVersionUpdateService_MaintainBenchstatMinGo(t *testing.T) {
+	const (
+		perf   = "golang.org/x/perf"
+		latest = "v0.0.0-20260819171926-ebcb4798430d"
+	)
+	benchstatResult := CheckResult{Tool: "benchstat", Status: "update-available", LatestVersion: latest}
+
+	t.Run("appends update when boundary changed", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetGoRequirement(perf, latest, 1, 26)
+		service := NewVersionUpdateService(checker, NewMockFileUpdater(), NewMockLogger(), true, false, 0)
+
+		content := []byte("MAGE_X_BENCHSTAT_VERSION_LATEST_MIN_GO=1.25\n")
+		out := service.maintainBenchstatMinGo(context.Background(), []CheckResult{benchstatResult}, content)
+
+		require.Len(t, out, 2)
+		boundary := out[1]
+		assert.Equal(t, []string{"MAGE_X_BENCHSTAT_VERSION_LATEST_MIN_GO"}, boundary.EnvVars)
+		assert.Equal(t, "1.25", boundary.CurrentVersion)
+		assert.Equal(t, "1.26", boundary.LatestVersion)
+		assert.Equal(t, "update-available", boundary.Status)
+	})
+
+	t.Run("appends up-to-date when boundary already correct", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetGoRequirement(perf, latest, 1, 26)
+		service := NewVersionUpdateService(checker, NewMockFileUpdater(), NewMockLogger(), true, false, 0)
+
+		content := []byte("MAGE_X_BENCHSTAT_VERSION_LATEST_MIN_GO=1.26\n")
+		out := service.maintainBenchstatMinGo(context.Background(), []CheckResult{benchstatResult}, content)
+
+		require.Len(t, out, 2)
+		assert.Equal(t, "up-to-date", out[1].Status)
+	})
+
+	t.Run("no-op when env var absent from files", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetGoRequirement(perf, latest, 1, 26)
+		service := NewVersionUpdateService(checker, NewMockFileUpdater(), NewMockLogger(), true, false, 0)
+
+		out := service.maintainBenchstatMinGo(context.Background(), []CheckResult{benchstatResult}, []byte("UNRELATED=1\n"))
+		assert.Len(t, out, 1, "should not append a boundary result when the var is not present")
+		assert.Empty(t, checker.goReqCalls, "should not fetch go.mod when the var is absent")
+	})
+
+	t.Run("no-op when benchstat check errored", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		service := NewVersionUpdateService(checker, NewMockFileUpdater(), NewMockLogger(), true, false, 0)
+
+		content := []byte("MAGE_X_BENCHSTAT_VERSION_LATEST_MIN_GO=1.26\n")
+		errored := []CheckResult{{Tool: "benchstat", Status: "error", LatestVersion: ""}}
+		out := service.maintainBenchstatMinGo(context.Background(), errored, content)
+		assert.Len(t, out, 1)
+	})
+
+	t.Run("leaves boundary unchanged when go.mod lookup fails", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetGoRequirementError(perf, latest, errNotFound)
+		logger := NewMockLogger()
+		service := NewVersionUpdateService(checker, NewMockFileUpdater(), logger, true, false, 0)
+
+		content := []byte("MAGE_X_BENCHSTAT_VERSION_LATEST_MIN_GO=1.26\n")
+		out := service.maintainBenchstatMinGo(context.Background(), []CheckResult{benchstatResult}, content)
+		assert.Len(t, out, 1, "boundary result should not be appended on lookup failure")
+		assert.NotEmpty(t, logger.warnMessages, "a warning should be logged")
+	})
+}
+
+func TestVersionUpdateService_Run_MaintainsBenchstatMinGo(t *testing.T) {
+	const (
+		perf   = "golang.org/x/perf"
+		go125  = "v0.0.0-20260813145340-fd4a688df892"
+		latest = "v0.0.0-20260819171926-ebcb4798430d"
+	)
+	checker := NewMockVersionChecker()
+	// Proxy @latest is the newest (Go 1.26) build; both benchstat pins resolve it.
+	checker.SetVersion(perf, latest)
+	checker.SetGoRequirement(perf, latest, 1, 26)
+	updater := NewMockFileUpdater()
+	logger := NewMockLogger()
+	service := NewVersionUpdateService(checker, updater, logger, false, false, 0)
+
+	const file = ".github/env/10-mage-x.env"
+	updater.SetContent(file, []byte(
+		"MAGE_X_BENCHSTAT_VERSION="+go125+"\n"+
+			"MAGE_X_BENCHSTAT_VERSION_LATEST="+go125+"\n"+
+			"MAGE_X_BENCHSTAT_VERSION_LATEST_MIN_GO=1.25\n",
+	))
+
+	require.NoError(t, service.Run(context.Background(), []string{file}))
+
+	written := string(updater.GetWrittenData(file))
+	// LATEST advances to the newest build.
+	assert.Contains(t, written, "MAGE_X_BENCHSTAT_VERSION_LATEST="+latest)
+	// The Go 1.25 pin is held because latest now requires Go 1.26.
+	assert.Contains(t, written, "MAGE_X_BENCHSTAT_VERSION="+go125)
+	// The boundary is refreshed to the latest build's requirement.
+	assert.Contains(t, written, "MAGE_X_BENCHSTAT_VERSION_LATEST_MIN_GO=1.26")
+}
+
+func TestVersionChecker_ModuleGoRequirement_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	checker := NewVersionChecker(false)
+	ctx := context.Background()
+
+	// Pinned historical benchstat builds with stable go.mod 'go' directives.
+	cases := []struct {
+		version   string
+		wantMajor int
+		wantMinor int
+	}{
+		{"v0.0.0-20260813145340-fd4a688df892", 1, 25},
+		{"v0.0.0-20260819171926-ebcb4798430d", 1, 26},
+	}
+	for _, tc := range cases {
+		major, minor, err := checker.CheckModuleGoRequirement(ctx, "golang.org/x/perf", tc.version)
+		if err != nil {
+			t.Logf("Network error (expected in some envs): %v", err)
+			continue
+		}
+		assert.Equal(t, tc.wantMajor, major, "major for %s", tc.version)
+		assert.Equal(t, tc.wantMinor, minor, "minor for %s", tc.version)
+	}
 }
