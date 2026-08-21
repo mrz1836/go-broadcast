@@ -9,10 +9,10 @@ import (
 // DiffTruncator truncates diffs to stay within token limits while preserving context.
 // Thread-safe (stateless after construction).
 type DiffTruncator struct {
-	// MaxChars is the maximum total characters (default: 4000).
+	// MaxChars is the maximum total characters (config-driven; default: 16000).
 	MaxChars int
 
-	// MaxLinesPerFile is the maximum lines per file section (default: 50).
+	// MaxLinesPerFile is the maximum lines per file section (config-driven; default: 150).
 	MaxLinesPerFile int
 }
 
@@ -106,6 +106,66 @@ func splitDiffIntoSections(diff string) []string {
 	}
 
 	return sections
+}
+
+// TruncatePrioritized truncates a diff while guaranteeing that small, high-signal
+// configuration files (env, go.mod, TOML, YAML) are included before large generated
+// files. This prevents the historical failure mode where big action/workflow diffs
+// consumed the entire character budget and pushed version-bearing .env files out of
+// the diff entirely - while they still appeared in the file list - causing the model
+// to hallucinate their version numbers.
+//
+// It returns the truncated diff plus the repository-relative paths of any files whose
+// diff was omitted or trimmed, so the caller can tell the model to describe those
+// files generically instead of inventing details.
+func (t *DiffTruncator) TruncatePrioritized(fullDiff string) (truncatedDiff string, omittedFiles []string) {
+	if len(fullDiff) <= t.MaxChars {
+		return fullDiff, nil
+	}
+
+	sections := splitDiffIntoSections(fullDiff)
+	order := sortSectionsByPriority(sections)
+
+	// Reassemble in priority order, tracking which original sections were included
+	// so the final diff can be emitted in the diff's natural order.
+	included := make([]bool, len(sections))
+	trimmed := make([]bool, len(sections))
+	total := 0
+
+	for _, i := range order {
+		section := t.truncateSection(sections[i])
+		if section != sections[i] {
+			trimmed[i] = true
+		}
+		if total+len(section) > t.MaxChars && total > 0 {
+			// Budget exhausted; remaining (lower-priority) sections are omitted.
+			continue
+		}
+		included[i] = true
+		total += len(section)
+	}
+
+	var result strings.Builder
+	for i, section := range sections {
+		if !included[i] {
+			if p := sectionFilePath(section); p != "" {
+				omittedFiles = append(omittedFiles, p)
+			}
+			continue
+		}
+		result.WriteString(t.truncateSection(section))
+		if trimmed[i] {
+			if p := sectionFilePath(section); p != "" {
+				omittedFiles = append(omittedFiles, p)
+			}
+		}
+	}
+
+	if len(omittedFiles) > 0 {
+		result.WriteString("\n\n[some files' diffs were omitted or trimmed to fit - see file list]\n")
+	}
+
+	return result.String(), omittedFiles
 }
 
 // TruncateWithSummary truncates the diff and returns a summary of what was truncated.

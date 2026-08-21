@@ -29,6 +29,16 @@ type CommitContext struct {
 	// DiffSummary is the truncated diff content for AI context.
 	DiffSummary string
 
+	// FullDiff is the complete, untruncated diff. It is NOT rendered into the
+	// prompt; it drives deterministic fact extraction and the version guard.
+	// Falls back to DiffSummary when empty.
+	FullDiff string
+
+	// VerifiedChanges is a machine-extracted, authoritative Markdown list of
+	// key/version changes. When present, the model is told to use these exact
+	// values for any version it mentions.
+	VerifiedChanges string
+
 	// GroupName is optional: for multi-group syncs, identifies the sync group.
 	GroupName string
 }
@@ -49,7 +59,11 @@ const commitPromptTemplate = `Generate a git commit message for a repository syn
 {{ if .DiffSummary }}## Diff Summary
 {{ .DiffSummary }}
 {{ end }}
-
+{{ if .VerifiedChanges }}## VERIFIED CHANGES - AUTHORITATIVE (machine-extracted from the diff)
+If you mention a version number in the subject, copy it EXACTLY from this list.
+Do NOT state any version that is not shown here or in the diff.
+{{ .VerifiedChanges }}
+{{ end }}
 ## Requirements (MUST follow)
 1. Use conventional commits format: type(scope): subject
 2. Use "sync" as the type (per go-broadcast conventions)

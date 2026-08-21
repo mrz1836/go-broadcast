@@ -1330,6 +1330,44 @@ func (rs *RepositorySync) updateExistingPR(ctx context.Context, pr *gh.PR, commi
 	return nil
 }
 
+// acquireRawDiff obtains the full, untruncated diff for AI context.
+// Uses the real git diff from stagedRepoPath if available (after repo is cloned and
+// files staged), falling back to a synthetic diff generated from changedFiles.
+// Returns the raw diff and a label describing its source ("git" or "synthetic").
+func (rs *RepositorySync) acquireRawDiff(ctx context.Context, changedFiles []FileChange) (diff, source string) {
+	// Prefer real git diff from staged repo if available
+	// Use DiffIgnoreWhitespace to avoid line ending normalization masking real changes
+	if rs.stagedRepoPath != "" {
+		var err error
+		diff, err = rs.engine.git.DiffIgnoreWhitespace(ctx, rs.stagedRepoPath, true) // staged changes, ignore whitespace
+		if err != nil {
+			rs.logger.WithError(err).Debug("Failed to get git diff for AI context, falling back to synthetic diff")
+		} else if diff != "" {
+			source = "git"
+		}
+	}
+
+	// Fall back to synthetic diff if git diff is empty or failed
+	if diff == "" && len(changedFiles) > 0 {
+		diff = rs.generateSyntheticDiff(changedFiles)
+		source = "synthetic"
+	}
+
+	// Optionally write full diff to file for debugging (set GO_BROADCAST_DEBUG_DIFF_PATH).
+	// Each repo gets its own debug file to avoid overwrites during multi-repo syncs.
+	if debugPath := os.Getenv("GO_BROADCAST_DEBUG_DIFF_PATH"); debugPath != "" {
+		repoSuffix := strings.ReplaceAll(rs.target.Repo, "/", "_")
+		repoDebugPath := fmt.Sprintf("%s.%s", debugPath, repoSuffix)
+		if err := os.WriteFile(repoDebugPath, []byte(diff), 0o600); err != nil { //nolint:gosec // G703: repoDebugPath is constructed from env var + safe suffix, not user input
+			rs.logger.WithError(err).Warn("Failed to write debug diff file")
+		} else {
+			rs.logger.WithField("path", repoDebugPath).Debug("Wrote full diff to debug file")
+		}
+	}
+
+	return diff, source
+}
+
 // getDiffForAI retrieves and truncates the diff for AI context.
 // Uses the real git diff from stagedRepoPath if available (after repo is cloned and files staged).
 // Falls back to synthetic diff from changedFiles if stagedRepoPath is not set.
@@ -1339,26 +1377,7 @@ func (rs *RepositorySync) getDiffForAI(ctx context.Context, changedFiles []FileC
 		return ""
 	}
 
-	var diff string
-	var diffSource string
-
-	// Prefer real git diff from staged repo if available
-	// Use DiffIgnoreWhitespace to avoid line ending normalization masking real changes
-	if rs.stagedRepoPath != "" {
-		var err error
-		diff, err = rs.engine.git.DiffIgnoreWhitespace(ctx, rs.stagedRepoPath, true) // staged changes, ignore whitespace
-		if err != nil {
-			rs.logger.WithError(err).Debug("Failed to get git diff for AI context, falling back to synthetic diff")
-		} else if diff != "" {
-			diffSource = "git"
-		}
-	}
-
-	// Fall back to synthetic diff if git diff is empty or failed
-	if diff == "" && len(changedFiles) > 0 {
-		diff = rs.generateSyntheticDiff(changedFiles)
-		diffSource = "synthetic"
-	}
+	diff, diffSource := rs.acquireRawDiff(ctx, changedFiles)
 
 	// Log the diff being passed to AI for debugging
 	originalLen := len(diff)
@@ -1380,19 +1399,6 @@ func (rs *RepositorySync) getDiffForAI(ctx context.Context, changedFiles []FileC
 			preview = preview[:500] + "...[truncated in log]"
 		}
 		rs.logger.WithField("diff_preview", preview).Trace("Diff content preview for AI")
-	}
-
-	// Optionally write diff to file for debugging (set GO_BROADCAST_DEBUG_DIFF_PATH env var)
-	// Each repo gets its own debug file to avoid overwrites during multi-repo syncs
-	if debugPath := os.Getenv("GO_BROADCAST_DEBUG_DIFF_PATH"); debugPath != "" {
-		// Create per-repo debug file path (e.g., /tmp/debug.txt.owner_repo)
-		repoSuffix := strings.ReplaceAll(rs.target.Repo, "/", "_")
-		repoDebugPath := fmt.Sprintf("%s.%s", debugPath, repoSuffix)
-		if err := os.WriteFile(repoDebugPath, []byte(diff), 0o600); err != nil { //nolint:gosec // G703: repoDebugPath is constructed from env var + safe suffix, not user input
-			rs.logger.WithError(err).Warn("Failed to write debug diff file")
-		} else {
-			rs.logger.WithField("path", repoDebugPath).Debug("Wrote full diff to debug file")
-		}
 	}
 
 	return truncatedDiff
@@ -1492,11 +1498,20 @@ func (rs *RepositorySync) convertToAIFileChanges(files []FileChange) []ai.FileCh
 func (rs *RepositorySync) generateCommitMessage(ctx context.Context, changedFiles []FileChange) (string, bool) {
 	// Try AI generation if enabled (check engine is not nil for tests)
 	if rs.engine != nil && rs.engine.commitGenerator != nil {
+		// Acquire the full diff once; the untruncated copy drives deterministic
+		// fact extraction and the commit subject guard, while a prioritized
+		// truncation is what the model reads.
+		fullDiff, _ := rs.acquireRawDiff(ctx, changedFiles)
+		diffSummary := fullDiff
+		if rs.engine.diffTruncator != nil {
+			diffSummary, _ = rs.engine.diffTruncator.TruncatePrioritized(fullDiff)
+		}
 		commitCtx := &ai.CommitContext{
 			SourceRepo:   rs.sourceState.Repo,
 			TargetRepo:   rs.target.Repo,
 			ChangedFiles: rs.convertToAIFileChanges(changedFiles),
-			DiffSummary:  rs.getDiffForAI(ctx, changedFiles), // Use synthetic diff for consistency
+			DiffSummary:  diffSummary,
+			FullDiff:     fullDiff,
 		}
 
 		msg, err := rs.engine.commitGenerator.GenerateMessage(ctx, commitCtx)
@@ -1561,10 +1576,29 @@ func (rs *RepositorySync) generatePRBody(ctx context.Context, commitSHA string, 
 			filteredChanges = changedFiles
 		}
 
-		diffSummary := rs.getDiffForAI(ctx, filteredChanges)
+		// Acquire the FULL diff once: the untruncated copy feeds deterministic
+		// fact extraction and version guarding, while a prioritized truncation
+		// (small config/version files first) is what the model actually reads.
+		// This guarantees version-bearing .env files are never dropped from the
+		// diff while still appearing in the file list - the historical cause of
+		// hallucinated version numbers.
+		fullDiff, diffSource := rs.acquireRawDiff(ctx, filteredChanges)
+		diffSummary := fullDiff
+		var omittedFiles []string
+		if rs.engine.diffTruncator != nil {
+			diffSummary, omittedFiles = rs.engine.diffTruncator.TruncatePrioritized(fullDiff)
+		}
+
+		rs.logger.WithFields(logrus.Fields{
+			"diff_source":      diffSource,
+			"original_length":  len(fullDiff),
+			"truncated_length": len(diffSummary),
+			"omitted_files":    len(omittedFiles),
+			"file_count":       len(filteredChanges),
+		}).Debug("Diff prepared for AI PR generation")
 
 		// Warn when diff is empty but files changed - AI may produce inaccurate description
-		if diffSummary == "" && len(filteredChanges) > 0 {
+		if fullDiff == "" && len(filteredChanges) > 0 {
 			rs.logger.WithField("file_count", len(filteredChanges)).Warn(
 				"Empty diff generated despite having changed files - AI may produce inaccurate PR description",
 			)
@@ -1576,6 +1610,8 @@ func (rs *RepositorySync) generatePRBody(ctx context.Context, commitSHA string, 
 			CommitSHA:    commitSHA,
 			ChangedFiles: rs.convertToAIFileChanges(filteredChanges),
 			DiffSummary:  diffSummary,
+			FullDiff:     fullDiff,
+			OmittedFiles: omittedFiles,
 		}
 
 		aiBody, err := rs.engine.prGenerator.GenerateBody(ctx, prCtx)

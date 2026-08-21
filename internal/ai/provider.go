@@ -85,7 +85,7 @@ func GetDefaultModel(provider string) string {
 	case ProviderOpenAI:
 		return "gpt-5.2"
 	case ProviderGoogle:
-		return "gemini-3-pro-preview"
+		return "gemini-3.1-pro-preview"
 	default:
 		return ""
 	}
