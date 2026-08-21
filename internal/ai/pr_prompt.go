@@ -32,6 +32,20 @@ type PRContext struct {
 	// DiffSummary is the truncated diff content for AI context.
 	DiffSummary string
 
+	// FullDiff is the complete, untruncated diff. It is NOT rendered into the
+	// prompt; it is used to extract authoritative facts and to guard the response
+	// against hallucinated version numbers. Falls back to DiffSummary when empty.
+	FullDiff string
+
+	// VerifiedChanges is a machine-extracted, authoritative Markdown list of
+	// key/value (version) changes. When present, the model is instructed to use
+	// these exact values and invent nothing.
+	VerifiedChanges string
+
+	// OmittedFiles lists files whose diff was trimmed or omitted from DiffSummary
+	// (e.g., large generated files). The model is told to describe these generically.
+	OmittedFiles []string
+
 	// PRGuidelines is the loaded PR guidelines (optional, uses fallback if empty).
 	PRGuidelines string
 }
@@ -87,18 +101,28 @@ NEVER do the following - they produce a useless description:
 - Do NOT invent specific version numbers, variable names, or values you cannot see.
 The reader wants a useful summary of WHAT these files are, not a report about what you could not see.
 {{ end }}
+{{ if .VerifiedChanges }}## VERIFIED CHANGES - AUTHORITATIVE (machine-extracted from the diff)
+These key/version changes were extracted directly from the diff and are GUARANTEED correct.
+When you mention ANY version number, key name, or value, you MUST copy it EXACTLY from this list.
+Do NOT state any version number that is not shown here or visible in the diff above.
+{{ .VerifiedChanges }}
 
-## Files Changed ({{ len .ChangedFiles }} files)
+{{ end }}## Files Changed ({{ len .ChangedFiles }} files)
 {{ range .ChangedFiles -}}
 - {{ .Path }} ({{ .ChangeType }}, +{{ .LinesAdded }}/-{{ .LinesRemoved }})
-{{ end }}
+{{ end }}{{ if .OmittedFiles }}
+NOTE: The diff for these files was trimmed or omitted to save space. Describe them ONLY
+generically by file type and change type - do NOT invent version numbers or values for them:
+{{ range .OmittedFiles -}}
+- {{ . }}
+{{ end }}{{ end }}
 {{ if .PRGuidelines }}## Additional Guidelines
 {{ .PRGuidelines }}
 
 {{ end }}## Output Format
 Generate a PR description with these 4 sections. Start immediately with "## What Changed".
 
-1. **## What Changed** - {{ if .DiffSummary }}Describe ONLY what the diff shows. Quote version numbers exactly as they appear.{{ else }}Describe the change concretely from the file paths and change types above.{{ end }}
+1. **## What Changed** - {{ if .VerifiedChanges }}Describe the changes, using the VERIFIED CHANGES list above verbatim for every version number, key, and value. Never state a version that is not in that list or the diff.{{ else if .DiffSummary }}Describe ONLY what the diff shows. Quote version numbers exactly as they appear.{{ else }}Describe the change concretely from the file paths and change types above.{{ end }}
 2. **## Why It Was Necessary** - Brief explanation (2-3 bullets)
 3. **## Testing Performed** - Validation steps (2-3 bullets)
 4. **## Impact / Risk** - Risk assessment (2-3 bullets)

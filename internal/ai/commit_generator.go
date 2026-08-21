@@ -88,15 +88,32 @@ func (g *CommitMessageGenerator) GenerateMessage(ctx context.Context, commitCtx 
 		defer cancel()
 	}
 
+	// Extract authoritative facts from the FULL (untruncated) diff. These drive
+	// both the prompt injection and the post-generation subject guard, so the
+	// commit subject can never state a version number that is not in the diff.
+	diffForFacts := commitCtx.FullDiff
+	if diffForFacts == "" {
+		diffForFacts = commitCtx.DiffSummary
+	}
+	changeset := ExtractChangeset(diffForFacts)
+
+	// Local copy with verified changes for the prompt (avoid mutating input).
+	localCtx := *commitCtx
+	localCtx.VerifiedChanges = RenderVerifiedChanges(changeset)
+
 	var response string
 	var err error
 
 	// Use cache if available
+	cacheKey := commitCtx.FullDiff
+	if cacheKey == "" {
+		cacheKey = commitCtx.DiffSummary
+	}
 	if g.cache != nil {
 		g.logger.Info("Generating commit message with AI...")
 		var cacheHit bool
-		response, cacheHit, err = g.cache.GetOrGenerate(ctx, "commit:", commitCtx.DiffSummary, func(ctx context.Context) (string, error) {
-			return g.generateFromAI(ctx, commitCtx)
+		response, cacheHit, err = g.cache.GetOrGenerate(ctx, "commit:", cacheKey, func(ctx context.Context) (string, error) {
+			return g.generateFromAI(ctx, &localCtx)
 		})
 
 		if cacheHit {
@@ -105,7 +122,7 @@ func (g *CommitMessageGenerator) GenerateMessage(ctx context.Context, commitCtx 
 	} else {
 		// No cache, generate directly
 		g.logger.Info("Generating commit message with AI...")
-		response, err = g.generateFromAI(ctx, commitCtx)
+		response, err = g.generateFromAI(ctx, &localCtx)
 	}
 
 	if err != nil {
@@ -123,6 +140,19 @@ func (g *CommitMessageGenerator) GenerateMessage(ctx context.Context, commitCtx 
 	if validated == "" {
 		g.logger.Warn("AI generated empty commit message, using fallback")
 		return g.generateFallback(commitCtx), ErrFallbackUsed
+	}
+
+	// Deterministic guard: if the subject cites a version not in the diff, replace
+	// it with a verified subject built from the changeset (or fall back).
+	guarded, hallucinated := GuardCommitSubject(validated, changeset)
+	if hallucinated {
+		g.logger.WithField("original", validated).Warn("Commit subject cited a version not in the diff; using verified subject")
+		if guarded == "" {
+			return g.generateFallback(commitCtx), ErrFallbackUsed
+		}
+		if validated = ValidateCommitMessage(guarded); validated == "" {
+			return g.generateFallback(commitCtx), ErrFallbackUsed
+		}
 	}
 
 	return validated, nil
@@ -146,10 +176,24 @@ func (g *CommitMessageGenerator) generateFromAI(ctx context.Context, commitCtx *
 	return resp.Content, nil
 }
 
-// generateFallback returns static pattern matching existing behavior in repository.go.
+// generateFallback returns a static message. It prefers a specific, verified
+// subject derived deterministically from the diff (e.g. "sync: bump MAGE_X_VERSION
+// to v1.26.3") and only falls back to a generic file-count message when no
+// significant key changes are available.
 func (g *CommitMessageGenerator) generateFallback(commitCtx *CommitContext) string {
 	if commitCtx == nil || len(commitCtx.ChangedFiles) == 0 {
 		return "sync: update files from source repository"
+	}
+
+	// Prefer a precise, machine-verified subject when the diff reveals one.
+	diff := commitCtx.FullDiff
+	if diff == "" {
+		diff = commitCtx.DiffSummary
+	}
+	if diff != "" {
+		if subject := DeterministicCommitSubject(ExtractChangeset(diff)); subject != "" {
+			return subject
+		}
 	}
 
 	if len(commitCtx.ChangedFiles) == 1 {

@@ -1,0 +1,142 @@
+package ai
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func allowedSet(tokens ...string) map[string]struct{} {
+	m := make(map[string]struct{}, len(tokens))
+	for _, t := range tokens {
+		m[normalizeVersionToken(t)] = struct{}{}
+	}
+	return m
+}
+
+func TestGuardVersions_StripsHallucinations(t *testing.T) {
+	body := "## What Changed\n" +
+		"\n" +
+		"* Updated `MAGE_X_VERSION` from v1.13.1 to v1.14.0\n" + // both hallucinated
+		"* Updated `GOVULNCHECK_GO_VERSION` from 1.26.6 to 1.27.0\n" + // both real
+		"* Added a new benchstat input\n" // no version token
+	allowed := allowedSet("1.26.6", "1.27.0")
+
+	got, violations := GuardVersions(body, allowed)
+
+	assert.NotContains(t, got, "v1.13.1")
+	assert.NotContains(t, got, "v1.14.0")
+	assert.Contains(t, got, "1.26.6")
+	assert.Contains(t, got, "1.27.0")
+	assert.Contains(t, got, "Added a new benchstat input")
+	assert.ElementsMatch(t, []string{"v1.13.1", "v1.14.0"}, violations)
+}
+
+func TestGuardVersions_ExactReportedFailure(t *testing.T) {
+	// Reproduces the two Copilot-flagged claims from the real PR.
+	body := "## What Changed\n\n" +
+		"* updated MAGE_X_VERSION from v1.13.1 to v1.14.0\n" +
+		"* changing GO_VERSION from 1.25.1 to 1.25.2\n"
+	// The real diff only ever contained these tokens.
+	allowed := allowedSet("v1.26.1", "v1.26.3", "1.26.6", "1.27.0")
+
+	got, violations := GuardVersions(body, allowed)
+
+	for _, bad := range []string{"v1.13.1", "v1.14.0", "1.25.1", "1.25.2"} {
+		assert.NotContainsf(t, got, bad, "hallucinated token %q must be removed", bad)
+	}
+	assert.Len(t, violations, 4)
+}
+
+func TestGuardVersions_KeepsCleanBody(t *testing.T) {
+	body := "## What Changed\n\n* Something without versions\n\n## Impact\n\n* Low risk"
+	got, violations := GuardVersions(body, allowedSet())
+	assert.Empty(t, violations)
+	assert.Contains(t, got, "Something without versions")
+	assert.Contains(t, got, "Low risk")
+}
+
+func TestGuardVersions_EmptyBody(t *testing.T) {
+	got, violations := GuardVersions("", allowedSet("1.0.0"))
+	assert.Empty(t, got)
+	assert.Empty(t, violations)
+}
+
+func TestEnsureVerifiedChanges_BackfillsMissing(t *testing.T) {
+	// The model dropped MAGE_X_VERSION entirely (or the guard removed it).
+	body := "## What Changed\n\n* Some unrelated but real change\n\n## Impact\n\n* Low"
+	cs := &Changeset{KeyChanges: []KeyChange{
+		{File: "a.env", Key: "MAGE_X_VERSION", Old: "v1.26.1", New: "v1.26.3", Kind: ChangeModified},
+		{File: "b.env", Key: "GO_SEC_VERSION", Old: "v2.0.0", Kind: ChangeRemoved},
+	}}
+
+	got := EnsureVerifiedChanges(body, cs)
+
+	assert.Contains(t, got, "MAGE_X_VERSION")
+	assert.Contains(t, got, "v1.26.3")
+	assert.Contains(t, got, "GO_SEC_VERSION")
+	// Backfill must appear under What Changed, before Impact.
+	assert.Less(t, strings.Index(got, "MAGE_X_VERSION"), strings.Index(got, "## Impact"))
+}
+
+func TestEnsureVerifiedChanges_NoDuplicateWhenPresent(t *testing.T) {
+	body := "## What Changed\n\n* `MAGE_X_VERSION`: v1.26.1 → v1.26.3\n"
+	cs := &Changeset{KeyChanges: []KeyChange{
+		{File: "a.env", Key: "MAGE_X_VERSION", Old: "v1.26.1", New: "v1.26.3", Kind: ChangeModified},
+	}}
+	got := EnsureVerifiedChanges(body, cs)
+	assert.Equal(t, 1, strings.Count(got, "MAGE_X_VERSION"), "should not duplicate an already-present key")
+}
+
+func TestEnsureVerifiedChanges_NoChangesNoop(t *testing.T) {
+	body := "## What Changed\n\n* nothing"
+	assert.Equal(t, body, EnsureVerifiedChanges(body, &Changeset{}))
+	assert.Equal(t, body, EnsureVerifiedChanges(body, nil))
+}
+
+func TestInsertUnderWhatChanged_NoHeader(t *testing.T) {
+	got := insertUnderWhatChanged("## Summary\n\n* item", "* `K`: `1` → `2`")
+	assert.Contains(t, got, "## What Changed")
+	assert.Contains(t, got, "* `K`: `1` → `2`")
+}
+
+func TestCollapseBlankRuns(t *testing.T) {
+	got := collapseBlankRuns("a\n\n\n\nb\n\n\nc")
+	assert.Equal(t, "a\n\nb\n\nc", got)
+}
+
+func TestGuardThenEnsure_Integration(t *testing.T) {
+	// Full deterministic pipeline: hallucinated body + real changeset -> correct body.
+	body := "## What Changed\n\n" +
+		"* Updated `MAGE_X_VERSION` from v1.13.1 to v1.14.0\n" +
+		"* Bumped `GOVULNCHECK_GO_VERSION` from 1.25.1 to 1.25.2\n" +
+		"\n## Why It Was Necessary\n\n* Keep repos aligned\n" +
+		"\n## Testing Performed\n\n* Validated config\n" +
+		"\n## Impact / Risk\n\n* Low risk\n"
+	cs := &Changeset{
+		KeyChanges: []KeyChange{
+			{File: ".github/env/10-mage-x.env", Key: "MAGE_X_VERSION", Old: "v1.26.1", New: "v1.26.3", Kind: ChangeModified},
+			{File: ".github/env/00-core.env", Key: "GOVULNCHECK_GO_VERSION", Old: "1.26.6", New: "1.27.0", Kind: ChangeModified},
+		},
+		VersionTokens: allowedSet("v1.26.1", "v1.26.3", "1.26.6", "1.27.0"),
+	}
+
+	guarded, violations := GuardVersions(body, cs.VersionTokens)
+	final := EnsureVerifiedChanges(guarded, cs)
+
+	require.NotEmpty(t, violations)
+	// Correct values present:
+	assert.Contains(t, final, "v1.26.3")
+	assert.Contains(t, final, "1.27.0")
+	assert.Contains(t, final, "MAGE_X_VERSION")
+	assert.Contains(t, final, "GOVULNCHECK_GO_VERSION")
+	// Hallucinations gone:
+	for _, bad := range []string{"v1.13.1", "v1.14.0", "1.25.1", "1.25.2"} {
+		assert.NotContains(t, final, bad)
+	}
+	// Narrative sections preserved:
+	assert.Contains(t, final, "Keep repos aligned")
+	assert.Contains(t, final, "Low risk")
+}

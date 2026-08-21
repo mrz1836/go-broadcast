@@ -104,13 +104,19 @@ func (g *PRBodyGenerator) GenerateBody(ctx context.Context, prCtx *PRContext) (s
 		CommitSHA:    prCtx.CommitSHA,
 		ChangedFiles: prCtx.ChangedFiles,
 		DiffSummary:  prCtx.DiffSummary,
+		FullDiff:     prCtx.FullDiff,
+		OmittedFiles: prCtx.OmittedFiles,
 		PRGuidelines: guidelines,
 	}
 
 	// Use cache if available
 	if g.cache != nil {
 		g.logger.Info("Generating PR body with AI...")
-		response, cacheHit, err := g.cache.GetOrGenerate(ctx, "pr:", localCtx.DiffSummary, func(ctx context.Context) (string, error) {
+		cacheKey := localCtx.FullDiff
+		if cacheKey == "" {
+			cacheKey = localCtx.DiffSummary
+		}
+		response, cacheHit, err := g.cache.GetOrGenerate(ctx, "pr:", cacheKey, func(ctx context.Context) (string, error) {
 			return g.generateFromAI(ctx, localCtx)
 		})
 
@@ -147,8 +153,20 @@ func (g *PRBodyGenerator) GenerateBody(ctx context.Context, prCtx *PRContext) (s
 	return response, nil
 }
 
-// generateFromAI calls provider with retry logic.
+// generateFromAI calls provider with retry logic, then applies deterministic
+// fact-checking so the response can never state a version number that is not in
+// the diff.
 func (g *PRBodyGenerator) generateFromAI(ctx context.Context, prCtx *PRContext) (string, error) {
+	// Extract authoritative, machine-verified facts from the FULL (untruncated)
+	// diff. These drive both the prompt injection and the post-generation guard,
+	// so version numbers are never left to the model to transcribe.
+	diffForFacts := prCtx.FullDiff
+	if diffForFacts == "" {
+		diffForFacts = prCtx.DiffSummary
+	}
+	changeset := ExtractChangeset(diffForFacts)
+	prCtx.VerifiedChanges = RenderVerifiedChanges(changeset)
+
 	prompt := BuildPRPrompt(prCtx)
 
 	resp, err := GenerateWithRetry(ctx, g.retryConfig, g.logger, func(ctx context.Context) (*GenerateResponse, error) {
@@ -169,7 +187,26 @@ func (g *PRBodyGenerator) generateFromAI(ctx context.Context, prCtx *PRContext) 
 		return "", ErrInvalidFormat
 	}
 
-	return validated, nil
+	// Deterministic fact-check: strip any hallucinated version numbers (tokens that
+	// appear nowhere in the diff), then backfill any real change the model omitted.
+	guarded, violations := GuardVersions(validated, changeset.VersionTokens)
+	if len(violations) > 0 {
+		g.logger.WithFields(logrus.Fields{
+			"hallucinated_versions": violations,
+			"count":                 len(violations),
+		}).Warn("Removed hallucinated version numbers from AI-generated PR body")
+	}
+	guarded = EnsureVerifiedChanges(guarded, changeset)
+
+	// The guard can, in pathological cases, remove enough content to break the
+	// required structure. Re-validate and fall back if so.
+	final := ValidatePRBody(guarded)
+	if final == "" {
+		g.logger.Warn("PR body failed validation after version guarding, using fallback")
+		return "", ErrInvalidFormat
+	}
+
+	return final, nil
 }
 
 // generateFallback returns static template for PR body.
