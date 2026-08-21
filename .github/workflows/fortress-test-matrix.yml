@@ -294,10 +294,13 @@ jobs:
           MATRIX_NAME: ${{ matrix.name }}
           MATRIX_OS: ${{ matrix.os }}
           MATRIX_GO_VERSION: ${{ matrix.go-version }}
+          # Caller-provided flags routed through env: too (shell-safety invariant).
+          RACE_DETECTION_ENABLED: ${{ inputs.race-detection-enabled || 'false' }}
+          CODE_COVERAGE_ENABLED: ${{ inputs.code-coverage-enabled || 'false' }}
         run: |
           # Determine test type based on inputs
-          RACE="${{ inputs.race-detection-enabled || 'false' }}"
-          COVER="${{ inputs.code-coverage-enabled || 'false' }}"
+          RACE="${RACE_DETECTION_ENABLED:-false}"
+          COVER="${CODE_COVERAGE_ENABLED:-false}"
 
           echo "🔍 Race Detection Enabled: $RACE"
           echo "🔍 Code Coverage Enabled: $COVER"
@@ -445,15 +448,23 @@ jobs:
       # --------------------------------------------------------------------
       - name: 📊 Report Redis Cache Performance
         if: inputs.redis-enabled == 'true'
+        env:
+          # Route caller-provided inputs and step outputs through env: (shell-safety invariant).
+          REDIS_ENABLED: ${{ inputs.redis-enabled }}
+          REDIS_VERSION: ${{ inputs.redis-version }}
+          REDIS_CACHE_HIT: ${{ steps.setup-redis.outputs.cache-hit }}
+          REDIS_IMAGE_SIZE: ${{ steps.setup-redis.outputs.image-size }}
+          REDIS_CACHE_OP_TIME: ${{ steps.setup-redis.outputs.cache-operation-time }}
+          REDIS_CONNECTION_TIME: ${{ steps.setup-redis.outputs.connection-time }}
         run: |
           echo "📊 Redis Cache Performance Report"
           echo "================================="
-          echo "• Redis Enabled: ${{ inputs.redis-enabled }}"
-          echo "• Redis Version: ${{ inputs.redis-version }}"
-          echo "• Cache Hit: ${{ steps.setup-redis.outputs.cache-hit }}"
-          echo "• Image Size: ${{ steps.setup-redis.outputs.image-size }}MB"
-          echo "• Cache Operation Time: ${{ steps.setup-redis.outputs.cache-operation-time }}s"
-          echo "• Connection Time: ${{ steps.setup-redis.outputs.connection-time }}s"
+          echo "• Redis Enabled: ${REDIS_ENABLED}"
+          echo "• Redis Version: ${REDIS_VERSION}"
+          echo "• Cache Hit: ${REDIS_CACHE_HIT}"
+          echo "• Image Size: ${REDIS_IMAGE_SIZE}MB"
+          echo "• Cache Operation Time: ${REDIS_CACHE_OP_TIME}s"
+          echo "• Connection Time: ${REDIS_CONNECTION_TIME}s"
 
       # --------------------------------------------------------------------
       # Upload performance cache statistics for completion report
