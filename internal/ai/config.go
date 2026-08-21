@@ -147,10 +147,13 @@ func LoadConfig() *Config {
 		Model:         env.GetEnvWithFallback("GO_BROADCAST_AI_MODEL", ""),
 		MaxTokens:     parseIntWithDefault("GO_BROADCAST_AI_MAX_TOKENS", 2000),
 		Timeout:       parseDurationSecondsWithDefault("GO_BROADCAST_AI_TIMEOUT", 30*time.Second),
-		Temperature:   parseFloatWithDefault("GO_BROADCAST_AI_TEMPERATURE", 0.3),
+		// Lower default temperature: PR/commit descriptions are factual summaries,
+		// not creative writing. Less randomness means fewer invented details.
+		Temperature: parseFloatWithDefault("GO_BROADCAST_AI_TEMPERATURE", 0.2),
 
-		// Diff truncation
-		DiffMaxChars:        parseIntWithDefault("GO_BROADCAST_AI_DIFF_MAX_CHARS", 12000),
+		// Diff truncation. Prioritized truncation keeps small config/version files,
+		// so this budget mainly bounds how much of large generated files is shown.
+		DiffMaxChars:        parseIntWithDefault("GO_BROADCAST_AI_DIFF_MAX_CHARS", 16000),
 		DiffMaxLinesPerFile: parseIntWithDefault("GO_BROADCAST_AI_DIFF_MAX_LINES_PER_FILE", 150),
 
 		// Cache (enabled by default for cost savings)

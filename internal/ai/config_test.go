@@ -53,10 +53,10 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	// Generation parameters
 	assert.Equal(t, 2000, cfg.MaxTokens)
 	assert.Equal(t, 30*time.Second, cfg.Timeout)
-	assert.InDelta(t, 0.3, cfg.Temperature, 0.001)
+	assert.InDelta(t, 0.2, cfg.Temperature, 0.001)
 
 	// Diff truncation
-	assert.Equal(t, 12000, cfg.DiffMaxChars)
+	assert.Equal(t, 16000, cfg.DiffMaxChars)
 	assert.Equal(t, 150, cfg.DiffMaxLinesPerFile)
 
 	// Cache defaults
@@ -198,7 +198,7 @@ func TestLoadConfig_InvalidValues(t *testing.T) {
 			envVar:       "GO_BROADCAST_AI_TEMPERATURE",
 			invalidValue: "abc",
 			checkField:   func(c *Config) any { return c.Temperature },
-			expectValue:  0.3,
+			expectValue:  0.2,
 		},
 		{
 			name:         "invalid cache TTL uses default",
@@ -246,7 +246,7 @@ func TestLoadConfig_DefaultModel(t *testing.T) {
 		{
 			name:          "Google default model",
 			provider:      "google",
-			expectedModel: "gemini-3-pro-preview",
+			expectedModel: "gemini-3.1-pro-preview",
 		},
 		{
 			name:          "Unknown provider empty model",
@@ -424,7 +424,7 @@ func TestGetDefaultModel(t *testing.T) {
 	}{
 		{ProviderAnthropic, "claude-sonnet-4-5-20250929"},
 		{ProviderOpenAI, "gpt-5.2"},
-		{ProviderGoogle, "gemini-3-pro-preview"},
+		{ProviderGoogle, "gemini-3.1-pro-preview"},
 		{"unknown", ""},
 		{"", ""},
 	}
