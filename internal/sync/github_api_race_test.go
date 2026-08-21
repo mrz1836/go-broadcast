@@ -108,57 +108,43 @@ func TestGitHubAPIUpdateAverageTreeSizeStressTest(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
-	done := make(chan bool)
+	const iterations = 2000
 
-	// Writer goroutines
-	for i := 0; i < 20; i++ {
-		wg.Add(1)
-		go func(_ int) {
-			defer wg.Done()
-			count := 0
-			for {
-				select {
-				case <-done:
-					return
-				default:
-					size := 1000 + (count % 5000)
-					api.updateAverageTreeSize(size)
-					count++
-				}
-			}
-		}(i)
-	}
-
-	// Reader goroutines (reading the average)
+	// Writer goroutines: each performs a fixed number of updates with varied
+	// sizes. A bounded iteration count (rather than spinning until a shared
+	// "done" channel closes) keeps the test deterministic and avoids relying on
+	// mutex fairness for termination, which can starve a single coordinator
+	// goroutine under heavy contention.
 	for i := 0; i < 20; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for {
-				select {
-				case <-done:
-					return
-				default:
-					avg := api.stats.AverageTreeSize.Load()
-					if avg < 0 {
-						t.Errorf("Got negative average: %d", avg)
-					}
+			for count := 0; count < iterations; count++ {
+				size := 1000 + (count % 5000)
+				api.updateAverageTreeSize(size)
+			}
+		}()
+	}
+
+	// Reader goroutines: concurrently read the average while writers update it.
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for count := 0; count < iterations; count++ {
+				if avg := api.stats.AverageTreeSize.Load(); avg < 0 {
+					t.Errorf("Got negative average: %d", avg)
 				}
 			}
 		}()
 	}
 
-	// Let it run for a bit
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for i := 0; i < 100; i++ {
-			api.updateAverageTreeSize(i * 10)
-		}
-		close(done)
-	}()
-
 	wg.Wait()
+
+	// After all updates, the average should be a sane positive value.
+	if avg := api.stats.AverageTreeSize.Load(); avg <= 0 {
+		t.Errorf("Expected positive average, got %d", avg)
+	}
 }
 
 // TestGitHubAPIStatsGetStatsRace tests concurrent access to GetStats
