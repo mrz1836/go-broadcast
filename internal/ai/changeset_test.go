@@ -35,10 +35,10 @@ func TestExtractChangeset_KeyValueForms(t *testing.T) {
 			},
 		},
 		{
-			name: "yaml colon form",
-			diff: "--- a/config.yaml\n+++ b/config.yaml\n@@ -1 +1 @@\n-  version: 2.8.4\n+  version: 2.8.5\n",
+			name: "properties colon form (config file)",
+			diff: "--- a/app.properties\n+++ b/app.properties\n@@ -1 +1 @@\n-version: 2.8.4\n+version: 2.8.5\n",
 			want: []KeyChange{
-				{File: "config.yaml", Key: "version", Old: "2.8.4", New: "2.8.5", Kind: ChangeModified},
+				{File: "app.properties", Key: "version", Old: "2.8.4", New: "2.8.5", Kind: ChangeModified},
 			},
 		},
 		{
@@ -106,6 +106,74 @@ func TestExtractChangeset_KeyValueForms(t *testing.T) {
 			assert.Equal(t, tt.want, cs.KeyChanges)
 		})
 	}
+}
+
+func TestExtractChangeset_ExcludesNonConfigFiles(t *testing.T) {
+	// YAML (workflows/actions) and code contain shell script and templating that
+	// pattern-match as assignments but are NOT config changes. None must be extracted.
+	tests := []struct {
+		name string
+		diff string
+	}{
+		{
+			name: "github actions env block and shell run lines",
+			diff: "diff --git a/.github/actions/x/action.yml b/.github/actions/x/action.yml\n" +
+				"--- a/.github/actions/x/action.yml\n+++ b/.github/actions/x/action.yml\n" +
+				"@@ -1,4 +1,6 @@\n" +
+				"+        BENCHSTAT_VERSION: ${{ inputs.benchstat-version }}\n" +
+				"+        MATRIX_GO_VERSION: ${{ matrix.go-version }}\n" +
+				"+          MIN_MAJOR=${BASH_REMATCH[1]}\n" +
+				"+          WINDOWS=$(jq -r '\n",
+		},
+		{
+			name: "workflow yaml",
+			diff: "diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml\n" +
+				"--- a/.github/workflows/ci.yml\n+++ b/.github/workflows/ci.yml\n" +
+				"@@ -1 +1 @@\n-      RACE: ${{ inputs.race || 'false' }}\n+      RACE: ${RACE_ENABLED:-false}\n",
+		},
+		{
+			name: "go source",
+			diff: "diff --git a/main.go b/main.go\n--- a/main.go\n+++ b/main.go\n" +
+				"@@ -1 +1 @@\n-\tVersion = \"1.0.0\"\n+\tVersion = \"1.1.0\"\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cs := ExtractChangeset(tt.diff)
+			assert.Empty(t, cs.KeyChanges, "non-config file must yield no key changes")
+		})
+	}
+}
+
+func TestExtractChangeset_RejectsTemplateAndShellValues(t *testing.T) {
+	// Even inside a config file, template/shell expressions are not real values.
+	diff := "--- a/.github/env/x.env\n+++ b/.github/env/x.env\n@@ -1,3 +1,3 @@\n" +
+		"-A=${{ inputs.a }}\n+A=${{ inputs.b }}\n" +
+		"-B=$(compute)\n+B=$(compute-other)\n" +
+		"-REAL_VERSION=1.0.0\n+REAL_VERSION=1.1.0\n"
+	cs := ExtractChangeset(diff)
+	require.Len(t, cs.KeyChanges, 1, "only the plain-valued change should survive")
+	assert.Equal(t, "REAL_VERSION", cs.KeyChanges[0].Key)
+	assert.Equal(t, "1.1.0", cs.KeyChanges[0].New)
+}
+
+func TestIsConfigValueFile(t *testing.T) {
+	yes := []string{".github/env/10-mage-x.env", "config.toml", "app.ini", "x.properties", "settings.cfg", "redis.conf"}
+	no := []string{".github/workflows/ci.yml", ".github/actions/x/action.yaml", "main.go", "README.md", "config.json", "Dockerfile"}
+	for _, p := range yes {
+		assert.Truef(t, isConfigValueFile(p), "%s should be a config file", p)
+	}
+	for _, p := range no {
+		assert.Falsef(t, isConfigValueFile(p), "%s should NOT be a config file", p)
+	}
+}
+
+func TestIsPlainConfigValue(t *testing.T) {
+	assert.True(t, isPlainConfigValue("v1.2.3"))
+	assert.True(t, isPlainConfigValue("1.26"))
+	assert.False(t, isPlainConfigValue("${{ inputs.x }}"))
+	assert.False(t, isPlainConfigValue("$(jq -r '"))
+	assert.False(t, isPlainConfigValue("`backtick`"))
 }
 
 func TestExtractChangeset_MultiFileOrdering(t *testing.T) {

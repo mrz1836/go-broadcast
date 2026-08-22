@@ -101,10 +101,9 @@ NEVER do the following - they produce a useless description:
 - Do NOT invent specific version numbers, variable names, or values you cannot see.
 The reader wants a useful summary of WHAT these files are, not a report about what you could not see.
 {{ end }}
-{{ if .VerifiedChanges }}## VERIFIED CHANGES - AUTHORITATIVE (machine-extracted from the diff)
-These key/version changes were extracted directly from the diff and are GUARANTEED correct.
-When you mention ANY version number, key name, or value, you MUST copy it EXACTLY from this list.
-Do NOT state any version number that is not shown here or visible in the diff above.
+{{ if .VerifiedChanges }}## VERIFIED VERSION & CONFIG CHANGES - AUTHORITATIVE (machine-extracted)
+These are the exact configuration/version changes in this sync. Use these EXACT values.
+Never state a version, key, or value that is not shown here or visible in the diff above.
 {{ .VerifiedChanges }}
 
 {{ end }}## Files Changed ({{ len .ChangedFiles }} files)
@@ -122,7 +121,7 @@ generically by file type and change type - do NOT invent version numbers or valu
 {{ end }}## Output Format
 Generate a PR description with these 4 sections. Start immediately with "## What Changed".
 
-1. **## What Changed** - {{ if .VerifiedChanges }}Describe the changes, using the VERIFIED CHANGES list above verbatim for every version number, key, and value. Never state a version that is not in that list or the diff.{{ else if .DiffSummary }}Describe ONLY what the diff shows. Quote version numbers exactly as they appear.{{ else }}Describe the change concretely from the file paths and change types above.{{ end }}
+1. **## What Changed** - {{ if .VerifiedChanges }}Open with one short sentence, then present the VERIFIED VERSION & CONFIG CHANGES above as a single clean bulleted group using these EXACT values (group related bumps; keep each on its own bullet). Then cover any non-config changes (features, refactors, fixes, security) as their own bullets. Do NOT repeat a change in both the list and the prose, and never state a version that is not in that list or the diff.{{ else if .DiffSummary }}Describe ONLY what the diff shows. Quote version numbers exactly as they appear.{{ else }}Describe the change concretely from the file paths and change types above.{{ end }}
 2. **## Why It Was Necessary** - Brief explanation (2-3 bullets)
 3. **## Testing Performed** - Validation steps (2-3 bullets)
 4. **## Impact / Risk** - Risk assessment (2-3 bullets)

@@ -153,6 +153,13 @@ func ExtractChangeset(diff string) *Changeset {
 	seen := make(map[string]struct{})
 	for _, section := range splitDiffIntoSections(diff) {
 		file := sectionFilePath(section)
+		// Only extract key/value changes from files where "KEY=value" actually
+		// denotes configuration. YAML (workflows/actions) and code contain shell
+		// script lines and templating (${{ }}, $(...)) that look like assignments
+		// but are not config changes - extracting them produces noise and garbage.
+		if !isConfigValueFile(file) {
+			continue
+		}
 		for _, kc := range extractSectionChanges(file, section) {
 			dedupeKey := kc.File + "\x00" + kc.Key
 			if _, ok := seen[dedupeKey]; ok {
@@ -185,12 +192,12 @@ func extractSectionChanges(file, section string) []KeyChange {
 			// File header lines - ignore.
 			continue
 		case strings.HasPrefix(line, "+"):
-			if k, v, ok := parseKeyValue(line[1:]); ok {
+			if k, v, ok := parseKeyValue(line[1:]); ok && isPlainConfigValue(v) {
 				added = append(added, kv{k, v})
 				addedIdx[k] = v
 			}
 		case strings.HasPrefix(line, "-"):
-			if k, v, ok := parseKeyValue(line[1:]); ok {
+			if k, v, ok := parseKeyValue(line[1:]); ok && isPlainConfigValue(v) {
 				removed = append(removed, kv{k, v})
 				removedIdx[k] = v
 			}
@@ -309,6 +316,35 @@ func truncateValue(v string) string {
 		return v[:maxValueDisplayLen] + "…"
 	}
 	return v
+}
+
+// isConfigValueFile reports whether a file uses "KEY=value" (or "key: value")
+// configuration semantics, so that a changed line genuinely represents a config
+// change worth surfacing. It deliberately EXCLUDES YAML (.yml/.yaml) and source
+// code: those contain shell script inside run: blocks and templating like
+// ${{ ... }} / $(...) that pattern-match as assignments but are not config.
+func isConfigValueFile(path string) bool {
+	p := strings.ToLower(path)
+	switch {
+	case strings.HasSuffix(p, ".env"),
+		strings.HasSuffix(p, ".toml"),
+		strings.HasSuffix(p, ".ini"),
+		strings.HasSuffix(p, ".properties"),
+		strings.HasSuffix(p, ".cfg"),
+		strings.HasSuffix(p, ".conf"):
+		return true
+	default:
+		return false
+	}
+}
+
+// isPlainConfigValue reports whether a value is a literal config value rather than
+// a templating or shell expression. It rejects GitHub Actions templating (${{ }}),
+// shell command substitution ($(...)), and backtick expressions - which are never
+// real config values and, when captured from multi-line constructs, produce
+// truncated garbage (e.g. "$(jq -r '").
+func isPlainConfigValue(v string) bool {
+	return !strings.Contains(v, "${{") && !strings.Contains(v, "$(") && !strings.Contains(v, "`")
 }
 
 // versionFilePriority ranks diff sections so that small, high-signal configuration
