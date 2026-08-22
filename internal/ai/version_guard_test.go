@@ -64,36 +64,42 @@ func TestGuardVersions_EmptyBody(t *testing.T) {
 	assert.Empty(t, violations)
 }
 
-func TestEnsureVerifiedChanges_BackfillsMissing(t *testing.T) {
-	// The model dropped MAGE_X_VERSION entirely (or the guard removed it).
-	body := "## What Changed\n\n* Some unrelated but real change\n\n## Impact\n\n* Low"
+func TestApplyVerifiedChanges_RemovesRestatementAndInsertsBlock(t *testing.T) {
+	// Model duplicated: a version restatement bullet plus a genuine narrative bullet.
+	body := "## What Changed\n\n" +
+		"* Updated MAGE-X to v1.26.3 (from v1.26.1)\n" +
+		"* Added documentation explaining the new setup\n\n" +
+		"## Impact\n\n* Low"
 	cs := &Changeset{KeyChanges: []KeyChange{
 		{File: "a.env", Key: "MAGE_X_VERSION", Old: "v1.26.1", New: "v1.26.3", Kind: ChangeModified},
-		{File: "b.env", Key: "GO_SEC_VERSION", Old: "v2.0.0", Kind: ChangeRemoved},
 	}}
 
-	got := EnsureVerifiedChanges(body, cs)
+	got := ApplyVerifiedChanges(body, cs)
 
-	assert.Contains(t, got, "MAGE_X_VERSION")
-	assert.Contains(t, got, "v1.26.3")
-	assert.Contains(t, got, "GO_SEC_VERSION")
-	// Backfill must appear under What Changed, before Impact.
+	// Authoritative block present once; the prose restatement is removed.
+	assert.Contains(t, got, "`MAGE_X_VERSION`: `v1.26.1` → `v1.26.3`")
+	assert.NotContains(t, got, "Updated MAGE-X to v1.26.3 (from v1.26.1)")
+	assert.Equal(t, 1, strings.Count(got, "v1.26.3"), "version must appear exactly once")
+	// Genuine narrative bullet (no version token) is preserved.
+	assert.Contains(t, got, "Added documentation explaining the new setup")
+	// Placed under What Changed, before Impact.
 	assert.Less(t, strings.Index(got, "MAGE_X_VERSION"), strings.Index(got, "## Impact"))
 }
 
-func TestEnsureVerifiedChanges_NoDuplicateWhenPresent(t *testing.T) {
-	body := "## What Changed\n\n* `MAGE_X_VERSION`: v1.26.1 → v1.26.3\n"
+func TestApplyVerifiedChanges_KeepsBulletWithUncoveredVersion(t *testing.T) {
+	// A narrative bullet citing a version NOT in the changeset must survive.
+	body := "## What Changed\n\n* Still supports Go 1.25.x runners\n\n## Impact\n\n* Low"
 	cs := &Changeset{KeyChanges: []KeyChange{
 		{File: "a.env", Key: "MAGE_X_VERSION", Old: "v1.26.1", New: "v1.26.3", Kind: ChangeModified},
 	}}
-	got := EnsureVerifiedChanges(body, cs)
-	assert.Equal(t, 1, strings.Count(got, "MAGE_X_VERSION"), "should not duplicate an already-present key")
+	got := ApplyVerifiedChanges(body, cs)
+	assert.Contains(t, got, "Still supports Go 1.25.x runners")
 }
 
-func TestEnsureVerifiedChanges_NoChangesNoop(t *testing.T) {
+func TestApplyVerifiedChanges_NoChangesNoop(t *testing.T) {
 	body := "## What Changed\n\n* nothing"
-	assert.Equal(t, body, EnsureVerifiedChanges(body, &Changeset{}))
-	assert.Equal(t, body, EnsureVerifiedChanges(body, nil))
+	assert.Equal(t, body, ApplyVerifiedChanges(body, &Changeset{}))
+	assert.Equal(t, body, ApplyVerifiedChanges(body, nil))
 }
 
 func TestInsertUnderWhatChanged_NoHeader(t *testing.T) {
@@ -107,7 +113,7 @@ func TestCollapseBlankRuns(t *testing.T) {
 	assert.Equal(t, "a\n\nb\n\nc", got)
 }
 
-func TestGuardThenEnsure_Integration(t *testing.T) {
+func TestGuardThenApply_Integration(t *testing.T) {
 	// Full deterministic pipeline: hallucinated body + real changeset -> correct body.
 	body := "## What Changed\n\n" +
 		"* Updated `MAGE_X_VERSION` from v1.13.1 to v1.14.0\n" +
@@ -124,7 +130,7 @@ func TestGuardThenEnsure_Integration(t *testing.T) {
 	}
 
 	guarded, violations := GuardVersions(body, cs.VersionTokens)
-	final := EnsureVerifiedChanges(guarded, cs)
+	final := ApplyVerifiedChanges(guarded, cs)
 
 	require.NotEmpty(t, violations)
 	// Correct values present:

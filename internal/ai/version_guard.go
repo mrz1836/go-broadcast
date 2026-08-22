@@ -46,40 +46,78 @@ func GuardVersions(body string, allowed map[string]struct{}) (string, []string) 
 	return collapseBlankRuns(strings.Join(kept, "\n")), violations
 }
 
-// EnsureVerifiedChanges guarantees that every deterministically-extracted key
-// change is represented in the body with correct values. Any change whose key is
-// entirely absent (e.g., because GuardVersions dropped a hallucinated line, or the
-// model simply omitted it) is appended as an authoritative bullet under the
-// "## What Changed" section.
+// ApplyVerifiedChanges makes the machine-extracted config/version changes the single
+// source of truth in "What Changed".
 //
-// A change is considered "represented" if its key name already appears anywhere in
-// the body - the guard has already corrected the numbers on those lines, so we only
-// backfill genuinely missing facts and avoid duplicating what the model wrote well.
-func EnsureVerifiedChanges(body string, cs *Changeset) string {
-	if !cs.HasKeyChanges() {
+// The model frequently produces a DUPLICATE of the same bumps - once as a pasted
+// verified list and again as prose ("Updated MAGE-X to v1.26.4 (from v1.26.1)").
+// Prompt instructions alone do not reliably prevent this, so we fix it
+// deterministically: remove any list item whose version tokens are all already
+// covered by the extracted changeset (a pure restatement), then insert the single
+// authoritative verified list at the top of the section. Bullets that add genuine
+// context - no version tokens, or a version outside the changeset - are preserved.
+func ApplyVerifiedChanges(body string, cs *Changeset) string {
+	block := RenderVerifiedChanges(cs)
+	if block == "" {
 		return body
 	}
+	body = dropRestatedBullets(body, blockVersionTokens(cs))
+	body = insertUnderWhatChanged(body, block)
+	return collapseBlankRuns(body)
+}
 
-	var missing []KeyChange
+// blockVersionTokens returns the normalized version tokens covered by the verified
+// changes block (from the old and new values of each significant change).
+func blockVersionTokens(cs *Changeset) map[string]struct{} {
+	toks := make(map[string]struct{})
 	for _, kc := range cs.SignificantChanges() {
-		if !strings.Contains(body, kc.Key) {
-			missing = append(missing, kc)
+		for _, t := range versionTokenRe.FindAllString(kc.Old+"\n"+kc.New, -1) {
+			toks[normalizeVersionToken(t)] = struct{}{}
 		}
 	}
-	if len(missing) == 0 {
+	return toks
+}
+
+// dropRestatedBullets removes list items in the "## What Changed" section whose
+// version tokens are all already covered by the verified block - i.e. bullets that
+// merely restate a bump the authoritative list will show. Bullets with no version
+// token (narrative) or with a token outside the block are kept, and every other
+// section is left untouched.
+func dropRestatedBullets(body string, covered map[string]struct{}) string {
+	if len(covered) == 0 {
 		return body
 	}
-
-	var block strings.Builder
-	for i, kc := range missing {
-		if i >= maxVerifiedBullets {
-			break
-		}
-		block.WriteString(kc.Bullet())
-		block.WriteString("\n")
+	const marker = "## What Changed"
+	start := strings.Index(body, marker)
+	if start < 0 {
+		return body
+	}
+	end := len(body)
+	if i := strings.Index(body[start+len(marker):], "\n## "); i >= 0 {
+		end = start + len(marker) + i
 	}
 
-	return insertUnderWhatChanged(body, strings.TrimRight(block.String(), "\n"))
+	lines := strings.Split(body[start:end], "\n")
+	kept := make([]string, 0, len(lines))
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "* ") || strings.HasPrefix(trimmed, "- ") {
+			if toks := versionTokenRe.FindAllString(line, -1); len(toks) > 0 {
+				allCovered := true
+				for _, t := range toks {
+					if _, ok := covered[normalizeVersionToken(t)]; !ok {
+						allCovered = false
+						break
+					}
+				}
+				if allCovered {
+					continue // pure restatement of already-covered versions
+				}
+			}
+		}
+		kept = append(kept, line)
+	}
+	return body[:start] + strings.Join(kept, "\n") + body[end:]
 }
 
 // insertUnderWhatChanged places block immediately after the "## What Changed"
