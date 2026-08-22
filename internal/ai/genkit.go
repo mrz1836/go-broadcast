@@ -2,7 +2,6 @@ package ai
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	genkitai "github.com/firebase/genkit/go/ai"
@@ -52,58 +51,12 @@ func NewGenkitProvider(ctx context.Context, cfg *Config, logger *logrus.Entry) (
 	}, nil
 }
 
-// DefaultRequestTimeout is the fallback per-attempt request timeout when the
-// config does not specify one.
-const DefaultRequestTimeout = 30 * time.Second
-
-// perRequestTimeout returns the timeout applied to a single request against any
-// provider endpoint. It is deliberately shorter than the overall generation
-// budget (Config.Timeout) so a stalled connection fails fast and leaves room for
-// a retry within the same deadline, instead of the first hung request consuming
-// the entire budget and forcing a silent fallback. Two-thirds of the budget stays
-// comfortably above normal generation latency while guaranteeing at least one
-// retry can fit. Every provider derives its per-request bound from this value so
-// resilience behavior is identical across Anthropic, OpenAI, and Google.
-func perRequestTimeout(cfg *Config) time.Duration {
-	base := cfg.Timeout
-	if base <= 0 {
-		base = DefaultRequestTimeout
-	}
-	return base * 2 / 3
-}
-
-// compatRequestOpts returns the request options shared by the OpenAI-compatible
-// providers (Anthropic, OpenAI). The per-attempt timeout bounds each HTTP request
-// so transient network stalls cannot swallow the whole generation budget; the
-// SDK's built-in retry (default two) then re-issues the request on connection
-// errors, giving flaky networks a chance to self-heal before falling back.
-func compatRequestOpts(cfg *Config) []option.RequestOption {
-	return []option.RequestOption{
-		option.WithRequestTimeout(perRequestTimeout(cfg)),
-	}
-}
-
-// perRequestHTTPClient returns an HTTP client whose timeout bounds a single
-// request to a Google GenAI endpoint. The googlegenai plugin exposes no
-// per-request timeout option like the OpenAI-compatible plugins, so the bound is
-// applied at the transport layer instead - giving Google the same fail-fast
-// behavior as the other providers. Supplying an HTTPClient opts out of the
-// plugin's default OpenTelemetry-instrumented transport; text generation does not
-// depend on that tracing.
-func perRequestHTTPClient(cfg *Config) *http.Client {
-	return &http.Client{Timeout: perRequestTimeout(cfg)}
-}
-
 // initAnthropicProvider initializes the Anthropic/Claude backend.
-//
-// The API key is set on the plugin's APIKey field (not just via Opts) so BOTH
-// surfaces the plugin speaks authenticate: the OpenAI-compatible chat endpoint
-// (bearer token) and the native models-list endpoint (x-api-key header). Passing
-// the key only through Opts leaves model listing unauthenticated.
 func initAnthropicProvider(ctx context.Context, cfg *Config) *genkit.Genkit {
 	plugin := &anthropic.Anthropic{
-		APIKey: cfg.APIKey,
-		Opts:   compatRequestOpts(cfg),
+		Opts: []option.RequestOption{
+			option.WithAPIKey(cfg.APIKey),
+		},
 	}
 	return genkit.Init(
 		ctx,
@@ -121,7 +74,6 @@ func initAnthropicProvider(ctx context.Context, cfg *Config) *genkit.Genkit {
 func initOpenAIProvider(ctx context.Context, cfg *Config) *genkit.Genkit {
 	plugin := &openai.OpenAI{
 		APIKey: cfg.APIKey,
-		Opts:   compatRequestOpts(cfg),
 	}
 	return genkit.Init(
 		ctx,
@@ -131,14 +83,9 @@ func initOpenAIProvider(ctx context.Context, cfg *Config) *genkit.Genkit {
 }
 
 // initGoogleProvider initializes the Google Gemini backend.
-//
-// A per-request HTTP client timeout bounds each call so a stalled connection
-// fails fast and go-broadcast's retry can recover within the generation budget -
-// matching the fail-fast behavior of the OpenAI-compatible providers.
 func initGoogleProvider(ctx context.Context, cfg *Config) *genkit.Genkit {
 	plugin := &googlegenai.GoogleAI{
-		APIKey:     cfg.APIKey,
-		HTTPClient: perRequestHTTPClient(cfg),
+		APIKey: cfg.APIKey,
 	}
 	return genkit.Init(
 		ctx,

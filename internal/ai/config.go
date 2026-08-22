@@ -146,7 +146,10 @@ func LoadConfig() *Config {
 		APIKeySource:  apiKeySource,
 		Model:         env.GetEnvWithFallback("GO_BROADCAST_AI_MODEL", ""),
 		MaxTokens:     parseIntWithDefault("GO_BROADCAST_AI_MAX_TOKENS", 2000),
-		Timeout:       parseDurationSecondsWithDefault("GO_BROADCAST_AI_TIMEOUT", 30*time.Second),
+		// 60s (not 30s) of headroom: real PR-body generation runs ~15-25s, and
+		// syncing many repos concurrently pushes latency higher. Too tight a
+		// budget truncates a working generation and forces the static fallback.
+		Timeout: parseDurationSecondsWithDefault("GO_BROADCAST_AI_TIMEOUT", 60*time.Second),
 		// Lower default temperature: PR/commit descriptions are factual summaries,
 		// not creative writing. Less randomness means fewer invented details.
 		Temperature: parseFloatWithDefault("GO_BROADCAST_AI_TEMPERATURE", 0.2),

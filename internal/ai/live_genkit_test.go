@@ -72,7 +72,7 @@ func TestLiveGoogleDiagnostic(t *testing.T) {
 	if m := os.Getenv("GO_BROADCAST_AI_MODEL"); m != "" {
 		cfg.Model = m
 	}
-	t.Logf("google model=%s perRequestTimeout=%s", cfg.Model, perRequestTimeout(cfg))
+	t.Logf("google model=%s timeout=%s", cfg.Model, cfg.Timeout)
 
 	logger := logrus.NewEntry(logrus.New())
 	provider, err := NewGenkitProvider(context.Background(), cfg, logger)

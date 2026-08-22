@@ -52,7 +52,7 @@ func TestLoadConfig_Defaults(t *testing.T) {
 
 	// Generation parameters
 	assert.Equal(t, 2000, cfg.MaxTokens)
-	assert.Equal(t, 30*time.Second, cfg.Timeout)
+	assert.Equal(t, 60*time.Second, cfg.Timeout)
 	assert.InDelta(t, 0.2, cfg.Temperature, 0.001)
 
 	// Diff truncation
@@ -191,7 +191,7 @@ func TestLoadConfig_InvalidValues(t *testing.T) {
 			envVar:       "GO_BROADCAST_AI_TIMEOUT",
 			invalidValue: "invalid",
 			checkField:   func(c *Config) any { return c.Timeout },
-			expectValue:  30 * time.Second,
+			expectValue:  60 * time.Second,
 		},
 		{
 			name:         "invalid temperature uses default",
