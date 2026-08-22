@@ -139,6 +139,14 @@ jobs:
             exit 1
           fi
 
+          # Valid JSON isn't enough: a matrix must be an object. Guard here so a
+          # non-object (array/string/number) fails with this clear annotation instead
+          # of a raw jq indexing error in the extraction below.
+          if [[ "$(jq -r 'type' <<< "$TEST_MATRIX")" != "object" ]]; then
+            echo "::error title=Invalid test matrix::The test-matrix input must be a JSON object with an \"os\" array and/or an \"include\" array of entries containing \"os\"."
+            exit 1
+          fi
+
           # Collect every runner OS from both include-based and classic matrix shapes,
           # then reject Windows: this workflow is bash-only and uses Linux service
           # containers, so Windows runners are unsupported.
