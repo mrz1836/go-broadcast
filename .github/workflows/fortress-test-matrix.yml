@@ -164,8 +164,13 @@ jobs:
           ' <<< "$TEST_MATRIX")
 
           if [[ -n "$UNSUPPORTED" ]]; then
-            echo "::error title=Unsupported runner::Test matrix contains non-Linux runner(s): ${UNSUPPORTED}. This workflow is bash-only and uses a Linux service container, so only Linux runners are supported (ubuntu-* by default). Set PRIMARY_RUNNER/SECONDARY_RUNNER to a Linux runner."
-            echo "❌ Non-Linux runners in matrix: ${UNSUPPORTED}"
+            # Percent-encode before embedding untrusted matrix values in output, so a
+            # value containing %, CR or LF can't inject its own ::workflow-commands
+            # (workflow-command injection). % must be encoded first to avoid double-decode.
+            esc() { local s=$1; s=${s//'%'/%25}; s=${s//$'\r'/%0D}; s=${s//$'\n'/%0A}; printf '%s' "$s"; }
+            SAFE_UNSUPPORTED=$(esc "$UNSUPPORTED")
+            echo "::error title=Unsupported runner::Test matrix contains non-Linux runner(s): ${SAFE_UNSUPPORTED}. This workflow is bash-only and uses a Linux service container, so only Linux runners are supported (ubuntu-* by default). Set PRIMARY_RUNNER/SECONDARY_RUNNER to a Linux runner."
+            echo "❌ Non-Linux runners in matrix: ${SAFE_UNSUPPORTED}"
             exit 1
           fi
           echo "✅ Test matrix contains only supported Linux runners."
@@ -368,7 +373,11 @@ jobs:
 
           # Emit GitHub annotation for test failures (surfaces at top of Actions UI)
           if [[ "$TEST_EXIT_CODE" != "0" ]]; then
-            echo "::error title=Test Suite Failed (${MATRIX_NAME})::Tests failed on ${MATRIX_OS} with Go ${MATRIX_GO_VERSION} - see job summary for details"
+            # Percent-encode untrusted matrix values before embedding in the workflow
+            # command so they can't inject their own ::commands (workflow-command
+            # injection). % must be encoded first to avoid double-decode.
+            esc() { local s=$1; s=${s//'%'/%25}; s=${s//$'\r'/%0D}; s=${s//$'\n'/%0A}; printf '%s' "$s"; }
+            echo "::error title=Test Suite Failed ($(esc "$MATRIX_NAME"))::Tests failed on $(esc "$MATRIX_OS") with Go $(esc "$MATRIX_GO_VERSION") - see job summary for details"
           fi
 
           # Calculate duration
@@ -575,7 +584,11 @@ jobs:
         run: |
           CODE="$TEST_EXIT_CODE"
           if [[ "$CODE" != "0" ]]; then
-            echo "::error title=Test Suite Failed (${MATRIX_NAME})::go test exited with code '${CODE:-<unset>}' on ${MATRIX_OS} / Go ${MATRIX_GO_VERSION} — see the '🧪 Run tests' step and job summary"
+            # Percent-encode untrusted matrix values before embedding in the workflow
+            # command so they can't inject their own ::commands (workflow-command
+            # injection). CODE is our own numeric exit code, so it needs no encoding.
+            esc() { local s=$1; s=${s//'%'/%25}; s=${s//$'\r'/%0D}; s=${s//$'\n'/%0A}; printf '%s' "$s"; }
+            echo "::error title=Test Suite Failed ($(esc "$MATRIX_NAME"))::go test exited with code '${CODE:-<unset>}' on $(esc "$MATRIX_OS") / Go $(esc "$MATRIX_GO_VERSION") — see the '🧪 Run tests' step and job summary"
             echo "❌ Failing job: test process exited '${CODE:-<unset>}' (expected 0)."
             exit 1
           fi
