@@ -5,9 +5,10 @@
 #  in a matrix strategy with native CI mode for failure detection and reporting.
 #
 #  This workflow handles:
-#    - Linux test execution (ubuntu runners only). Windows and macOS are NOT
-#      supported: every step here is bash-only AND the test-go job declares a
-#      Linux service container, which only runs on Linux runners. Do not add
+#    - Linux test execution (any Linux runner; ubuntu-* by default). Windows and
+#      macOS are NOT supported: every step here is bash-only AND the test-go job
+#      declares a Linux service container, which only runs on Linux runners. The
+#      preflight rejects non-Linux (windows*/macos*) runners. Do not add
 #      windows/macos runners without restructuring the job (separate no-services
 #      job) and adding shells.
 #    - Multiple Go version testing (primary, secondary)
@@ -163,7 +164,7 @@ jobs:
           ' <<< "$TEST_MATRIX")
 
           if [[ -n "$UNSUPPORTED" ]]; then
-            echo "::error title=Unsupported runner::Test matrix contains non-Linux runner(s): ${UNSUPPORTED}. This workflow is bash-only and uses a Linux service container, so only Linux (ubuntu-*) runners are supported. Set PRIMARY_RUNNER/SECONDARY_RUNNER to ubuntu-* runners."
+            echo "::error title=Unsupported runner::Test matrix contains non-Linux runner(s): ${UNSUPPORTED}. This workflow is bash-only and uses a Linux service container, so only Linux runners are supported (ubuntu-* by default). Set PRIMARY_RUNNER/SECONDARY_RUNNER to a Linux runner."
             echo "❌ Non-Linux runners in matrix: ${UNSUPPORTED}"
             exit 1
           fi
