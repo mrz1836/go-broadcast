@@ -223,9 +223,10 @@ func performCancel(ctx context.Context, cfg *config.Config, targetRepos []string
 		return nil, ErrNilConfig
 	}
 
-	// Create logger for GitHub operations
-	logger := logrus.New()
-	logger.SetLevel(logrus.InfoLevel)
+	// Use the shared standard logger so output matches the rest of the CLI
+	// (formatter/level are configured once in setupLogging). A fresh logrus.New()
+	// here would have no formatter and print the default "INFO[0000]" style.
+	logger := logrus.StandardLogger()
 
 	// Create logging config with minimal debug settings
 	logConfig := &logging.LogConfig{
