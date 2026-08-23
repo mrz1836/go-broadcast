@@ -130,7 +130,11 @@ runs:
           exit 1
         fi
 
-        if [ -z "$MAJOR" ] || [ -z "$MINOR" ] || ! [[ "$MAJOR" =~ ^[0-9]+$ ]] || ! [[ "$MINOR" =~ ^[0-9]+$ ]]; then
+        # A valid Go version has MAJOR >= 1 (Go started at 1.0; there is no 0.x). Reject anything
+        # below that as malformed input rather than letting it fall through the floor check below
+        # and silently proceed with a benchstat install. The MAJOR/MINOR regex guards run first
+        # (|| short-circuits), so "$MAJOR" is a validated non-negative integer before "-lt 1".
+        if [ -z "$MAJOR" ] || [ -z "$MINOR" ] || ! [[ "$MAJOR" =~ ^[0-9]+$ ]] || ! [[ "$MINOR" =~ ^[0-9]+$ ]] || [ "$MAJOR" -lt 1 ]; then
           echo "❌ Could not parse Go version '$GO_VERSION'. Please provide a valid Go version (e.g., '1.25', '1.26.x')." >&2
           exit 1
         elif [ "$MAJOR" -eq 1 ] && [ "$MINOR" -lt 25 ]; then
