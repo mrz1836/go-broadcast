@@ -150,6 +150,27 @@ jobs:
             exit 1
           fi
 
+          # Being an object isn't enough: when present, "os" and "include" must be arrays.
+          # Otherwise the jq extraction below (which iterates them) fails silently — set -e
+          # is not enabled, so a jq error leaves UNSUPPORTED empty and lets a malformed
+          # matrix slip through to a confusing fromJSON() failure in test-go. Fail fast here.
+          if ! jq -e '
+            ((has("os") | not) or (.os | type == "array"))
+            and ((has("include") | not) or (.include | type == "array"))
+          ' <<< "$TEST_MATRIX" >/dev/null; then
+            echo "::error title=Invalid test matrix::The test-matrix input must be a JSON object; when present, \"os\" and \"include\" must be arrays (include entries should contain \"os\")."
+            exit 1
+          fi
+
+          # Every test-go leg sets runs-on to matrix.os, so the matrix must yield at least
+          # one runner OS. A matrix with none (e.g. {}, {"os":[]}, or an include with no "os")
+          # would produce jobs with an empty runs-on that fail at runner assignment — catch it
+          # here with a clear annotation instead.
+          if [[ "$(jq -r '[ (.include // [] | map(.os // empty)), (.os // []) ] | flatten | length' <<< "$TEST_MATRIX")" -eq 0 ]]; then
+            echo "::error title=Invalid test matrix::The test-matrix input must define at least one runner via an \"os\" array and/or \"include\" entries containing \"os\"."
+            exit 1
+          fi
+
           # Collect every runner OS from both include-based and classic matrix shapes,
           # then reject any non-Linux runner. This workflow is bash-only AND the
           # test-go job unconditionally declares a service container (redis, or a
