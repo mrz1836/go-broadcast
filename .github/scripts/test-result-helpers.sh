@@ -18,6 +18,7 @@ to_int() {
   local v="${1-}"
   v="${v//[[:space:]]/}"
   if [[ "$v" =~ ^[0-9]+$ ]]; then printf '%s' "$v"; else printf '0'; fi
+  return 0
 }
 
 # effective_failures: how many failures a single job summary represents.
@@ -38,4 +39,5 @@ effective_failures() {
   else
     printf '0'
   fi
+  return 0
 }

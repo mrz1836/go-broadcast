@@ -271,6 +271,14 @@ runs:
 
         while IFS= read -r -d '' jsonl_file; do
           SUMMARY=$(grep '"type":"summary"' "$jsonl_file" 2>/dev/null | head -1 || echo "")
+          # A summary line that isn't valid JSON means the JSONL was truncated/corrupted.
+          # Don't let jq fail silently (fields would coerce to 0 and undercount failures) —
+          # treat an unparseable summary as a hard failure signal and skip extraction.
+          if [[ -n "$SUMMARY" ]] && ! jq -e . >/dev/null 2>&1 <<< "$SUMMARY"; then
+            echo "⚠️ Invalid JSON summary in $jsonl_file — counting as a failure" >&2
+            TOTAL_FAILED=$((TOTAL_FAILED + 1))
+            SUMMARY=""
+          fi
           if [[ -n "$SUMMARY" ]]; then
             STATUS=$(echo "$SUMMARY" | jq -r '.summary.status // "unknown"')
             PASSED=$(to_int "$(echo "$SUMMARY" | jq -r '.summary.passed // 0')")
