@@ -15,7 +15,8 @@
 # $(( )) and [[ -gt ]], so a crafted JSONL value like "a[$(cmd)]" must become 0 rather
 # than being evaluated as code (arithmetic-eval injection guard).
 to_int() {
-  local v="${1//[[:space:]]/}"
+  local v="${1-}"
+  v="${v//[[:space:]]/}"
   if [[ "$v" =~ ^[0-9]+$ ]]; then printf '%s' "$v"; else printf '0'; fi
 }
 
@@ -27,9 +28,9 @@ to_int() {
 # as the "did this job fail?" predicate. Inputs are re-coerced to integers so the helper
 # is safe against arithmetic-eval injection regardless of caller.
 effective_failures() {
-  local status="$1" failed exit_code
-  failed=$(to_int "$2")
-  exit_code=$(to_int "$3")
+  local status="${1-}" failed exit_code
+  failed=$(to_int "${2-}")
+  exit_code=$(to_int "${3-}")
   if [[ "$failed" -gt 0 ]]; then
     printf '%s' "$failed"
   elif [[ "$status" == "failed" || "$status" == "error" || "$exit_code" -gt 0 ]]; then
