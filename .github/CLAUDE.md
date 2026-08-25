@@ -23,7 +23,8 @@ This repository uses **`AGENTS.md`** as the entry point to our modular technical
 | `magex lint` | Run 60+ linters via golangci-lint |
 | `magex format:fix` | Auto-fix code formatting |
 | `magex bench` | Run performance benchmarks |
-| `magex build` | Build go-broadcast binary |
+| `magex build:dev` | Build & install the local dev binary (use this for local builds — installs to `~/.local/bin`) |
+| `magex build` | Build go-broadcast binary (release-style build) |
 | `magex deps:audit` | Scan for security vulnerabilities |
 | `magex version:bump bump=patch push` | Create release tag (triggers CI) |
 | `./go-broadcast validate --config examples/minimal.yaml` | Validate configuration |
