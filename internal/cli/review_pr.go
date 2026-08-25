@@ -152,6 +152,7 @@ type ReviewPRResult struct {
 	CheckSummary            string   `json:"check_summary,omitempty"`          // Human-readable check summary
 	RunningCheckNames       []string `json:"running_check_names,omitempty"`    // Names of running checks
 	FailedCheckNames        []string `json:"failed_check_names,omitempty"`     // Names of failed checks
+	IgnoredCheckNames       []string `json:"ignored_check_names,omitempty"`    // Names of checks ignored via GO_BROADCAST_IGNORE_CHECKS
 }
 
 // skippedPRInfo tracks details about PRs skipped due to check status
@@ -187,6 +188,12 @@ passing are approved and merged immediately, PRs with checks still running are
 approved and handed to GitHub auto-merge, and PRs with failed checks are
 skipped. The GO_BROADCAST_AUTOMERGE_LABELS requirement is bypassed for
 Dependabot PRs.
+
+Set GO_BROADCAST_IGNORE_CHECKS to a comma-separated list of status-check names
+to exclude from the CI gate (e.g. an advisory workflow that is not a required
+check in your branch ruleset). Matching is case-insensitive and ignores a
+leading emoji/symbol prefix, so "Dependabot Auto-merge" matches the rendered
+"🤖 Dependabot Auto-merge" check.
 
 The command supports both single and batch operations, processing multiple PRs in sequence.`,
 		Example: `  # Review and merge a single PR
@@ -278,6 +285,11 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 
 		// Load automerge labels from environment for bypass validation
 		automergeLabels := parseAutomergeLabels(os.Getenv("GO_BROADCAST_AUTOMERGE_LABELS"))
+
+		// Load the optional CI-gate ignore list. Any status check whose name matches
+		// an entry here is excluded from the pass/fail decision (e.g. an advisory
+		// "Dependabot Auto-merge" workflow that is not a required check in the ruleset).
+		ignoreCheckNames := parseIgnoreChecks(os.Getenv("GO_BROADCAST_IGNORE_CHECKS"))
 
 		// If using --all-assigned-prs, fetch PRs from GitHub
 		if *allAssignedPRs {
@@ -616,7 +628,7 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 				var forceAutoMerge bool
 				runCheckGate := *dependabot || (bypassAllowed && !*ignoreChecks)
 				if runCheckGate {
-					decision := runCIGate(ctx, client, repoFullName, prInfo, &result)
+					decision := runCIGate(ctx, client, repoFullName, prInfo, &result, ignoreCheckNames)
 					switch decision {
 					case ciGateSkipRunning:
 						if *dependabot {
@@ -843,11 +855,20 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 // The caller is responsible for updating counters, appending to skippedPRs,
 // and deciding whether a skipRunning result should become a skip or a fallback
 // to enabling auto-merge (the dependabot path does the latter).
-func runCIGate(ctx context.Context, client gh.Client, repoFullName string, prInfo *PRInfo, result *ReviewPRResult) ciGateDecision {
+func runCIGate(ctx context.Context, client gh.Client, repoFullName string, prInfo *PRInfo, result *ReviewPRResult, ignoreCheckNames []string) ciGateDecision {
 	checkStatus, checkErr := client.GetPRCheckStatus(ctx, repoFullName, prInfo.Number)
 	if checkErr != nil {
 		output.Warn(fmt.Sprintf("⚠️  Could not fetch check status for PR #%d: %v", prInfo.Number, checkErr))
 		return ciGateUnknown
+	}
+
+	// Drop any checks the user has opted to ignore (GO_BROADCAST_IGNORE_CHECKS)
+	// before evaluating pass/fail, so advisory checks that are not required by the
+	// branch ruleset cannot block the merge.
+	if filtered, ignored := checkStatus.WithoutChecks(ignoreCheckNames); len(ignored) > 0 {
+		checkStatus = filtered
+		result.IgnoredCheckNames = ignored
+		output.Info(fmt.Sprintf("   Ignoring %d check(s) via GO_BROADCAST_IGNORE_CHECKS: %s", len(ignored), strings.Join(ignored, ", ")))
 	}
 
 	result.CheckSummary = checkStatus.Summary()
@@ -881,18 +902,32 @@ func runCIGate(ctx context.Context, client gh.Client, repoFullName string, prInf
 	}
 }
 
-// parseAutomergeLabels parses comma-separated automerge labels from environment variable
-func parseAutomergeLabels(envValue string) []string {
+// splitCSVEnv splits a comma-separated environment value into a slice of
+// trimmed, non-empty entries. Returns nil for an empty/whitespace-only value.
+func splitCSVEnv(envValue string) []string {
 	if envValue == "" {
 		return nil
 	}
-	var labels []string
-	for _, label := range strings.Split(envValue, ",") {
-		if trimmed := strings.TrimSpace(label); trimmed != "" {
-			labels = append(labels, trimmed)
+	var out []string
+	for part := range strings.SplitSeq(envValue, ",") {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			out = append(out, trimmed)
 		}
 	}
-	return labels
+	return out
+}
+
+// parseAutomergeLabels parses comma-separated automerge labels from environment variable
+func parseAutomergeLabels(envValue string) []string {
+	return splitCSVEnv(envValue)
+}
+
+// parseIgnoreChecks parses the comma-separated GO_BROADCAST_IGNORE_CHECKS value
+// into a list of status-check names the CI gate should ignore. Check names are
+// matched case-insensitively and any leading emoji/symbol prefix is ignored, so
+// e.g. "Dependabot Auto-merge" matches the rendered "🤖 Dependabot Auto-merge".
+func parseIgnoreChecks(envValue string) []string {
+	return splitCSVEnv(envValue)
 }
 
 // hasAutomergeLabel checks if PR has any of the configured automerge labels

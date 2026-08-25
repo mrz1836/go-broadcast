@@ -562,6 +562,52 @@ func TestParseAutomergeLabels(t *testing.T) {
 	}
 }
 
+func TestParseIgnoreChecks(t *testing.T) {
+	tests := []struct {
+		name     string
+		envValue string
+		want     []string
+	}{
+		{
+			name:     "Single check",
+			envValue: "Dependabot Auto-merge",
+			want:     []string{"Dependabot Auto-merge"},
+		},
+		{
+			name:     "Multiple checks with whitespace",
+			envValue: " Dependabot Auto-merge , CodeQL ",
+			want:     []string{"Dependabot Auto-merge", "CodeQL"},
+		},
+		{
+			name:     "Emoji-prefixed name preserved verbatim",
+			envValue: "🤖 Dependabot Auto-merge",
+			want:     []string{"🤖 Dependabot Auto-merge"},
+		},
+		{
+			name:     "Empty entries dropped",
+			envValue: "a,,b, ,c",
+			want:     []string{"a", "b", "c"},
+		},
+		{
+			name:     "Empty string",
+			envValue: "",
+			want:     nil,
+		},
+		{
+			name:     "Only whitespace",
+			envValue: "   ",
+			want:     nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseIgnoreChecks(tt.envValue)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestHasAutomergeLabel(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1299,10 +1345,77 @@ func TestRunCIGate_Unit(t *testing.T) {
 			prInfo := &PRInfo{Owner: "owner", Repo: "repo", Number: 1}
 			result := &ReviewPRResult{}
 
-			got := runCIGate(context.Background(), m, "owner/repo", prInfo, result)
+			got := runCIGate(context.Background(), m, "owner/repo", prInfo, result, nil)
 			assert.Equal(t, tc.want, got)
 		})
 	}
+}
+
+// makeDependabotFailedCheckSummary returns a summary where two required checks
+// pass and an advisory "🤖 Dependabot Auto-merge" check has failed — mirroring
+// the real-world scenario the ignore list is designed to handle.
+func makeDependabotFailedCheckSummary() *gh.CheckStatusSummary {
+	return &gh.CheckStatusSummary{
+		Total:     3,
+		Completed: 3,
+		Passed:    2,
+		Failed:    1,
+		Checks: []gh.CheckRun{
+			{Name: "CI / build", Status: "completed", Conclusion: "success"},
+			{Name: "CI / test", Status: "completed", Conclusion: "success"},
+			{Name: "🤖 Dependabot Auto-merge", Status: "completed", Conclusion: "failure"},
+		},
+	}
+}
+
+// TestRunCIGate_IgnoreChecks verifies the GO_BROADCAST_IGNORE_CHECKS list is
+// applied inside the gate: an ignored failing check no longer blocks the merge,
+// its name is recorded on the result, and non-matching entries change nothing.
+func TestRunCIGate_IgnoreChecks(t *testing.T) {
+	t.Run("ignored_failure_proceeds", func(t *testing.T) {
+		m := gh.NewMockClient()
+		m.On("GetPRCheckStatus", mock.Anything, "owner/repo", 1).
+			Return(makeDependabotFailedCheckSummary(), nil)
+
+		prInfo := &PRInfo{Owner: "owner", Repo: "repo", Number: 1}
+		result := &ReviewPRResult{}
+
+		// Configured without the emoji to prove prefix-tolerant matching.
+		got := runCIGate(context.Background(), m, "owner/repo", prInfo, result, []string{"Dependabot Auto-merge"})
+
+		assert.Equal(t, ciGateProceed, got)
+		assert.Equal(t, []string{"🤖 Dependabot Auto-merge"}, result.IgnoredCheckNames)
+		assert.Empty(t, result.FailedCheckNames)
+	})
+
+	t.Run("non_matching_ignore_still_fails", func(t *testing.T) {
+		m := gh.NewMockClient()
+		m.On("GetPRCheckStatus", mock.Anything, "owner/repo", 1).
+			Return(makeDependabotFailedCheckSummary(), nil)
+
+		prInfo := &PRInfo{Owner: "owner", Repo: "repo", Number: 1}
+		result := &ReviewPRResult{}
+
+		got := runCIGate(context.Background(), m, "owner/repo", prInfo, result, []string{"Some Other Check"})
+
+		assert.Equal(t, ciGateSkipFailed, got)
+		assert.Empty(t, result.IgnoredCheckNames)
+		assert.Equal(t, []string{"🤖 Dependabot Auto-merge"}, result.FailedCheckNames)
+	})
+
+	t.Run("ignoring_only_failing_check_proceeds", func(t *testing.T) {
+		m := gh.NewMockClient()
+		m.On("GetPRCheckStatus", mock.Anything, "owner/repo", 1).
+			Return(makeFailedCheckSummary(), nil)
+
+		prInfo := &PRInfo{Owner: "owner", Repo: "repo", Number: 1}
+		result := &ReviewPRResult{}
+
+		got := runCIGate(context.Background(), m, "owner/repo", prInfo, result, []string{"CI / test"})
+
+		assert.Equal(t, ciGateProceed, got)
+		assert.Equal(t, []string{"CI / test"}, result.IgnoredCheckNames)
+	})
 }
 
 func TestReviewPR_DependabotFlagRegistered(t *testing.T) {

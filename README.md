@@ -868,6 +868,13 @@ The `review-pr` command will:
 - This prevents accidental merges and ensures only explicitly approved PRs are merged
 - Configure via environment variable: `GO_BROADCAST_AUTOMERGE_LABELS=automerge,ready-to-merge`
 
+**Ignoring Non-Required Status Checks:**
+- The CI gate normally treats **any** failing check as a blocker, whereas GitHub only blocks a merge on the checks marked *required* in your branch ruleset
+- Set `GO_BROADCAST_IGNORE_CHECKS` to a comma-separated list of check names to exclude from the gate — useful for advisory workflows (e.g. a repo's own "Dependabot Auto-merge" job) that report a failing check but are not required to merge
+- Ignored checks are dropped from the pass/fail decision entirely; the remaining checks determine whether the PR proceeds
+- Matching is **case-insensitive** and **ignores a leading emoji/symbol prefix**, so `Dependabot Auto-merge` matches the rendered `🤖 Dependabot Auto-merge`
+- Configure via environment variable: `GO_BROADCAST_IGNORE_CHECKS=Dependabot Auto-merge,CodeQL`
+
 **Smart Merge Behavior (Try-and-Fallback):**
 - The command uses an intelligent try-first approach for maximum efficiency
 - **Automerge label check**: If labels are configured, PRs without the label are review-only

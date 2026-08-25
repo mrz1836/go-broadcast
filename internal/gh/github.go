@@ -883,31 +883,9 @@ func (g *githubClient) GetPRCheckStatus(ctx context.Context, repo string, number
 		return nil, appErrors.WrapWithContext(err, "parse check runs response")
 	}
 
-	// Build the summary
-	summary := &CheckStatusSummary{
-		Total:  response.TotalCount,
-		Checks: response.CheckRuns,
-	}
-
-	// Categorize each check run
-	for _, check := range response.CheckRuns {
-		switch check.Status {
-		case "completed":
-			summary.Completed++
-			switch check.Conclusion {
-			case "success", "neutral":
-				summary.Passed++
-			case "skipped":
-				summary.Skipped++
-			case "failure", "canceled", "timed_out", "action_required":
-				summary.Failed++
-			}
-		case "queued", "in_progress":
-			summary.Running++
-		}
-	}
-
-	return summary, nil
+	// Build the summary (TotalCount is preserved verbatim from the API here;
+	// the CI gate's optional ignore-list filtering recomputes it via WithoutChecks).
+	return summarizeChecks(response.CheckRuns, response.TotalCount), nil
 }
 
 // GraphQLResponse represents a GraphQL API response
