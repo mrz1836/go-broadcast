@@ -115,7 +115,7 @@ Get up and running with go-broadcast in under 5 minutes!
 ### Prerequisites
 - [GitHub CLI](https://cli.github.com/) installed (go-broadcast drives `gh` for its GitHub operations)
 - GitHub authentication: `gh auth login`
-- [Go 1.25+](https://golang.org/doc/install) ([supported release](https://golang.org/doc/devel/release.html#policy)) and [MAGE-X](https://github.com/mrz1836/mage-x) — only for building from source
+- [Go 1.26+](https://golang.org/doc/install) ([supported release](https://golang.org/doc/devel/release.html#policy)) and [MAGE-X](https://github.com/mrz1836/mage-x) — only for building from source
 
 <br/>
 
@@ -167,7 +167,7 @@ cd "$(mktemp -d)" \
 `go-broadcast_<ver>_checksums.txt`, so you can verify it yourself with `shasum -a 256 -c`.
 
 **Build from source** (contributors) — requires a
-[supported release of Go](https://golang.org/doc/devel/release.html#policy) (Go 1.25+).
+[supported release of Go](https://golang.org/doc/devel/release.html#policy) (Go 1.26+).
 Install into `~/.local/bin` so `go-broadcast update` keeps working afterward — a binary in
 the Go toolchain's `~/go/bin` is refused by self-update rather than overwritten:
 
@@ -1722,7 +1722,7 @@ For more detailed information, see the [comprehensive logging guide](docs/loggin
 
 ## 🧪 Examples & Tests
 
-All unit tests and [examples](examples) run via [GitHub Actions](https://github.com/mrz1836/go-broadcast/actions) and use [Go version 1.25.x](https://go.dev/doc/go1.25). View the [configuration file](.github/workflows/fortress.yml).
+All unit tests and [examples](examples) run via [GitHub Actions](https://github.com/mrz1836/go-broadcast/actions) and use [Go version 1.26.x](https://go.dev/doc/go1.26). View the [configuration file](.github/workflows/fortress.yml).
 
 Run all tests (fast):
 
