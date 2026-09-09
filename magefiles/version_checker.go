@@ -563,7 +563,6 @@ func GetToolDefinitions() map[string]*ToolInfo {
 		{"govulncheck", []string{"MAGE_X_GOVULNCHECK_VERSION", "GOVULNCHECK_VERSION"}, "golang", "vuln", "golang.org/x/vuln"},
 		{"mockgen", []string{"MAGE_X_MOCKGEN_VERSION"}, "uber-go", "mock", "go.uber.org/mock"},
 		{"nancy", []string{"MAGE_X_NANCY_VERSION", "NANCY_VERSION"}, "sonatype-nexus-community", "nancy", "github.com/sonatype-nexus-community/nancy/v2"},
-		{"osv-scanner", []string{"MAGE_X_OSV_SCANNER_VERSION", "OSV_SCANNER_VERSION"}, "google", "osv-scanner", "github.com/google/osv-scanner/v2"},
 		{"swag", []string{"MAGE_X_SWAG_VERSION"}, "swaggo", "swag", "github.com/swaggo/swag"},
 		{"yamlfmt", []string{"MAGE_X_YAMLFMT_VERSION"}, "google", "yamlfmt", "github.com/google/yamlfmt"},
 		{"mage", []string{"MAGE_X_MAGE_VERSION"}, "magefile", "mage", "github.com/magefile/mage"},
@@ -582,6 +581,12 @@ func GetToolDefinitions() map[string]*ToolInfo {
 		{"golangci-lint", []string{"MAGE_X_GOLANGCI_LINT_VERSION", "GO_PRE_COMMIT_GOLANGCI_LINT_VERSION"}, "golangci", "golangci-lint", ""}, // install.sh binary
 		{"goreleaser", []string{"MAGE_X_GORELEASER_VERSION"}, "goreleaser", "goreleaser", ""},                                               // install script / brew binary
 		{"staticcheck", []string{"MAGE_X_STATICCHECK_VERSION"}, "dominikh", "go-tools", ""},                                                 // CalVer tags (2026.1); module semver (v0.7.0) diverges
+		// osv-scanner is installed from the pinned prebuilt GitHub release binary (verified
+		// against committed SHA-256 pins; see ChecksumPins below and fortress-security-scans.yml),
+		// so its version MUST resolve via GitHub Releases — the source of the assets we download
+		// and checksum — not the Go module proxy. Resolving from the proxy could select a /v2 git
+		// tag whose release/assets are absent or lag, which resolveChecksumUpdates would then hold.
+		{"osv-scanner", []string{"MAGE_X_OSV_SCANNER_VERSION", "OSV_SCANNER_VERSION"}, "google", "osv-scanner", ""}, // release binary + checksum manifest
 		// Guardian CI tools (release binaries; releases track tags)
 		{"act", []string{"GUARDIAN_ACT_VERSION"}, "nektos", "act", ""},
 		{"actionlint", []string{"GUARDIAN_ACTIONLINT_VERSION"}, "rhysd", "actionlint", ""},

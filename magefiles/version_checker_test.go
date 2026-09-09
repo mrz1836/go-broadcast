@@ -355,9 +355,8 @@ func TestGetToolDefinitions(t *testing.T) {
 			// GitHub Release is a stale v1.1.4 — the proxy is the only correct source.
 			"govulncheck": "golang.org/x/vuln",
 			"mockgen":     "go.uber.org/mock",
-			// nancy/osv-scanner are /v2 modules installed via `go install .../v2/...`.
-			"nancy":       "github.com/sonatype-nexus-community/nancy/v2",
-			"osv-scanner": "github.com/google/osv-scanner/v2",
+			// nancy is a /v2 module installed via `go install .../v2/...`.
+			"nancy": "github.com/sonatype-nexus-community/nancy/v2",
 			// swag's "latest" GitHub Release is a pre-release (v2.0.0-rc5); the proxy
 			// correctly resolves to the stable v1.16.6 that `go install @latest` uses.
 			"swag":    "github.com/swaggo/swag",
@@ -375,9 +374,11 @@ func TestGetToolDefinitions(t *testing.T) {
 
 	t.Run("binary-download and CalVer tools resolve via GitHub Releases", func(t *testing.T) {
 		// staticcheck ships CalVer tags (2026.1); its module semver (v0.7.0) diverges,
-		// so it must use GitHub Releases, not the proxy. The rest are release binaries.
+		// so it must use GitHub Releases, not the proxy. osv-scanner is installed from a
+		// pinned prebuilt release binary (checksum-verified), so its version must also
+		// resolve via GitHub Releases. The rest are release binaries.
 		releaseTools := []string{
-			"staticcheck", "mage-x", "go-pre-commit", "gitleaks",
+			"staticcheck", "osv-scanner", "mage-x", "go-pre-commit", "gitleaks",
 			"golangci-lint", "goreleaser", "act", "actionlint", "go-sarif",
 		}
 		for _, name := range releaseTools {
@@ -1761,11 +1762,12 @@ func TestVersionChecker_ModuleGoRequirement_Integration(t *testing.T) {
 // osvChecksumTool builds a ToolInfo mirroring the real osv-scanner checksum-pin config.
 func osvChecksumTool() *ToolInfo {
 	return &ToolInfo{
-		EnvVars:               []string{"MAGE_X_OSV_SCANNER_VERSION", "OSV_SCANNER_VERSION"},
-		RepoURL:               "https://github.com/google/osv-scanner",
-		RepoOwner:             "google",
-		RepoName:              "osv-scanner",
-		GoModulePath:          "github.com/google/osv-scanner/v2",
+		EnvVars:   []string{"MAGE_X_OSV_SCANNER_VERSION", "OSV_SCANNER_VERSION"},
+		RepoURL:   "https://github.com/google/osv-scanner",
+		RepoOwner: "google",
+		RepoName:  "osv-scanner",
+		// No GoModulePath: version resolves via GitHub Releases to match the pinned
+		// release binary + checksum manifest we download.
 		ChecksumManifestAsset: "osv-scanner_SHA256SUMS",
 		ChecksumPins: []ChecksumPin{
 			{EnvVar: "OSV_SCANNER_SHA256_LINUX_AMD64", AssetName: "osv-scanner_linux_amd64"},
