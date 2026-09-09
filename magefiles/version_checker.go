@@ -925,14 +925,15 @@ func (s *VersionUpdateService) resolveChecksumUpdates(ctx context.Context, tools
 			continue
 		}
 
-		updates, missingAsset := s.diffChecksumPins(tool.ChecksumPins, checksums, combinedContent)
-		if missingAsset != "" {
+		updates, diffErr := s.diffChecksumPins(tool.ChecksumPins, checksums, combinedContent)
+		if diffErr != nil {
 			if r.Status == "update-available" {
-				s.logger.Warn(fmt.Sprintf("       %s: holding %s update — release manifest missing/invalid digest for %q", r.Tool, targetVersion, missingAsset))
+				// Never bump the version without its matching, writable digests.
+				s.logger.Warn(fmt.Sprintf("       %s: holding %s update — %v", r.Tool, targetVersion, diffErr))
 				r.Status = "error"
-				r.Error = fmt.Errorf("%w: manifest missing digest for asset %q", ErrReleaseChecksums, missingAsset)
+				r.Error = diffErr
 			} else {
-				s.logger.Warn(fmt.Sprintf("       %s: release manifest missing/invalid digest for %q; leaving digests unchanged", r.Tool, missingAsset))
+				s.logger.Warn(fmt.Sprintf("       %s: %v; leaving digests unchanged", r.Tool, diffErr))
 			}
 			continue
 		}
@@ -952,21 +953,31 @@ func (s *VersionUpdateService) resolveChecksumUpdates(ctx context.Context, tools
 
 // diffChecksumPins compares the desired digest for each pin (from the release manifest)
 // against the value currently in the env files. It returns the env-var -> new-digest map of
-// entries that need writing, and the name of the first asset whose digest is missing from
-// or invalid in the manifest (empty string when all pins resolved).
-func (s *VersionUpdateService) diffChecksumPins(pins []ChecksumPin, manifest map[string]string, combinedContent []byte) (map[string]string, string) {
+// entries that need writing, or an error identifying the first pin that cannot be resolved
+// safely — either its digest is missing/invalid in the manifest, or a refresh is required
+// but the env var has no existing assignment for updateFiles to rewrite. Both are held
+// (rather than silently skipped) so a version bump never lands without its matching digests.
+func (s *VersionUpdateService) diffChecksumPins(pins []ChecksumPin, manifest map[string]string, combinedContent []byte) (map[string]string, error) {
 	updates := make(map[string]string)
 	for _, pin := range pins {
 		digest, ok := manifest[pin.AssetName]
 		if !ok || !isHex64(digest) {
-			return nil, pin.AssetName
+			return nil, fmt.Errorf("%w: manifest missing/invalid digest for asset %q", ErrReleaseChecksums, pin.AssetName)
 		}
 		current := extractEnvValue(combinedContent, pin.EnvVar)
-		if !strings.EqualFold(current, digest) {
-			updates[pin.EnvVar] = digest
+		if strings.EqualFold(current, digest) {
+			continue // already in lockstep
 		}
+		// A refresh is needed, but updateFiles can only rewrite an EXISTING non-empty
+		// assignment (its regex requires a value). An absent or empty pin would be queued
+		// yet silently dropped by the writer — bumping the version without its digest. Hold
+		// instead, and point at the fix: the env var must exist before it can be refreshed.
+		if current == "" {
+			return nil, fmt.Errorf("%w: env var %q has no value to update — add it to the env file", ErrReleaseChecksums, pin.EnvVar)
+		}
+		updates[pin.EnvVar] = digest
 	}
-	return updates, ""
+	return updates, nil
 }
 
 // extractEnvValue returns the value of the first `NAME=value` line for envVar in content,

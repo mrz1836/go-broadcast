@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"errors"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -1874,6 +1876,56 @@ func TestVersionUpdateService_ResolveChecksumUpdates(t *testing.T) {
 		assert.Equal(t, "error", out[0].Status)
 	})
 
+	t.Run("version bump is held when a pinned env var is absent", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetChecksums("google", "osv-scanner", "v2.5.2", map[string]string{
+			"osv-scanner_linux_amd64": osvSHANextAMD64,
+			"osv-scanner_linux_arm64": osvSHANextARM64,
+		})
+		service := newService(checker)
+
+		// The arm64 pin line is missing entirely, so updateFiles could not write it —
+		// the bump must be held rather than landing the version without the digest.
+		partialEnv := []byte("OSV_SCANNER_VERSION=v2.5.1\n" +
+			"OSV_SCANNER_SHA256_LINUX_AMD64=" + osvSHA251AMD64 + "\n")
+
+		results := []CheckResult{{
+			Tool: "osv-scanner", EnvVars: tools["osv-scanner"].EnvVars,
+			CurrentVersion: "v2.5.1", LatestVersion: "v2.5.2", Status: "update-available",
+		}}
+
+		out := service.resolveChecksumUpdates(ctx, tools, results, partialEnv)
+		require.Len(t, out, 1)
+		assert.Equal(t, "error", out[0].Status, "must not bump the version when a pin cannot be written")
+		require.ErrorIs(t, out[0].Error, ErrReleaseChecksums)
+		assert.Nil(t, out[0].ChecksumUpdates)
+	})
+
+	t.Run("version bump is held when a pinned env var is empty", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetChecksums("google", "osv-scanner", "v2.5.2", map[string]string{
+			"osv-scanner_linux_amd64": osvSHANextAMD64,
+			"osv-scanner_linux_arm64": osvSHANextARM64,
+		})
+		service := newService(checker)
+
+		// amd64 present but with an empty value — updateFiles' regex requires a value,
+		// so it would silently skip it; the bump must be held.
+		emptyValEnv := []byte("OSV_SCANNER_VERSION=v2.5.1\n" +
+			"OSV_SCANNER_SHA256_LINUX_AMD64=\n" +
+			"OSV_SCANNER_SHA256_LINUX_ARM64=" + osvSHA251ARM64 + "\n")
+
+		results := []CheckResult{{
+			Tool: "osv-scanner", EnvVars: tools["osv-scanner"].EnvVars,
+			CurrentVersion: "v2.5.1", LatestVersion: "v2.5.2", Status: "update-available",
+		}}
+
+		out := service.resolveChecksumUpdates(ctx, tools, results, emptyValEnv)
+		require.Len(t, out, 1)
+		assert.Equal(t, "error", out[0].Status)
+		require.ErrorIs(t, out[0].Error, ErrReleaseChecksums)
+	})
+
 	t.Run("self-heals drifted digests when version is current", func(t *testing.T) {
 		checker := NewMockVersionChecker()
 		// Manifest for the pinned version reports digests that differ from the file.
@@ -2001,10 +2053,72 @@ func TestVersionUpdateService_HasUpdates_IncludesChecksum(t *testing.T) {
 	})
 }
 
+// roundTripFunc adapts a function to an http.RoundTripper so tests can serve a canned
+// response (and assert the request) without any network access.
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
+
+// newStubChecker builds a realVersionChecker whose HTTP client is served entirely by rt,
+// so FetchReleaseChecksums can be exercised deterministically offline.
+func newStubChecker(rt roundTripFunc) *realVersionChecker {
+	return &realVersionChecker{httpClient: &http.Client{Transport: rt}}
+}
+
+func textResponse(status int, body string) *http.Response {
+	return &http.Response{
+		StatusCode: status,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Header:     make(http.Header),
+	}
+}
+
 func TestRealVersionChecker_FetchReleaseChecksums(t *testing.T) {
 	t.Run("rejects missing arguments", func(t *testing.T) {
 		checker := NewVersionChecker(false)
 		_, err := checker.FetchReleaseChecksums(context.Background(), "", "osv-scanner", "v2.5.1", "osv-scanner_SHA256SUMS")
+		require.ErrorIs(t, err, ErrReleaseChecksums)
+	})
+
+	t.Run("parses a SHA256SUMS manifest and hits the release download URL", func(t *testing.T) {
+		// Covers the sha256sum/GoReleaser manifest shapes: two-space separator, the
+		// binary-mode '*' marker, a stray leading path, and uppercase hex (normalized).
+		manifest := osvSHA251AMD64 + "  osv-scanner_linux_amd64\n" +
+			osvSHA251ARM64 + " *osv-scanner_linux_arm64\n" +
+			strings.ToUpper(osvSHANextAMD64) + "  dist/osv-scanner_darwin_arm64\n" +
+			"# a comment line that must be ignored\n"
+
+		var gotURL string
+		checker := newStubChecker(func(req *http.Request) (*http.Response, error) {
+			gotURL = req.URL.String()
+			return textResponse(http.StatusOK, manifest), nil
+		})
+
+		checksums, err := checker.FetchReleaseChecksums(context.Background(), "google", "osv-scanner", "v2.5.1", "osv-scanner_SHA256SUMS")
+		require.NoError(t, err)
+		assert.Equal(t, "https://github.com/google/osv-scanner/releases/download/v2.5.1/osv-scanner_SHA256SUMS", gotURL)
+		assert.Equal(t, osvSHA251AMD64, checksums["osv-scanner_linux_amd64"])
+		assert.Equal(t, osvSHA251ARM64, checksums["osv-scanner_linux_arm64"], "binary-mode '*' marker stripped")
+		assert.Equal(t, osvSHANextAMD64, checksums["osv-scanner_darwin_arm64"], "leading path stripped and hex lowercased")
+		assert.Len(t, checksums, 3, "comment/blank lines must not produce entries")
+		for asset, digest := range checksums {
+			assert.True(t, isHex64(digest), "digest for %s must be 64 lowercase hex chars, got %q", asset, digest)
+		}
+	})
+
+	t.Run("non-200 response is an error", func(t *testing.T) {
+		checker := newStubChecker(func(_ *http.Request) (*http.Response, error) {
+			return textResponse(http.StatusNotFound, "Not Found"), nil
+		})
+		_, err := checker.FetchReleaseChecksums(context.Background(), "google", "osv-scanner", "v9.9.9", "osv-scanner_SHA256SUMS")
+		require.ErrorIs(t, err, ErrReleaseChecksums)
+	})
+
+	t.Run("manifest with no parseable entries is an error", func(t *testing.T) {
+		checker := newStubChecker(func(_ *http.Request) (*http.Response, error) {
+			return textResponse(http.StatusOK, "not a checksum line\n# only comments\n"), nil
+		})
+		_, err := checker.FetchReleaseChecksums(context.Background(), "google", "osv-scanner", "v2.5.1", "osv-scanner_SHA256SUMS")
 		require.ErrorIs(t, err, ErrReleaseChecksums)
 	})
 
