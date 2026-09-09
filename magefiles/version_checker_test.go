@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"errors"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,11 +34,14 @@ type goRequirement struct {
 
 // MockVersionChecker is a mock implementation of VersionChecker for testing.
 type MockVersionChecker struct {
-	versions       map[string]string        // repoURL -> version
-	errors         map[string]error         // repoURL -> error
-	calls          []string                 // Track calls
-	goRequirements map[string]goRequirement // "module@version" -> go.mod 'go' directive
-	goReqCalls     []string                 // Track CheckModuleGoRequirement calls ("module@version")
+	versions       map[string]string            // repoURL -> version
+	errors         map[string]error             // repoURL -> error
+	calls          []string                     // Track calls
+	goRequirements map[string]goRequirement     // "module@version" -> go.mod 'go' directive
+	goReqCalls     []string                     // Track CheckModuleGoRequirement calls ("module@version")
+	checksums      map[string]map[string]string // "owner/repo@tag" -> (asset -> sha256)
+	checksumErrors map[string]error             // "owner/repo@tag" -> error
+	checksumCalls  []string                     // Track FetchReleaseChecksums calls ("owner/repo@tag")
 }
 
 // NewMockVersionChecker creates a new mock version checker.
@@ -46,6 +52,9 @@ func NewMockVersionChecker() *MockVersionChecker {
 		calls:          make([]string, 0),
 		goRequirements: make(map[string]goRequirement),
 		goReqCalls:     make([]string, 0),
+		checksums:      make(map[string]map[string]string),
+		checksumErrors: make(map[string]error),
+		checksumCalls:  make([]string, 0),
 	}
 }
 
@@ -75,6 +84,40 @@ func (m *MockVersionChecker) CheckModuleGoRequirement(_ context.Context, goModul
 		return req.major, req.minor, req.err
 	}
 	return 0, 0, nil
+}
+
+// FetchReleaseChecksums returns the mocked checksum manifest for "owner/repo@tag".
+// Unset keys with no configured error return errNotFound.
+func (m *MockVersionChecker) FetchReleaseChecksums(_ context.Context, repoOwner, repoName, tag, _ string) (map[string]string, error) {
+	key := repoOwner + "/" + repoName + "@" + tag
+	m.checksumCalls = append(m.checksumCalls, key)
+	if err, ok := m.checksumErrors[key]; ok {
+		return nil, err
+	}
+	if cs, ok := m.checksums[key]; ok {
+		// Return a copy so callers cannot mutate the fixture.
+		out := make(map[string]string, len(cs))
+		for k, v := range cs {
+			out[k] = v
+		}
+		return out, nil
+	}
+	return nil, errNotFound
+}
+
+// SetChecksums sets the mocked checksum manifest (asset -> sha256) for "owner/repo@tag".
+func (m *MockVersionChecker) SetChecksums(repoOwner, repoName, tag string, checksums map[string]string) {
+	m.checksums[repoOwner+"/"+repoName+"@"+tag] = checksums
+}
+
+// SetChecksumError sets an error to return when fetching checksums for "owner/repo@tag".
+func (m *MockVersionChecker) SetChecksumError(repoOwner, repoName, tag string, err error) {
+	m.checksumErrors[repoOwner+"/"+repoName+"@"+tag] = err
+}
+
+// GetChecksumCalls returns the list of FetchReleaseChecksums calls made ("owner/repo@tag").
+func (m *MockVersionChecker) GetChecksumCalls() []string {
+	return m.checksumCalls
 }
 
 // SetVersion sets the version to return for a repo.
@@ -285,6 +328,22 @@ func TestGetToolDefinitions(t *testing.T) {
 		assert.Equal(t, "osv-scanner", tool.RepoName)
 	})
 
+	t.Run("osv-scanner pins release-binary checksums in lockstep with the version", func(t *testing.T) {
+		tool := tools["osv-scanner"]
+		assert.Equal(t, "osv-scanner_SHA256SUMS", tool.ChecksumManifestAsset)
+		require.Len(t, tool.ChecksumPins, 2)
+		// Each pin must map a committed digest env var to its release asset.
+		byEnvVar := make(map[string]string, len(tool.ChecksumPins))
+		for _, pin := range tool.ChecksumPins {
+			byEnvVar[pin.EnvVar] = pin.AssetName
+		}
+		assert.Equal(t, "osv-scanner_linux_amd64", byEnvVar["OSV_SCANNER_SHA256_LINUX_AMD64"])
+		assert.Equal(t, "osv-scanner_linux_arm64", byEnvVar["OSV_SCANNER_SHA256_LINUX_ARM64"])
+		// ChecksumPins require the repo coordinates that build the release download URL.
+		assert.NotEmpty(t, tool.RepoOwner)
+		assert.NotEmpty(t, tool.RepoName)
+	})
+
 	// The version source must match how each tool is installed: go-install tools
 	// resolve versions via the Go module proxy (git tags), so they carry a
 	// GoModulePath; binary-download and CalVer tools resolve via GitHub Releases and
@@ -298,9 +357,8 @@ func TestGetToolDefinitions(t *testing.T) {
 			// GitHub Release is a stale v1.1.4 — the proxy is the only correct source.
 			"govulncheck": "golang.org/x/vuln",
 			"mockgen":     "go.uber.org/mock",
-			// nancy/osv-scanner are /v2 modules installed via `go install .../v2/...`.
-			"nancy":       "github.com/sonatype-nexus-community/nancy/v2",
-			"osv-scanner": "github.com/google/osv-scanner/v2",
+			// nancy is a /v2 module installed via `go install .../v2/...`.
+			"nancy": "github.com/sonatype-nexus-community/nancy/v2",
 			// swag's "latest" GitHub Release is a pre-release (v2.0.0-rc5); the proxy
 			// correctly resolves to the stable v1.16.6 that `go install @latest` uses.
 			"swag":    "github.com/swaggo/swag",
@@ -318,9 +376,11 @@ func TestGetToolDefinitions(t *testing.T) {
 
 	t.Run("binary-download and CalVer tools resolve via GitHub Releases", func(t *testing.T) {
 		// staticcheck ships CalVer tags (2026.1); its module semver (v0.7.0) diverges,
-		// so it must use GitHub Releases, not the proxy. The rest are release binaries.
+		// so it must use GitHub Releases, not the proxy. osv-scanner is installed from a
+		// pinned prebuilt release binary (checksum-verified), so its version must also
+		// resolve via GitHub Releases. The rest are release binaries.
 		releaseTools := []string{
-			"staticcheck", "mage-x", "go-pre-commit", "gitleaks",
+			"staticcheck", "osv-scanner", "mage-x", "go-pre-commit", "gitleaks",
 			"golangci-lint", "goreleaser", "act", "actionlint", "go-sarif",
 		}
 		for _, name := range releaseTools {
@@ -1699,4 +1759,392 @@ func TestVersionChecker_ModuleGoRequirement_Integration(t *testing.T) {
 		assert.Equal(t, tc.wantMajor, major, "major for %s", tc.version)
 		assert.Equal(t, tc.wantMinor, minor, "minor for %s", tc.version)
 	}
+}
+
+// osvChecksumTool builds a ToolInfo mirroring the real osv-scanner checksum-pin config.
+func osvChecksumTool() *ToolInfo {
+	return &ToolInfo{
+		EnvVars:   []string{"MAGE_X_OSV_SCANNER_VERSION", "OSV_SCANNER_VERSION"},
+		RepoURL:   "https://github.com/google/osv-scanner",
+		RepoOwner: "google",
+		RepoName:  "osv-scanner",
+		// No GoModulePath: version resolves via GitHub Releases to match the pinned
+		// release binary + checksum manifest we download.
+		ChecksumManifestAsset: "osv-scanner_SHA256SUMS",
+		ChecksumPins: []ChecksumPin{
+			{EnvVar: "OSV_SCANNER_SHA256_LINUX_AMD64", AssetName: "osv-scanner_linux_amd64"},
+			{EnvVar: "OSV_SCANNER_SHA256_LINUX_ARM64", AssetName: "osv-scanner_linux_arm64"},
+		},
+	}
+}
+
+const (
+	// Real v2.5.1 digests, used as "current" values in the env content fixtures.
+	osvSHA251AMD64 = "f9f25499a2c8cc367b3af45df2ea7eeca7fbccceab9c35079968f4b3652194be"
+	osvSHA251ARM64 = "3d0f5aa5a6baa8eb32bcef247388e149ef6030a6634ccae6fa0d62681fb27a6d"
+	// Fabricated "next version" digests (64 lowercase hex) for update-path fixtures.
+	osvSHANextAMD64 = "1111111111111111111111111111111111111111111111111111111111111111"
+	osvSHANextARM64 = "2222222222222222222222222222222222222222222222222222222222222222"
+)
+
+func TestVersionUpdateService_ResolveChecksumUpdates(t *testing.T) {
+	ctx := context.Background()
+
+	newService := func(checker VersionChecker) *VersionUpdateService {
+		return NewVersionUpdateService(checker, NewMockFileUpdater(), NewMockLogger(), false, false, 0)
+	}
+	tools := map[string]*ToolInfo{"osv-scanner": osvChecksumTool()}
+
+	envContent := []byte("OSV_SCANNER_VERSION=v2.5.1\n" +
+		"OSV_SCANNER_SHA256_LINUX_AMD64=" + osvSHA251AMD64 + "\n" +
+		"OSV_SCANNER_SHA256_LINUX_ARM64=" + osvSHA251ARM64 + "\n")
+
+	t.Run("version bump refreshes digests in lockstep", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetChecksums("google", "osv-scanner", "v2.5.2", map[string]string{
+			"osv-scanner_linux_amd64": osvSHANextAMD64,
+			"osv-scanner_linux_arm64": osvSHANextARM64,
+		})
+		service := newService(checker)
+
+		results := []CheckResult{{
+			Tool: "osv-scanner", EnvVars: tools["osv-scanner"].EnvVars,
+			CurrentVersion: "v2.5.1", LatestVersion: "v2.5.2", Status: "update-available",
+		}}
+
+		out := service.resolveChecksumUpdates(ctx, tools, results, envContent)
+		require.Len(t, out, 1)
+		assert.Equal(t, "update-available", out[0].Status)
+		assert.Equal(t, map[string]string{
+			"OSV_SCANNER_SHA256_LINUX_AMD64": osvSHANextAMD64,
+			"OSV_SCANNER_SHA256_LINUX_ARM64": osvSHANextARM64,
+		}, out[0].ChecksumUpdates)
+		assert.Contains(t, checker.GetChecksumCalls(), "google/osv-scanner@v2.5.2")
+	})
+
+	t.Run("version bump is held when checksums cannot be fetched", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetChecksumError("google", "osv-scanner", "v2.5.2", errNotFound)
+		service := newService(checker)
+
+		results := []CheckResult{{
+			Tool: "osv-scanner", EnvVars: tools["osv-scanner"].EnvVars,
+			CurrentVersion: "v2.5.1", LatestVersion: "v2.5.2", Status: "update-available",
+		}}
+
+		out := service.resolveChecksumUpdates(ctx, tools, results, envContent)
+		require.Len(t, out, 1)
+		assert.Equal(t, "error", out[0].Status, "must not write a version bump without digests")
+		require.Error(t, out[0].Error)
+		assert.Nil(t, out[0].ChecksumUpdates)
+	})
+
+	t.Run("version bump is held when manifest is missing a pinned asset", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetChecksums("google", "osv-scanner", "v2.5.2", map[string]string{
+			"osv-scanner_linux_amd64": osvSHANextAMD64, // arm64 entry intentionally absent
+		})
+		service := newService(checker)
+
+		results := []CheckResult{{
+			Tool: "osv-scanner", EnvVars: tools["osv-scanner"].EnvVars,
+			CurrentVersion: "v2.5.1", LatestVersion: "v2.5.2", Status: "update-available",
+		}}
+
+		out := service.resolveChecksumUpdates(ctx, tools, results, envContent)
+		require.Len(t, out, 1)
+		assert.Equal(t, "error", out[0].Status)
+		require.ErrorIs(t, out[0].Error, ErrReleaseChecksums)
+		assert.Nil(t, out[0].ChecksumUpdates)
+	})
+
+	t.Run("invalid (non-hex) manifest digest holds the bump", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetChecksums("google", "osv-scanner", "v2.5.2", map[string]string{
+			"osv-scanner_linux_amd64": "not-a-valid-sha",
+			"osv-scanner_linux_arm64": osvSHANextARM64,
+		})
+		service := newService(checker)
+
+		results := []CheckResult{{
+			Tool: "osv-scanner", EnvVars: tools["osv-scanner"].EnvVars,
+			CurrentVersion: "v2.5.1", LatestVersion: "v2.5.2", Status: "update-available",
+		}}
+
+		out := service.resolveChecksumUpdates(ctx, tools, results, envContent)
+		require.Len(t, out, 1)
+		assert.Equal(t, "error", out[0].Status)
+	})
+
+	t.Run("version bump is held when a pinned env var is absent", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetChecksums("google", "osv-scanner", "v2.5.2", map[string]string{
+			"osv-scanner_linux_amd64": osvSHANextAMD64,
+			"osv-scanner_linux_arm64": osvSHANextARM64,
+		})
+		service := newService(checker)
+
+		// The arm64 pin line is missing entirely, so updateFiles could not write it —
+		// the bump must be held rather than landing the version without the digest.
+		partialEnv := []byte("OSV_SCANNER_VERSION=v2.5.1\n" +
+			"OSV_SCANNER_SHA256_LINUX_AMD64=" + osvSHA251AMD64 + "\n")
+
+		results := []CheckResult{{
+			Tool: "osv-scanner", EnvVars: tools["osv-scanner"].EnvVars,
+			CurrentVersion: "v2.5.1", LatestVersion: "v2.5.2", Status: "update-available",
+		}}
+
+		out := service.resolveChecksumUpdates(ctx, tools, results, partialEnv)
+		require.Len(t, out, 1)
+		assert.Equal(t, "error", out[0].Status, "must not bump the version when a pin cannot be written")
+		require.ErrorIs(t, out[0].Error, ErrReleaseChecksums)
+		assert.Nil(t, out[0].ChecksumUpdates)
+	})
+
+	t.Run("version bump is held when a pinned env var is empty", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetChecksums("google", "osv-scanner", "v2.5.2", map[string]string{
+			"osv-scanner_linux_amd64": osvSHANextAMD64,
+			"osv-scanner_linux_arm64": osvSHANextARM64,
+		})
+		service := newService(checker)
+
+		// amd64 present but with an empty value — updateFiles' regex requires a value,
+		// so it would silently skip it; the bump must be held.
+		emptyValEnv := []byte("OSV_SCANNER_VERSION=v2.5.1\n" +
+			"OSV_SCANNER_SHA256_LINUX_AMD64=\n" +
+			"OSV_SCANNER_SHA256_LINUX_ARM64=" + osvSHA251ARM64 + "\n")
+
+		results := []CheckResult{{
+			Tool: "osv-scanner", EnvVars: tools["osv-scanner"].EnvVars,
+			CurrentVersion: "v2.5.1", LatestVersion: "v2.5.2", Status: "update-available",
+		}}
+
+		out := service.resolveChecksumUpdates(ctx, tools, results, emptyValEnv)
+		require.Len(t, out, 1)
+		assert.Equal(t, "error", out[0].Status)
+		require.ErrorIs(t, out[0].Error, ErrReleaseChecksums)
+	})
+
+	t.Run("self-heals drifted digests when version is current", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		// Manifest for the pinned version reports digests that differ from the file.
+		checker.SetChecksums("google", "osv-scanner", "v2.5.1", map[string]string{
+			"osv-scanner_linux_amd64": osvSHANextAMD64,
+			"osv-scanner_linux_arm64": osvSHA251ARM64, // arm64 already correct
+		})
+		service := newService(checker)
+
+		results := []CheckResult{{
+			Tool: "osv-scanner", EnvVars: tools["osv-scanner"].EnvVars,
+			CurrentVersion: "v2.5.1", LatestVersion: "v2.5.1", Status: "up-to-date",
+		}}
+
+		out := service.resolveChecksumUpdates(ctx, tools, results, envContent)
+		require.Len(t, out, 1)
+		assert.Equal(t, "checksum-update", out[0].Status)
+		// Only the drifted (amd64) digest is queued; the matching arm64 one is left alone.
+		assert.Equal(t, map[string]string{
+			"OSV_SCANNER_SHA256_LINUX_AMD64": osvSHANextAMD64,
+		}, out[0].ChecksumUpdates)
+	})
+
+	t.Run("no-op when digests already match", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetChecksums("google", "osv-scanner", "v2.5.1", map[string]string{
+			"osv-scanner_linux_amd64": osvSHA251AMD64,
+			"osv-scanner_linux_arm64": osvSHA251ARM64,
+		})
+		service := newService(checker)
+
+		results := []CheckResult{{
+			Tool: "osv-scanner", EnvVars: tools["osv-scanner"].EnvVars,
+			CurrentVersion: "v2.5.1", LatestVersion: "v2.5.1", Status: "up-to-date",
+		}}
+
+		out := service.resolveChecksumUpdates(ctx, tools, results, envContent)
+		require.Len(t, out, 1)
+		assert.Equal(t, "up-to-date", out[0].Status)
+		assert.Empty(t, out[0].ChecksumUpdates)
+	})
+
+	t.Run("tools without checksum pins are untouched and not queried", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		service := newService(checker)
+		plainTools := map[string]*ToolInfo{
+			"mage-x": {EnvVars: []string{"MAGE_X_VERSION"}, RepoOwner: "mrz1836", RepoName: "mage-x"},
+		}
+
+		results := []CheckResult{{Tool: "mage-x", CurrentVersion: "v1.0.0", LatestVersion: "v1.0.1", Status: "update-available"}}
+		out := service.resolveChecksumUpdates(ctx, plainTools, results, envContent)
+
+		require.Len(t, out, 1)
+		assert.Equal(t, "update-available", out[0].Status)
+		assert.Nil(t, out[0].ChecksumUpdates)
+		assert.Empty(t, checker.GetChecksumCalls(), "must not fetch checksums for pin-less tools")
+	})
+
+	t.Run("error/major-skipped results are skipped", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		service := newService(checker)
+
+		results := []CheckResult{
+			{Tool: "osv-scanner", Status: "error"},
+			{Tool: "osv-scanner", Status: "major-skipped", CurrentVersion: "v2.5.1", LatestVersion: "v3.0.0"},
+		}
+		out := service.resolveChecksumUpdates(ctx, tools, results, envContent)
+
+		require.Len(t, out, 2)
+		assert.Equal(t, "error", out[0].Status)
+		assert.Equal(t, "major-skipped", out[1].Status)
+		assert.Empty(t, checker.GetChecksumCalls())
+	})
+}
+
+func TestVersionUpdateService_UpdateFiles_ChecksumUpdates(t *testing.T) {
+	updater := NewMockFileUpdater()
+	service := NewVersionUpdateService(NewMockVersionChecker(), updater, NewMockLogger(), false, false, 0)
+
+	securityFile := ".github/env/10-security.env"
+	fileContents := map[string][]byte{
+		securityFile: []byte(
+			"OSV_SCANNER_VERSION=v2.5.1\n" +
+				"OSV_SCANNER_SHA256_LINUX_AMD64=" + osvSHA251AMD64 + "\n" +
+				"OSV_SCANNER_SHA256_LINUX_ARM64=" + osvSHA251ARM64 + "\n",
+		),
+	}
+
+	results := []CheckResult{{
+		Tool:           "osv-scanner",
+		EnvVars:        []string{"MAGE_X_OSV_SCANNER_VERSION", "OSV_SCANNER_VERSION"},
+		CurrentVersion: "v2.5.1",
+		LatestVersion:  "v2.5.2",
+		Status:         "update-available",
+		ChecksumUpdates: map[string]string{
+			"OSV_SCANNER_SHA256_LINUX_AMD64": osvSHANextAMD64,
+			"OSV_SCANNER_SHA256_LINUX_ARM64": osvSHANextARM64,
+		},
+	}}
+
+	require.NoError(t, service.updateFiles(fileContents, results))
+
+	written := string(updater.GetWrittenData(securityFile))
+	assert.Contains(t, written, "OSV_SCANNER_VERSION=v2.5.2", "version rewritten")
+	assert.Contains(t, written, "OSV_SCANNER_SHA256_LINUX_AMD64="+osvSHANextAMD64, "amd64 digest rewritten")
+	assert.Contains(t, written, "OSV_SCANNER_SHA256_LINUX_ARM64="+osvSHANextARM64, "arm64 digest rewritten")
+	assert.NotContains(t, written, osvSHA251AMD64, "stale amd64 digest fully replaced")
+	assert.NotContains(t, written, osvSHA251ARM64, "stale arm64 digest fully replaced")
+}
+
+func TestVersionUpdateService_HasUpdates_IncludesChecksum(t *testing.T) {
+	service := NewVersionUpdateService(NewMockVersionChecker(), NewMockFileUpdater(), NewMockLogger(), true, false, 0)
+
+	t.Run("checksum-update status counts as an update", func(t *testing.T) {
+		results := []CheckResult{{Status: "up-to-date"}, {Status: "checksum-update"}}
+		assert.True(t, service.hasUpdates(results))
+	})
+
+	t.Run("update-available carrying only digest changes counts", func(t *testing.T) {
+		results := []CheckResult{{
+			Status:          "up-to-date",
+			ChecksumUpdates: map[string]string{"OSV_SCANNER_SHA256_LINUX_AMD64": osvSHANextAMD64},
+		}}
+		assert.True(t, service.hasUpdates(results))
+	})
+}
+
+// roundTripFunc adapts a function to an http.RoundTripper so tests can serve a canned
+// response (and assert the request) without any network access.
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
+
+// newStubChecker builds a realVersionChecker whose HTTP client is served entirely by rt,
+// so FetchReleaseChecksums can be exercised deterministically offline.
+func newStubChecker(rt roundTripFunc) *realVersionChecker {
+	return &realVersionChecker{httpClient: &http.Client{Transport: rt}}
+}
+
+func textResponse(status int, body string) *http.Response {
+	return &http.Response{
+		StatusCode: status,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Header:     make(http.Header),
+	}
+}
+
+func TestRealVersionChecker_FetchReleaseChecksums(t *testing.T) {
+	t.Run("rejects missing arguments", func(t *testing.T) {
+		checker := NewVersionChecker(false)
+		_, err := checker.FetchReleaseChecksums(context.Background(), "", "osv-scanner", "v2.5.1", "osv-scanner_SHA256SUMS")
+		require.ErrorIs(t, err, ErrReleaseChecksums)
+	})
+
+	t.Run("parses a SHA256SUMS manifest and hits the release download URL", func(t *testing.T) {
+		// Covers the sha256sum/GoReleaser manifest shapes: two-space separator, the
+		// binary-mode '*' marker, a stray leading path, and uppercase hex (normalized).
+		manifest := osvSHA251AMD64 + "  osv-scanner_linux_amd64\n" +
+			osvSHA251ARM64 + " *osv-scanner_linux_arm64\n" +
+			strings.ToUpper(osvSHANextAMD64) + "  dist/osv-scanner_darwin_arm64\n" +
+			"# a comment line that must be ignored\n"
+
+		var gotURL string
+		checker := newStubChecker(func(req *http.Request) (*http.Response, error) {
+			gotURL = req.URL.String()
+			return textResponse(http.StatusOK, manifest), nil
+		})
+
+		checksums, err := checker.FetchReleaseChecksums(context.Background(), "google", "osv-scanner", "v2.5.1", "osv-scanner_SHA256SUMS")
+		require.NoError(t, err)
+		assert.Equal(t, "https://github.com/google/osv-scanner/releases/download/v2.5.1/osv-scanner_SHA256SUMS", gotURL)
+		assert.Equal(t, osvSHA251AMD64, checksums["osv-scanner_linux_amd64"])
+		assert.Equal(t, osvSHA251ARM64, checksums["osv-scanner_linux_arm64"], "binary-mode '*' marker stripped")
+		assert.Equal(t, osvSHANextAMD64, checksums["osv-scanner_darwin_arm64"], "leading path stripped and hex lowercased")
+		assert.Len(t, checksums, 3, "comment/blank lines must not produce entries")
+		for asset, digest := range checksums {
+			assert.True(t, isHex64(digest), "digest for %s must be 64 lowercase hex chars, got %q", asset, digest)
+		}
+	})
+
+	t.Run("non-200 response is an error", func(t *testing.T) {
+		checker := newStubChecker(func(_ *http.Request) (*http.Response, error) {
+			return textResponse(http.StatusNotFound, "Not Found"), nil
+		})
+		_, err := checker.FetchReleaseChecksums(context.Background(), "google", "osv-scanner", "v9.9.9", "osv-scanner_SHA256SUMS")
+		require.ErrorIs(t, err, ErrReleaseChecksums)
+	})
+
+	t.Run("manifest with no parseable entries is an error", func(t *testing.T) {
+		checker := newStubChecker(func(_ *http.Request) (*http.Response, error) {
+			return textResponse(http.StatusOK, "not a checksum line\n# only comments\n"), nil
+		})
+		_, err := checker.FetchReleaseChecksums(context.Background(), "google", "osv-scanner", "v2.5.1", "osv-scanner_SHA256SUMS")
+		require.ErrorIs(t, err, ErrReleaseChecksums)
+	})
+
+	t.Run("parses the real osv-scanner release manifest", func(t *testing.T) {
+		if testing.Short() {
+			t.Skip("skipping integration test")
+		}
+		checker := NewVersionChecker(false)
+		checksums, err := checker.FetchReleaseChecksums(context.Background(), "google", "osv-scanner", "v2.5.1", "osv-scanner_SHA256SUMS")
+		if err != nil {
+			t.Logf("Network error (expected in some envs): %v", err)
+			return
+		}
+		assert.Equal(t, osvSHA251AMD64, checksums["osv-scanner_linux_amd64"])
+		assert.Equal(t, osvSHA251ARM64, checksums["osv-scanner_linux_arm64"])
+		for asset, digest := range checksums {
+			assert.True(t, isHex64(digest), "digest for %s must be 64 lowercase hex chars, got %q", asset, digest)
+		}
+	})
+}
+
+func TestIsHex64(t *testing.T) {
+	assert.True(t, isHex64(osvSHA251AMD64))
+	assert.False(t, isHex64(""))
+	assert.False(t, isHex64("ABCDEF"), "too short")
+	assert.False(t, isHex64(strings.ToUpper(osvSHA251AMD64)), "uppercase must be rejected")
+	assert.False(t, isHex64(osvSHA251AMD64+"0"), "65 chars")
+	assert.False(t, isHex64(osvSHA251AMD64[:63]+"g"), "non-hex char")
 }
