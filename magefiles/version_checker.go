@@ -47,6 +47,11 @@ type VersionChecker interface {
 	// Used to hold Go-version-constrained pins back when a newer build would require a
 	// toolchain the project does not run.
 	CheckModuleGoRequirement(ctx context.Context, goModulePath, version string) (major, minor int, err error)
+	// FetchReleaseChecksums downloads a GitHub release's checksum manifest asset (e.g.
+	// "osv-scanner_SHA256SUMS") for the given tag and returns a map of release-asset
+	// name -> lowercase-hex SHA-256. Used to keep committed digest pins in lockstep with
+	// the tool version (see VersionUpdateService.resolveChecksumUpdates).
+	FetchReleaseChecksums(ctx context.Context, repoOwner, repoName, tag, manifestAsset string) (map[string]string, error)
 }
 
 // FileUpdater defines the interface for file operations.
@@ -63,6 +68,16 @@ type VersionLogger interface {
 	Warn(msg string)
 }
 
+// ChecksumPin ties an env var to the SHA-256 of a specific release asset so the digest
+// can be kept in lockstep with the tool's version. When the tool version changes, the
+// updater fetches the release's checksum manifest and rewrites the pinned digest (see
+// VersionUpdateService.resolveChecksumUpdates). Requires the owning ToolInfo to set
+// RepoOwner, RepoName, and ChecksumManifestAsset.
+type ChecksumPin struct {
+	EnvVar    string // env var holding the digest, e.g. "OSV_SCANNER_SHA256_LINUX_AMD64"
+	AssetName string // release asset whose SHA-256 is pinned, e.g. "osv-scanner_linux_amd64"
+}
+
 // ToolInfo represents a tool with its version configuration.
 type ToolInfo struct {
 	EnvVars      []string // Multiple env vars may use the same tool
@@ -74,6 +89,12 @@ type ToolInfo struct {
 	// resolved latest version's go.mod 'go' directive requires a newer toolchain than the
 	// project runs, the update is held back so `go install` keeps working. 0 = no constraint.
 	MaxGoMinor int
+	// ChecksumManifestAsset is the release asset that lists SHA-256 digests for the other
+	// assets (e.g. "osv-scanner_SHA256SUMS"). Required when ChecksumPins is non-empty.
+	ChecksumManifestAsset string
+	// ChecksumPins are env vars pinned to release-asset digests, refreshed in lockstep with
+	// the tool version. Requires RepoOwner/RepoName and ChecksumManifestAsset to be set.
+	ChecksumPins []ChecksumPin
 }
 
 // CheckResult represents the result of a version check.
@@ -82,8 +103,12 @@ type CheckResult struct {
 	EnvVars        []string
 	CurrentVersion string
 	LatestVersion  string
-	Status         string // "up-to-date", "update-available", "error"
+	Status         string // "up-to-date", "update-available", "checksum-update", "error", ...
 	Error          error
+	// ChecksumUpdates maps env var -> new lowercase-hex SHA-256 digest that must be written
+	// to keep checksum pins in lockstep with the tool version. Nil/empty when no digest
+	// change is required. Populated by resolveChecksumUpdates.
+	ChecksumUpdates map[string]string
 }
 
 // GitHubRelease represents a GitHub release response.
@@ -350,6 +375,75 @@ func (r *realVersionChecker) CheckModuleGoRequirement(ctx context.Context, modul
 	return major, minor, nil
 }
 
+// ErrReleaseChecksums is returned when a release checksum manifest cannot be fetched or parsed.
+var ErrReleaseChecksums = errors.New("release checksum manifest error")
+
+// sha256ManifestLineRegexp matches a checksum-manifest line "<64-hex><spaces>[*]<asset>",
+// the format emitted by sha256sum / GoReleaser (the optional '*' marks binary mode).
+var sha256ManifestLineRegexp = regexp.MustCompile(`(?m)^([0-9a-fA-F]{64})[ \t]+\*?(\S+)[ \t]*$`)
+
+// hex64Regexp matches a lowercase 64-char hex SHA-256 digest.
+var hex64Regexp = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
+// isHex64 reports whether s is exactly 64 lowercase hex characters.
+func isHex64(s string) bool { return hex64Regexp.MatchString(s) }
+
+// FetchReleaseChecksums downloads a GitHub release's checksum manifest asset for the given
+// tag and returns a map of release-asset name -> lowercase-hex SHA-256. It uses the public
+// release download endpoint (no API token required, not subject to the low API rate limit).
+func (r *realVersionChecker) FetchReleaseChecksums(ctx context.Context, repoOwner, repoName, tag, manifestAsset string) (map[string]string, error) {
+	if repoOwner == "" || repoName == "" || tag == "" || manifestAsset == "" {
+		return nil, fmt.Errorf("%w: missing owner/repo/tag/asset", ErrReleaseChecksums)
+	}
+
+	// https://github.com/<owner>/<repo>/releases/download/<tag>/<asset> (302 -> CDN; the
+	// default client follows redirects). Path elements are tool metadata, not user input.
+	downloadURL := fmt.Sprintf("https://github.com/%s/%s/releases/download/%s/%s",
+		repoOwner, repoName, tag, manifestAsset)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", downloadURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := r.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			_ = closeErr
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return nil, fmt.Errorf("%w: %s: status %d: %s", ErrReleaseChecksums, downloadURL, resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	// Checksum manifests are tiny; cap the read to guard against a surprising body.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, err
+	}
+
+	checksums := make(map[string]string)
+	for _, m := range sha256ManifestLineRegexp.FindAllSubmatch(body, -1) {
+		asset := string(m[2])
+		// Manifests list bare asset names, but tolerate a leading path just in case.
+		if idx := strings.LastIndexAny(asset, "/\\"); idx >= 0 {
+			asset = asset[idx+1:]
+		}
+		checksums[asset] = strings.ToLower(string(m[1]))
+	}
+
+	if len(checksums) == 0 {
+		return nil, fmt.Errorf("%w: no checksum entries parsed from %s", ErrReleaseChecksums, manifestAsset)
+	}
+
+	return checksums, nil
+}
+
 // realFileUpdater implements FileUpdater using os package.
 type realFileUpdater struct{}
 
@@ -512,6 +606,18 @@ func GetToolDefinitions() map[string]*ToolInfo {
 	// it back whenever the proxy @latest bumps golang.org/x/perf's 'go' directive past 1.25.
 	tools["benchstat-go125"].MaxGoMinor = 25
 
+	// OSV-Scanner is installed in CI from a pinned prebuilt release binary whose SHA-256 is
+	// verified against committed digests (see the "Install OSV-Scanner" step in
+	// fortress-security-scans.yml). Those digests MUST move in lockstep with the version, so
+	// register the release checksum manifest and the per-platform digest env vars; the
+	// updater refreshes them whenever OSV_SCANNER_VERSION changes. RepoOwner/RepoName are
+	// already set above (google/osv-scanner) and drive the release download URL.
+	tools["osv-scanner"].ChecksumManifestAsset = "osv-scanner_SHA256SUMS"
+	tools["osv-scanner"].ChecksumPins = []ChecksumPin{
+		{EnvVar: "OSV_SCANNER_SHA256_LINUX_AMD64", AssetName: "osv-scanner_linux_amd64"},
+		{EnvVar: "OSV_SCANNER_SHA256_LINUX_ARM64", AssetName: "osv-scanner_linux_arm64"},
+	}
+
 	// Special case: Go itself uses go.dev API instead of GitHub releases
 	tools["go"] = &ToolInfo{
 		EnvVars:   []string{"GOVULNCHECK_GO_VERSION"},
@@ -568,6 +674,11 @@ func (s *VersionUpdateService) Run(ctx context.Context, envFiles []string) error
 	// Keep the benchstat Go-version boundary in sync with the resolved latest build so the
 	// setup-benchstat action's per-runner selection stays correct across Go releases.
 	results = s.maintainBenchstatMinGo(ctx, results, combinedContent)
+
+	// Keep checksum-pinned digests (e.g. OSV-Scanner's release-binary SHA-256s) in lockstep
+	// with the resolved versions. Runs for every mode so dry runs surface pending digest
+	// refreshes too.
+	results = s.resolveChecksumUpdates(ctx, tools, results, combinedContent)
 
 	// Add blank line before results table
 	s.logger.Info("")
@@ -762,6 +873,97 @@ func (s *VersionUpdateService) maintainBenchstatMinGo(ctx context.Context, resul
 	})
 }
 
+// resolveChecksumUpdates keeps checksum-pinned digests in lockstep with tool versions.
+// For each tool that declares ChecksumPins, it fetches the release checksum manifest for
+// the tool's target version and records the per-asset digests that differ from what the
+// env files currently hold (CheckResult.ChecksumUpdates).
+//
+// Lockstep integrity is the priority: a version bump is NEVER written without its matching
+// digests. If the manifest cannot be fetched (or lacks a pinned asset) for a tool that is
+// being upgraded, the version bump is held by downgrading the result to "error" so the old,
+// verified version+digests are left intact. When the version is already current, it also
+// self-heals drifted digests by emitting a "checksum-update" result.
+func (s *VersionUpdateService) resolveChecksumUpdates(ctx context.Context, tools map[string]*ToolInfo, results []CheckResult, combinedContent []byte) []CheckResult {
+	for i := range results {
+		r := &results[i]
+
+		tool := tools[r.Tool]
+		if tool == nil || len(tool.ChecksumPins) == 0 {
+			continue
+		}
+
+		// Only act when the target version is settled: an upgrade we are about to write
+		// (update-available) or the currently pinned version (up-to-date, for self-heal).
+		var targetVersion string
+		switch r.Status {
+		case "update-available":
+			targetVersion = r.LatestVersion
+		case "up-to-date":
+			targetVersion = r.CurrentVersion
+		default:
+			continue
+		}
+		if targetVersion == "" {
+			continue
+		}
+
+		checksums, err := s.checker.FetchReleaseChecksums(ctx, tool.RepoOwner, tool.RepoName, targetVersion, tool.ChecksumManifestAsset)
+		if err != nil {
+			if r.Status == "update-available" {
+				// Never bump the version without matching digests: hold the whole update.
+				s.logger.Warn(fmt.Sprintf("       %s: holding %s update — could not resolve release checksums (%v)", r.Tool, targetVersion, err))
+				r.Status = "error"
+				r.Error = err
+			} else {
+				s.logger.Warn(fmt.Sprintf("       %s: could not verify pinned checksums for %s (%v); leaving digests unchanged", r.Tool, targetVersion, err))
+			}
+			continue
+		}
+
+		updates, missingAsset := s.diffChecksumPins(tool.ChecksumPins, checksums, combinedContent)
+		if missingAsset != "" {
+			if r.Status == "update-available" {
+				s.logger.Warn(fmt.Sprintf("       %s: holding %s update — release manifest missing/invalid digest for %q", r.Tool, targetVersion, missingAsset))
+				r.Status = "error"
+				r.Error = fmt.Errorf("%w: manifest missing digest for asset %q", ErrReleaseChecksums, missingAsset)
+			} else {
+				s.logger.Warn(fmt.Sprintf("       %s: release manifest missing/invalid digest for %q; leaving digests unchanged", r.Tool, missingAsset))
+			}
+			continue
+		}
+
+		if len(updates) == 0 {
+			continue
+		}
+		r.ChecksumUpdates = updates
+		// Surface a digest-only refresh (version already current) so the file gets written.
+		if r.Status == "up-to-date" {
+			r.Status = "checksum-update"
+		}
+	}
+
+	return results
+}
+
+// diffChecksumPins compares the desired digest for each pin (from the release manifest)
+// against the value currently in the env files. It returns the env-var -> new-digest map of
+// entries that need writing, and the name of the first asset whose digest is missing from
+// or invalid in the manifest (empty string when all pins resolved).
+func (s *VersionUpdateService) diffChecksumPins(pins []ChecksumPin, manifest map[string]string, combinedContent []byte) (map[string]string, string) {
+	updates := make(map[string]string)
+	for _, pin := range pins {
+		digest, ok := manifest[pin.AssetName]
+		if !ok || !isHex64(digest) {
+			return nil, pin.AssetName
+		}
+		current := extractEnvValue(combinedContent, pin.EnvVar)
+		if !strings.EqualFold(current, digest) {
+			updates[pin.EnvVar] = digest
+		}
+	}
+	return updates, ""
+}
+
 // extractEnvValue returns the value of the first `NAME=value` line for envVar in content,
 // or "" when the variable is not present. Comments and surrounding whitespace are ignored.
 func extractEnvValue(content []byte, envVar string) string {
@@ -855,6 +1057,7 @@ func (s *VersionUpdateService) displayResults(results []CheckResult) {
 	majorSkipped := 0
 	goVersionHeld := 0
 	pinRecommended := 0
+	checksumRefreshed := 0
 	errors := 0
 
 	// Print results
@@ -870,6 +1073,9 @@ func (s *VersionUpdateService) displayResults(results []CheckResult) {
 		case "update-available":
 			statusIcon = "⬆ Update available"
 			updates++
+		case "checksum-update":
+			statusIcon = fmt.Sprintf("🔑 Digest refresh (%d pin(s))", len(result.ChecksumUpdates))
+			checksumRefreshed++
 		case "major-skipped":
 			// Extract major versions for display
 			currentMajor, _ := s.extractMajorVersion(result.CurrentVersion)
@@ -882,6 +1088,11 @@ func (s *VersionUpdateService) displayResults(results []CheckResult) {
 		case "error":
 			statusIcon = fmt.Sprintf("✗ Error: %v", result.Error)
 			errors++
+		}
+
+		// A version bump that also refreshes checksum pins carries both changes.
+		if result.Status == "update-available" && len(result.ChecksumUpdates) > 0 {
+			statusIcon += fmt.Sprintf(" 🔑+%d digest(s)", len(result.ChecksumUpdates))
 		}
 
 		line := fmt.Sprintf(
@@ -908,18 +1119,26 @@ func (s *VersionUpdateService) displayResults(results []CheckResult) {
 	if pinRecommended > 0 {
 		_, _ = fmt.Fprintf(os.Stdout, "📌 %d tools recommend version pinning\n", pinRecommended)
 	}
+	if checksumRefreshed > 0 {
+		_, _ = fmt.Fprintf(os.Stdout, "🔑 %d tools need a checksum-pin refresh\n", checksumRefreshed)
+	}
 	_, _ = fmt.Fprintf(os.Stdout, "✗ %d tools failed to check\n", errors)
 	_, _ = os.Stdout.WriteString("\n")
 
-	if s.dryRun && (updates > 0 || pinRecommended > 0) {
+	if s.dryRun && (updates > 0 || pinRecommended > 0 || checksumRefreshed > 0) {
 		s.logger.Info("[DRY RUN] No changes made. Set UPDATE_VERSIONS=true to apply updates.")
 	}
 }
 
-// hasUpdates checks if any updates are available or pinning is recommended.
+// hasUpdates checks if any updates are available, pinning is recommended, or a checksum
+// pin needs to be refreshed.
 func (s *VersionUpdateService) hasUpdates(results []CheckResult) bool {
 	for _, result := range results {
-		if result.Status == "update-available" || result.Status == "pin-recommended" {
+		switch result.Status {
+		case "update-available", "pin-recommended", "checksum-update":
+			return true
+		}
+		if len(result.ChecksumUpdates) > 0 {
 			return true
 		}
 	}
@@ -977,6 +1196,26 @@ func (s *VersionUpdateService) updateFiles(fileContents map[string][]byte, resul
 					}
 
 					return append(append(prefix, []byte(newVersion)...), suffix...)
+				})
+			}
+		}
+
+		// Apply checksum-pin refreshes (e.g. OSV-Scanner release-binary digests). These are
+		// plain value replacements — the digest carries no v/go prefix — and are applied for
+		// any result that resolved digest changes, independent of the version status.
+		for _, result := range results {
+			for envVar, digest := range result.ChecksumUpdates {
+				pattern := regexp.MustCompile(fmt.Sprintf(`(?m)^(%s=)([^#\s]+)(\s|$)`,
+					regexp.QuoteMeta(envVar)))
+
+				newContent = pattern.ReplaceAllFunc(newContent, func(match []byte) []byte {
+					submatches := pattern.FindSubmatch(match)
+					if len(submatches) < 4 {
+						return match
+					}
+					prefix := submatches[1] // "ENV_VAR="
+					suffix := submatches[3] // trailing whitespace or EOL
+					return append(append(append([]byte{}, prefix...), []byte(digest)...), suffix...)
 				})
 			}
 		}
