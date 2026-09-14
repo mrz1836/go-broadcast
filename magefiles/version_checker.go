@@ -37,7 +37,22 @@ const (
 	// setup-benchstat reads it to decide, per runner, whether to install the latest build
 	// or fall back to the Go 1.25-compatible pin (MAGE_X_BENCHSTAT_VERSION).
 	benchstatMinGoEnvVar = "MAGE_X_BENCHSTAT_VERSION_LATEST_MIN_GO"
+
+	// gofumptModulePath is the Go module that provides the gofumpt command.
+	gofumptModulePath = "mvdan.cc/gofumpt"
+	// gofumptLatestToolKey is the tool key that tracks the newest gofumpt build.
+	gofumptLatestToolKey = "gofumpt"
 )
+
+// gofumptMinGoEnvVars carry the Go version the newest gofumpt build requires. go-pre-commit
+// and mage-x read them to decide, per runner, whether to install the latest build or fall
+// back to the Go 1.25-compatible pin (GO_PRE_COMMIT_FUMPT_VERSION / MAGE_X_GOFUMPT_VERSION).
+//
+//nolint:gochecknoglobals // Config constant list; kept beside its benchstat counterpart.
+var gofumptMinGoEnvVars = []string{
+	"GO_PRE_COMMIT_FUMPT_VERSION_LATEST_MIN_GO",
+	"MAGE_X_GOFUMPT_VERSION_LATEST_MIN_GO",
+}
 
 // VersionChecker defines the interface for checking latest tool versions from GitHub or Go proxy.
 type VersionChecker interface {
@@ -559,7 +574,16 @@ func GetToolDefinitions() map[string]*ToolInfo {
 	}{
 		// --- go-install tools: version resolved via the Go module proxy (git tags) ---
 		{"go-coverage", []string{"GO_COVERAGE_VERSION"}, "mrz1836", "go-coverage", "github.com/mrz1836/go-coverage"},
-		{"gofumpt", []string{"MAGE_X_GOFUMPT_VERSION", "GO_PRE_COMMIT_FUMPT_VERSION"}, "mvdan", "gofumpt", "mvdan.cc/gofumpt"},
+		// gofumpt is tracked as two proxy pins for the same reason as benchstat below: it
+		// raises its go.mod 'go' directive over time (v0.12.0 requires Go 1.26), so the
+		// newest build will not `go install` on an older toolchain. go-pre-commit and mage-x
+		// pick per-runner via the _LATEST / _LATEST_MIN_GO env vars (see 10-pre-commit.env,
+		// 10-mage-x.env):
+		//   - gofumpt        -> *_FUMPT_VERSION_LATEST / MAGE_X_GOFUMPT_VERSION_LATEST: proxy @latest.
+		//   - gofumpt-go125  -> GO_PRE_COMMIT_FUMPT_VERSION / MAGE_X_GOFUMPT_VERSION: held to builds
+		//                       supporting Go 1.25 (MaxGoMinor set below) so 1.25.x repos keep working.
+		{"gofumpt", []string{"MAGE_X_GOFUMPT_VERSION_LATEST", "GO_PRE_COMMIT_FUMPT_VERSION_LATEST"}, "mvdan", "gofumpt", "mvdan.cc/gofumpt"},
+		{"gofumpt-go125", []string{"MAGE_X_GOFUMPT_VERSION", "GO_PRE_COMMIT_FUMPT_VERSION"}, "mvdan", "gofumpt", "mvdan.cc/gofumpt"},
 		{"govulncheck", []string{"MAGE_X_GOVULNCHECK_VERSION", "GOVULNCHECK_VERSION"}, "golang", "vuln", "golang.org/x/vuln"},
 		{"mockgen", []string{"MAGE_X_MOCKGEN_VERSION"}, "uber-go", "mock", "go.uber.org/mock"},
 		{"nancy", []string{"MAGE_X_NANCY_VERSION", "NANCY_VERSION"}, "sonatype-nexus-community", "nancy", "github.com/sonatype-nexus-community/nancy/v2"},
@@ -610,6 +634,11 @@ func GetToolDefinitions() map[string]*ToolInfo {
 	// benchstat-go125 must keep installing on this project's Go 1.25.x toolchain, so hold
 	// it back whenever the proxy @latest bumps golang.org/x/perf's 'go' directive past 1.25.
 	tools["benchstat-go125"].MaxGoMinor = 25
+
+	// gofumpt-go125 is the baseline pin that must keep installing on Go 1.25.x repos that
+	// sync these env files, so hold it back whenever the proxy @latest bumps gofumpt's 'go'
+	// directive past 1.25 (as v0.12.0 did, requiring Go 1.26).
+	tools["gofumpt-go125"].MaxGoMinor = 25
 
 	// OSV-Scanner is installed in CI from a pinned prebuilt release binary whose SHA-256 is
 	// verified against committed digests (see the "Install OSV-Scanner" step in
@@ -676,9 +705,11 @@ func (s *VersionUpdateService) Run(ctx context.Context, envFiles []string) error
 	// Check latest versions
 	results := s.checkVersions(ctx, tools, currentVersions)
 
-	// Keep the benchstat Go-version boundary in sync with the resolved latest build so the
-	// setup-benchstat action's per-runner selection stays correct across Go releases.
+	// Keep the benchstat and gofumpt Go-version boundaries in sync with the resolved latest
+	// builds so the per-runner selection (setup-benchstat; go-pre-commit/mage-x for gofumpt)
+	// stays correct across Go releases.
 	results = s.maintainBenchstatMinGo(ctx, results, combinedContent)
+	results = s.maintainGofumptMinGo(ctx, results, combinedContent)
 
 	// Keep checksum-pinned digests (e.g. OSV-Scanner's release-binary SHA-256s) in lockstep
 	// with the resolved versions. Runs for every mode so dry runs surface pending digest
@@ -827,16 +858,50 @@ func (s *VersionUpdateService) exceedsGoConstraint(ctx context.Context, toolKey 
 	return major > 1 || minor > tool.MaxGoMinor
 }
 
-// maintainBenchstatMinGo appends a synthetic result that keeps benchstatMinGoEnvVar in sync
-// with the Go version required by the resolved latest benchstat build. The setup-benchstat
-// action uses that boundary to pick, per runner, between the latest and Go 1.25-held pins,
-// so it stays correct as golang.org/x/perf raises its 'go' directive over time. Results are
-// returned unchanged when the benchstat check failed or the env var is absent from the files.
+// maintainBenchstatMinGo keeps benchstatMinGoEnvVar in sync with the Go version required by
+// the resolved latest benchstat build. The setup-benchstat action uses that boundary to pick,
+// per runner, between the latest and Go 1.25-held pins.
 func (s *VersionUpdateService) maintainBenchstatMinGo(ctx context.Context, results []CheckResult, combinedContent []byte) []CheckResult {
-	// Find the resolved latest benchstat version (skip on error/empty).
+	return s.maintainMinGoBoundary(ctx, results, combinedContent, minGoBoundarySpec{
+		latestToolKey: benchstatLatestToolKey,
+		modulePath:    benchstatModulePath,
+		syntheticName: "benchstat-min-go",
+		minGoEnvVars:  []string{benchstatMinGoEnvVar},
+	})
+}
+
+// maintainGofumptMinGo keeps the gofumpt *_LATEST_MIN_GO boundaries in sync with the Go version
+// required by the resolved latest gofumpt build. go-pre-commit and mage-x use those boundaries
+// to pick, per runner, between the latest and Go 1.25-held gofumpt pins.
+func (s *VersionUpdateService) maintainGofumptMinGo(ctx context.Context, results []CheckResult, combinedContent []byte) []CheckResult {
+	return s.maintainMinGoBoundary(ctx, results, combinedContent, minGoBoundarySpec{
+		latestToolKey: gofumptLatestToolKey,
+		modulePath:    gofumptModulePath,
+		syntheticName: "gofumpt-min-go",
+		minGoEnvVars:  gofumptMinGoEnvVars,
+	})
+}
+
+// minGoBoundarySpec describes a "min-Go boundary" to maintain: the tool whose resolved latest
+// version dictates the boundary, its Go module, the synthetic result name for display, and the
+// env var(s) that carry the boundary across the synced files.
+type minGoBoundarySpec struct {
+	latestToolKey string
+	modulePath    string
+	syntheticName string
+	minGoEnvVars  []string
+}
+
+// maintainMinGoBoundary appends a synthetic result that keeps the spec's min-Go env var(s) in
+// sync with the Go version required by the resolved latest build of spec.latestToolKey. This
+// keeps per-runner "latest vs Go 1.25-held" selection correct as a tool raises its go.mod 'go'
+// directive over time. Results are returned unchanged when that check failed or none of the env
+// vars are present in the files (projects that have not adopted them are left untouched).
+func (s *VersionUpdateService) maintainMinGoBoundary(ctx context.Context, results []CheckResult, combinedContent []byte, spec minGoBoundarySpec) []CheckResult {
+	// Find the resolved latest version for the driving tool (skip on error/empty).
 	latest := ""
 	for _, r := range results {
-		if r.Tool == benchstatLatestToolKey && r.Status != "error" {
+		if r.Tool == spec.latestToolKey && r.Status != "error" {
 			latest = r.LatestVersion
 			break
 		}
@@ -845,17 +910,27 @@ func (s *VersionUpdateService) maintainBenchstatMinGo(ctx context.Context, resul
 		return results
 	}
 
-	// Only maintain the boundary when the env var is actually present in the files, so
-	// projects that have not adopted it are left untouched.
-	current := extractEnvValue(combinedContent, benchstatMinGoEnvVar)
-	if current == "" {
+	// Only maintain boundaries that are actually present in the files.
+	present := make([]string, 0, len(spec.minGoEnvVars))
+	current := ""
+	for _, envVar := range spec.minGoEnvVars {
+		val := extractEnvValue(combinedContent, envVar)
+		if val == "" {
+			continue
+		}
+		present = append(present, envVar)
+		if current == "" {
+			current = val
+		}
+	}
+	if len(present) == 0 {
 		return results
 	}
 
-	major, minor, err := s.checker.CheckModuleGoRequirement(ctx, benchstatModulePath, latest)
+	major, minor, err := s.checker.CheckModuleGoRequirement(ctx, spec.modulePath, latest)
 	if err != nil {
-		s.logger.Warn(fmt.Sprintf("       %s: could not resolve Go requirement for latest benchstat %s (%v); leaving at %s",
-			benchstatMinGoEnvVar, latest, err, current))
+		s.logger.Warn(fmt.Sprintf("       %s: could not resolve Go requirement for latest %s %s (%v); leaving at %s",
+			strings.Join(present, ","), spec.latestToolKey, latest, err, current))
 		return results
 	}
 	if major == 0 && minor == 0 {
@@ -865,13 +940,16 @@ func (s *VersionUpdateService) maintainBenchstatMinGo(ctx context.Context, resul
 
 	newBoundary := fmt.Sprintf("%d.%d", major, minor)
 	status := "up-to-date"
-	if current != newBoundary {
-		status = "update-available"
+	for _, envVar := range present {
+		if extractEnvValue(combinedContent, envVar) != newBoundary {
+			status = "update-available"
+			break
+		}
 	}
 
 	return append(results, CheckResult{
-		Tool:           "benchstat-min-go",
-		EnvVars:        []string{benchstatMinGoEnvVar},
+		Tool:           spec.syntheticName,
+		EnvVars:        present,
 		CurrentVersion: current,
 		LatestVersion:  newBoundary,
 		Status:         status,

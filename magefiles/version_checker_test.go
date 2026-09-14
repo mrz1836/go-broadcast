@@ -271,6 +271,7 @@ func TestGetToolDefinitions(t *testing.T) {
 		"mage",
 		"gitleaks",
 		"gofumpt",
+		"gofumpt-go125",
 		"golangci-lint",
 		"goreleaser",
 		"govulncheck",
@@ -352,7 +353,10 @@ func TestGetToolDefinitions(t *testing.T) {
 	t.Run("go-install tools resolve via Go module proxy (git tags)", func(t *testing.T) {
 		proxyTools := map[string]string{
 			"go-coverage": "github.com/mrz1836/go-coverage",
-			"gofumpt":     "mvdan.cc/gofumpt",
+			// gofumpt is split into two proxy pins (latest + Go 1.25-held), mirroring
+			// benchstat; both resolve mvdan.cc/gofumpt via the proxy.
+			"gofumpt":       "mvdan.cc/gofumpt",
+			"gofumpt-go125": "mvdan.cc/gofumpt",
 			// govulncheck: golang.org/x/vuln is tagged to v1.7.0 while its newest
 			// GitHub Release is a stale v1.1.4 — the proxy is the only correct source.
 			"govulncheck": "golang.org/x/vuln",
@@ -1493,6 +1497,73 @@ func TestGetToolDefinitions_Benchstat(t *testing.T) {
 		assert.Equal(t, []string{"MAGE_X_BENCHSTAT_VERSION"}, tool.EnvVars)
 		assert.Equal(t, "golang.org/x/perf", tool.GoModulePath)
 		assert.Equal(t, 25, tool.MaxGoMinor, "go125 pin must be held to Go 1.25")
+	})
+}
+
+func TestGetToolDefinitions_Gofumpt(t *testing.T) {
+	tools := GetToolDefinitions()
+
+	t.Run("latest pin tracks the newest build unconstrained", func(t *testing.T) {
+		tool, ok := tools["gofumpt"]
+		require.True(t, ok)
+		assert.Equal(t, []string{"MAGE_X_GOFUMPT_VERSION_LATEST", "GO_PRE_COMMIT_FUMPT_VERSION_LATEST"}, tool.EnvVars)
+		assert.Equal(t, "mvdan.cc/gofumpt", tool.GoModulePath)
+		assert.Equal(t, 0, tool.MaxGoMinor, "latest pin must not be Go-version-constrained")
+	})
+
+	t.Run("go125 pin holds the baseline to Go 1.25", func(t *testing.T) {
+		tool, ok := tools["gofumpt-go125"]
+		require.True(t, ok)
+		assert.Equal(t, []string{"MAGE_X_GOFUMPT_VERSION", "GO_PRE_COMMIT_FUMPT_VERSION"}, tool.EnvVars)
+		assert.Equal(t, "mvdan.cc/gofumpt", tool.GoModulePath)
+		assert.Equal(t, 25, tool.MaxGoMinor, "baseline pin must be held to Go 1.25")
+	})
+}
+
+func TestVersionUpdateService_MaintainGofumptMinGo(t *testing.T) {
+	const (
+		mod    = "mvdan.cc/gofumpt"
+		latest = "v0.12.0"
+	)
+	gofumptResult := CheckResult{Tool: "gofumpt", Status: "update-available", LatestVersion: latest}
+
+	t.Run("updates both boundary vars when changed", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetGoRequirement(mod, latest, 1, 26)
+		service := NewVersionUpdateService(checker, NewMockFileUpdater(), NewMockLogger(), true, false, 0)
+
+		content := []byte("GO_PRE_COMMIT_FUMPT_VERSION_LATEST_MIN_GO=1.25\nMAGE_X_GOFUMPT_VERSION_LATEST_MIN_GO=1.25\n")
+		out := service.maintainGofumptMinGo(context.Background(), []CheckResult{gofumptResult}, content)
+
+		require.Len(t, out, 2)
+		boundary := out[1]
+		assert.Equal(t, []string{"GO_PRE_COMMIT_FUMPT_VERSION_LATEST_MIN_GO", "MAGE_X_GOFUMPT_VERSION_LATEST_MIN_GO"}, boundary.EnvVars)
+		assert.Equal(t, "1.26", boundary.LatestVersion)
+		assert.Equal(t, "update-available", boundary.Status)
+	})
+
+	t.Run("maintains only the boundary vars present in the files", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetGoRequirement(mod, latest, 1, 26)
+		service := NewVersionUpdateService(checker, NewMockFileUpdater(), NewMockLogger(), true, false, 0)
+
+		// Only the go-pre-commit boundary is present; mage-x's is absent.
+		content := []byte("GO_PRE_COMMIT_FUMPT_VERSION_LATEST_MIN_GO=1.26\n")
+		out := service.maintainGofumptMinGo(context.Background(), []CheckResult{gofumptResult}, content)
+
+		require.Len(t, out, 2)
+		assert.Equal(t, []string{"GO_PRE_COMMIT_FUMPT_VERSION_LATEST_MIN_GO"}, out[1].EnvVars)
+		assert.Equal(t, "up-to-date", out[1].Status)
+	})
+
+	t.Run("no-op when no boundary var is present", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		checker.SetGoRequirement(mod, latest, 1, 26)
+		service := NewVersionUpdateService(checker, NewMockFileUpdater(), NewMockLogger(), true, false, 0)
+
+		out := service.maintainGofumptMinGo(context.Background(), []CheckResult{gofumptResult}, []byte("UNRELATED=1\n"))
+		assert.Len(t, out, 1)
+		assert.Empty(t, checker.goReqCalls, "should not fetch go.mod when no boundary var is present")
 	})
 }
 
