@@ -22,8 +22,8 @@
             "icon": "lint"
         },
         {
-            "name": "Build",
-            "command": "magex build",
+            "name": "Build (dev)",
+            "command": "magex build:dev",
             "icon": "build"
         },
         {
@@ -39,6 +39,11 @@
         {
             "name": "Deps: tidy",
             "command": "magex deps:tidy",
+            "icon": "configure"
+        },
+        {
+            "name": "Deps: update all",
+            "command": "magex deps:update all-modules",
             "icon": "configure"
         },
         {
