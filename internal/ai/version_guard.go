@@ -61,7 +61,7 @@ func ApplyVerifiedChanges(body string, cs *Changeset) string {
 	if block == "" {
 		return body
 	}
-	body = dropRestatedBullets(body, blockVersionTokens(cs))
+	body = dropRestatedBullets(body, blockVersionTokens(cs), cs.SignificantChanges())
 	body = insertUnderWhatChanged(body, block)
 	return collapseBlankRuns(body)
 }
@@ -78,13 +78,14 @@ func blockVersionTokens(cs *Changeset) map[string]struct{} {
 	return toks
 }
 
-// dropRestatedBullets removes list items in the "## What Changed" section whose
-// version tokens are all already covered by the verified block - i.e. bullets that
-// merely restate a bump the authoritative list will show. Bullets with no version
-// token (narrative) or with a token outside the block are kept, and every other
-// section is left untouched.
-func dropRestatedBullets(body string, covered map[string]struct{}) string {
-	if len(covered) == 0 {
+// dropRestatedBullets removes list items in the "## What Changed" section that
+// merely restate what the authoritative verified list will show: either all of the
+// bullet's version tokens are covered by the block, or the bullet names a verified
+// key together with its value (e.g. the model pasting "Added `COUNT` = `0`" from the
+// prompt, which has no version token to catch). Narrative bullets and bullets with
+// a version outside the block are kept, and every other section is left untouched.
+func dropRestatedBullets(body string, covered map[string]struct{}, changes []KeyChange) string {
+	if len(covered) == 0 && len(changes) == 0 {
 		return body
 	}
 	const marker = "## What Changed"
@@ -102,7 +103,10 @@ func dropRestatedBullets(body string, covered map[string]struct{}) string {
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "* ") || strings.HasPrefix(trimmed, "- ") {
-			if toks := versionTokenRe.FindAllString(line, -1); len(toks) > 0 {
+			if restatesKeyChange(line, changes) {
+				continue // pasted or reworded copy of a verified key/value change
+			}
+			if toks := versionTokenRe.FindAllString(line, -1); len(toks) > 0 && len(covered) > 0 {
 				allCovered := true
 				for _, t := range toks {
 					if _, ok := covered[normalizeVersionToken(t)]; !ok {
@@ -118,6 +122,58 @@ func dropRestatedBullets(body string, covered map[string]struct{}) string {
 		kept = append(kept, line)
 	}
 	return body[:start] + strings.Join(kept, "\n") + body[end:]
+}
+
+// restatesKeyChange reports whether a bullet names one of the verified keys along
+// with that change's value (the new value for added/modified keys, or a "remove"
+// verb for removed keys), meaning it duplicates an authoritative bullet.
+func restatesKeyChange(line string, changes []KeyChange) bool {
+	lower := strings.ToLower(line)
+	for _, kc := range changes {
+		if !containsIdentifier(line, kc.Key) {
+			continue
+		}
+		switch kc.Kind {
+		case ChangeRemoved:
+			if strings.Contains(lower, "remov") {
+				return true
+			}
+		case ChangeAdded, ChangeModified:
+			val := strings.TrimSuffix(truncateValue(kc.New), "…")
+			if val == "" {
+				val = kc.New
+			}
+			if val != "" && strings.Contains(line, val) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// containsIdentifier reports whether ident appears in s as a whole identifier, i.e.
+// not embedded in a longer name ("COUNT" must not match "ACCOUNT_ID").
+func containsIdentifier(s, ident string) bool {
+	if ident == "" {
+		return false
+	}
+	for from := 0; ; {
+		i := strings.Index(s[from:], ident)
+		if i < 0 {
+			return false
+		}
+		start := from + i
+		end := start + len(ident)
+		if (start == 0 || !isIdentByte(s[start-1])) && (end == len(s) || !isIdentByte(s[end])) {
+			return true
+		}
+		from = start + 1
+	}
+}
+
+// isIdentByte reports whether b can be part of a config key identifier.
+func isIdentByte(b byte) bool {
+	return b == '_' || b >= '0' && b <= '9' || b >= 'A' && b <= 'Z' || b >= 'a' && b <= 'z'
 }
 
 // insertUnderWhatChanged places block immediately after the "## What Changed"

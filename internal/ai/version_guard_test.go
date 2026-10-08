@@ -146,3 +146,43 @@ func TestGuardThenApply_Integration(t *testing.T) {
 	assert.Contains(t, final, "Keep repos aligned")
 	assert.Contains(t, final, "Low risk")
 }
+
+func TestApplyVerifiedChanges_RemovesPastedNonVersionBlock(t *testing.T) {
+	// Reproduces the duplicated "What Changed" list: the model pasted the verified
+	// bullets from the prompt verbatim. They carry no version token, so the
+	// version-based filter alone kept them and the block appeared twice.
+	cs := &Changeset{KeyChanges: []KeyChange{
+		{File: ".github/env/20-workflows.env", Key: "DEPENDABOT_AUTO_MERGE_PATCH_SAME_OWNER", New: "true", Kind: ChangeAdded},
+		{File: ".github/env/20-workflows.env", Key: "OLD_FLAG", Old: "1", Kind: ChangeRemoved},
+	}}
+	body := "## What Changed\n\n" +
+		"* Added `DEPENDABOT_AUTO_MERGE_PATCH_SAME_OWNER` = `true` (`.github/env/20-workflows.env`)\n" +
+		"* Removed `OLD_FLAG` (`.github/env/20-workflows.env`)\n" +
+		"* Introduced same-owner dependency detection logic\n\n" +
+		"## Impact\n\n* Low"
+
+	got := ApplyVerifiedChanges(body, cs)
+
+	assert.Equal(t, 1, strings.Count(got, "DEPENDABOT_AUTO_MERGE_PATCH_SAME_OWNER"), "verified bullet must appear exactly once")
+	assert.Equal(t, 1, strings.Count(got, "OLD_FLAG"), "removed bullet must appear exactly once")
+	assert.Contains(t, got, "Introduced same-owner dependency detection logic")
+}
+
+func TestApplyVerifiedChanges_KeepsBulletWithSubstringKey(t *testing.T) {
+	// "COUNT" must not match inside "ACCOUNT_ID".
+	cs := &Changeset{KeyChanges: []KeyChange{
+		{File: "a.env", Key: "COUNT", New: "0", Kind: ChangeAdded},
+	}}
+	body := "## What Changed\n\n* Default ACCOUNT_ID now set to 0 for tests\n\n## Impact\n\n* Low"
+	got := ApplyVerifiedChanges(body, cs)
+	assert.Contains(t, got, "Default ACCOUNT_ID now set to 0 for tests")
+}
+
+func TestContainsIdentifier(t *testing.T) {
+	assert.True(t, containsIdentifier("* Added `COUNT` = `0`", "COUNT"))
+	assert.True(t, containsIdentifier("COUNT", "COUNT"))
+	assert.False(t, containsIdentifier("ACCOUNT_ID", "COUNT"))
+	assert.False(t, containsIdentifier("COUNT_MAX", "COUNT"))
+	assert.True(t, containsIdentifier("ACCOUNT then COUNT", "COUNT"))
+	assert.False(t, containsIdentifier("anything", ""))
+}
