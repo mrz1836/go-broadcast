@@ -222,9 +222,23 @@ func CountDiffLines(oldContent, newContent string) (added, removed int) {
 	return added, removed
 }
 
+// withGitHeader prefixes a non-empty synthetic diff with a "diff --git" header so
+// that concatenated multi-file synthetic diffs split into per-file sections exactly
+// like real git output. Without it, splitDiffIntoSections treats the whole diff as
+// one section attributed to the first file, so shell lines from a workflow YAML were
+// extracted as "config changes" of a preceding .env file.
+func withGitHeader(filename, diff string) string {
+	if diff == "" {
+		return ""
+	}
+	return "diff --git a/" + filename + " b/" + filename + "\n" + diff
+}
+
 // GenerateUnifiedDiff creates a unified diff from old/new content.
-// Output format matches git diff for AI model compatibility.
-// This is used to generate synthetic diffs in dry-run mode when no git repo is available.
+// Output format matches git diff (including the "diff --git" header) for AI model
+// compatibility and correct per-file section splitting.
+// This is used to generate synthetic diffs when no staged git diff is available
+// (dry-run mode, or after the sync commit has already been made).
 func GenerateUnifiedDiff(filename, oldContent, newContent string) string {
 	diff := difflib.UnifiedDiff{
 		A:        difflib.SplitLines(oldContent),
@@ -234,7 +248,7 @@ func GenerateUnifiedDiff(filename, oldContent, newContent string) string {
 		Context:  3,
 	}
 	result, _ := difflib.GetUnifiedDiffString(diff)
-	return result
+	return withGitHeader(filename, result)
 }
 
 // GenerateNewFileDiff creates a unified diff for a new file (all lines added).
@@ -247,7 +261,7 @@ func GenerateNewFileDiff(filename, content string) string {
 		Context:  3,
 	}
 	result, _ := difflib.GetUnifiedDiffString(diff)
-	return result
+	return withGitHeader(filename, result)
 }
 
 // GenerateDeletedFileDiff creates a unified diff for a deleted file (all lines removed).
@@ -260,5 +274,5 @@ func GenerateDeletedFileDiff(filename, originalContent string) string {
 		Context:  3,
 	}
 	result, _ := difflib.GetUnifiedDiffString(diff)
-	return result
+	return withGitHeader(filename, result)
 }
