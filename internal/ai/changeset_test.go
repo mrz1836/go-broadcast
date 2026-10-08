@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -321,4 +322,32 @@ func TestNormalizeVersionToken(t *testing.T) {
 	assert.Equal(t, "1.26.3", normalizeVersionToken("V1.26.3"))
 	assert.Equal(t, "1.26.3", normalizeVersionToken("1.26.3"))
 	assert.Equal(t, "1.26.3", normalizeVersionToken(" v1.26.3 "))
+}
+
+func TestExtractChangeset_SyntheticMultiFileDiff(t *testing.T) {
+	// Reproduces the garbage PR bullets: PR bodies are generated after the sync
+	// commit, so the synthetic diff is used. Without per-file "diff --git" headers
+	// the whole diff was one section attributed to the first (.env) file, and shell
+	// lines from the workflow YAML were extracted as config changes.
+	envDiff := GenerateUnifiedDiff(".github/env/20-workflows.env",
+		"DEPENDABOT_AUTO_MERGE_PATCH=true\n",
+		"DEPENDABOT_AUTO_MERGE_PATCH=true\nDEPENDABOT_AUTO_MERGE_PATCH_SAME_OWNER=true\n")
+	ymlDiff := GenerateUnifiedDiff(".github/workflows/dependabot-auto-merge.yml",
+		"steps:\n  - run: echo hi\n",
+		"steps:\n  - run: |\n      COUNT=0\n      SAME_OWNER=$SAME_OWNER_IN\n      echo hi\n")
+
+	full := envDiff + ymlDiff
+	require.Len(t, splitDiffIntoSections(full), 2)
+
+	cs := ExtractChangeset(full)
+	require.Len(t, cs.KeyChanges, 1)
+	assert.Equal(t, "DEPENDABOT_AUTO_MERGE_PATCH_SAME_OWNER", cs.KeyChanges[0].Key)
+	assert.Equal(t, ".github/env/20-workflows.env", cs.KeyChanges[0].File)
+}
+
+func TestGenerateSyntheticDiffs_HaveGitHeader(t *testing.T) {
+	assert.True(t, strings.HasPrefix(GenerateUnifiedDiff("a.env", "A=1\n", "A=2\n"), "diff --git a/a.env b/a.env\n"))
+	assert.True(t, strings.HasPrefix(GenerateNewFileDiff("n.env", "A=1\n"), "diff --git a/n.env b/n.env\n"))
+	assert.True(t, strings.HasPrefix(GenerateDeletedFileDiff("d.env", "A=1\n"), "diff --git a/d.env b/d.env\n"))
+	assert.Empty(t, GenerateUnifiedDiff("same.env", "A=1\n", "A=1\n"))
 }
