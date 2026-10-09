@@ -553,6 +553,7 @@ SELECT name, clone_url, ssh_url FROM repos;
 | `repo_id` | uint | Foreign key to `repos` |
 | `branch` | text | Branch name |
 | `blob_size_limit` | text | Max blob size limit |
+| `clone_mode` | text | How syncs clone the target: `sparse` (default when empty) or `full` |
 | `security_email` | text | Security contact email |
 | `support_email` | text | Support contact email |
 | `pr_labels` | text | JSON array of PR labels |
@@ -1383,9 +1384,16 @@ go-broadcast db target update \
   --security-email security@example.com \
   --support-email support@example.com \
   --json
+
+# Use a full clone instead of the default sparse clone when syncing this target
+go-broadcast db target update \
+  --group my-tools \
+  --repo owner/go-api \
+  --clone-mode full \
+  --json
 ```
 
-**Updatable fields:** `--branch`, `--pr-labels`, `--pr-assignees`, `--pr-reviewers`, `--security-email`, `--support-email`
+**Updatable fields:** `--branch`, `--pr-labels`, `--pr-assignees`, `--pr-reviewers`, `--security-email`, `--support-email`, `--clone-mode` (`sparse` or `full`; see [Clone Mode](configuration-guide.md#clone-mode))
 
 Omitted flags leave the existing value unchanged; passing an empty string clears the field.
 
@@ -1417,7 +1425,7 @@ go-broadcast db target clone \
 ```
 
 **What gets cloned:**
-- Target scalar fields: `branch`, `blob_size_limit`, `security_email`, `support_email`, `pr_labels`, `pr_assignees`, `pr_reviewers`, `pr_team_reviewers`
+- Target scalar fields: `branch`, `blob_size_limit`, `clone_mode`, `security_email`, `support_email`, `pr_labels`, `pr_assignees`, `pr_reviewers`, `pr_team_reviewers`
 - Inline file mappings (`src`, `dest`, `delete_flag`, `position`)
 - Inline directory mappings (`src`, `dest`, `exclude`, `include_only`, `preserve_structure`, `include_hidden`, `delete_flag`, `module_config`, `position`)
 - Target-level transform (`repo_name`, `variables`)

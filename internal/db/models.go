@@ -347,6 +347,7 @@ type Target struct {
 	RepoID          uint            `gorm:"index;not null" json:"repo_id"`
 	Branch          string          `gorm:"type:text" json:"branch"`
 	BlobSizeLimit   string          `gorm:"type:text" json:"blob_size_limit"`
+	CloneMode       string          `gorm:"type:text" json:"clone_mode"` // "sparse" (default when empty) or "full"
 	SecurityEmail   string          `gorm:"type:text" json:"security_email"`
 	SupportEmail    string          `gorm:"type:text" json:"support_email"`
 	PRLabels        JSONStringSlice `gorm:"type:text" json:"pr_labels"`

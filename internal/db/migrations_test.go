@@ -833,3 +833,45 @@ func TestRunMigrations_ConsolidateAnalyticsRepositories(t *testing.T) {
 	require.NotNil(t, got.LastSyncRunID)
 	require.Equal(t, uint(77), *got.LastSyncRunID)
 }
+
+// TestAutoMigrate_AddsTargetCloneModeColumn verifies that upgrading a database
+// created before targets.clone_mode existed adds the column without touching
+// existing rows, and that those rows read back with the default (empty) mode.
+func TestAutoMigrate_AddsTargetCloneModeColumn(t *testing.T) {
+	t.Parallel()
+
+	database := TestDB(t)
+
+	client := &Client{Name: "clone-mode-client"}
+	require.NoError(t, database.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "clone-mode-org"}
+	require.NoError(t, database.Create(org).Error)
+	repo := &Repo{OrganizationID: org.ID, Name: "clone-mode-repo"}
+	require.NoError(t, database.Create(repo).Error)
+	cfg := &Config{ExternalID: "clone-mode-cfg", Name: "Test", Version: 1}
+	require.NoError(t, database.Create(cfg).Error)
+	group := &Group{ConfigID: cfg.ID, ExternalID: "clone-mode-group", Name: "Test Group"}
+	require.NoError(t, database.Create(group).Error)
+	target := &Target{GroupID: group.ID, RepoID: repo.ID, Branch: "main", BlobSizeLimit: "10m"}
+	require.NoError(t, database.Create(target).Error)
+
+	// Simulate the pre-upgrade schema
+	require.NoError(t, database.Migrator().DropColumn(&Target{}, "clone_mode"))
+	require.False(t, database.Migrator().HasColumn(&Target{}, "clone_mode"))
+
+	require.NoError(t, AutoMigrate(database))
+	require.True(t, database.Migrator().HasColumn(&Target{}, "clone_mode"))
+
+	var stored Target
+	require.NoError(t, database.First(&stored, target.ID).Error)
+	assert.Empty(t, stored.CloneMode)
+	assert.Equal(t, "main", stored.Branch)
+	assert.Equal(t, "10m", stored.BlobSizeLimit)
+
+	// Existing rows remain updatable after the upgrade
+	stored.CloneMode = "full"
+	require.NoError(t, database.Save(&stored).Error)
+	var updated Target
+	require.NoError(t, database.First(&updated, target.ID).Error)
+	assert.Equal(t, "full", updated.CloneMode)
+}

@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/config"
 )
 
 // TestModelsHooks_ValidationErrors tests validation failures in hooks
@@ -627,5 +629,33 @@ func TestModelsHooks_TargetBeforeCreate(t *testing.T) {
 		require.Error(t, err)
 		require.ErrorIs(t, err, ErrValidationFailed)
 		assert.Contains(t, err.Error(), "repo_id")
+	})
+
+	t.Run("Supported clone modes", func(t *testing.T) {
+		for _, mode := range []string{"", config.CloneModeSparse, config.CloneModeFull} {
+			target := &Target{GroupID: group.ID, RepoID: repo.ID, CloneMode: mode}
+			require.NoError(t, db.Create(target).Error, "clone mode %q", mode)
+
+			var stored Target
+			require.NoError(t, db.First(&stored, target.ID).Error)
+			assert.Equal(t, mode, stored.CloneMode)
+		}
+	})
+
+	t.Run("Invalid clone mode on create", func(t *testing.T) {
+		target := &Target{GroupID: group.ID, RepoID: repo.ID, CloneMode: "shallow"}
+		err := db.Create(target).Error
+		require.ErrorIs(t, err, ErrValidationFailed)
+		require.ErrorIs(t, err, config.ErrInvalidCloneMode)
+	})
+
+	t.Run("Invalid clone mode on update", func(t *testing.T) {
+		target := &Target{GroupID: group.ID, RepoID: repo.ID}
+		require.NoError(t, db.Create(target).Error)
+
+		target.CloneMode = "FULL"
+		err := db.Save(target).Error
+		require.ErrorIs(t, err, ErrValidationFailed)
+		require.ErrorIs(t, err, config.ErrInvalidCloneMode)
 	})
 }

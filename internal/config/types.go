@@ -131,6 +131,7 @@ type TargetConfig struct {
 	Repo              string             `yaml:"repo"`                          // Format: org/repo
 	Branch            string             `yaml:"branch,omitempty"`              // Target branch for PR base (defaults to repo's default branch)
 	BlobSizeLimit     string             `yaml:"blob_size_limit,omitempty"`     // Override source blob size limit for partial clone
+	CloneMode         string             `yaml:"clone_mode,omitempty"`          // How the target is cloned to commit changes: "sparse" (default) or "full"
 	Files             []FileMapping      `yaml:"files,omitempty"`               // Files to sync
 	Directories       []DirectoryMapping `yaml:"directories,omitempty"`         // Directories to sync
 	FileListRefs      []string           `yaml:"file_list_refs,omitempty"`      // References to file lists by ID

@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"gorm.io/gorm"
 
+	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/db"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/logging"
@@ -19,6 +20,7 @@ import (
 type targetListResult struct {
 	Repo          string `json:"repo"`
 	Branch        string `json:"branch,omitempty"`
+	CloneMode     string `json:"clone_mode,omitempty"`
 	Position      int    `json:"position"`
 	GroupID       string `json:"group_id"`
 	SecurityEmail string `json:"security_email,omitempty"`
@@ -29,6 +31,7 @@ type targetListResult struct {
 type targetDetailResult struct {
 	Repo              string              `json:"repo"`
 	Branch            string              `json:"branch,omitempty"`
+	CloneMode         string              `json:"clone_mode,omitempty"`
 	PRLabels          []string            `json:"pr_labels,omitempty"`
 	PRAssignees       []string            `json:"pr_assignees,omitempty"`
 	PRReviewers       []string            `json:"pr_reviewers,omitempty"`
@@ -117,10 +120,11 @@ func runTargetList(ctx context.Context, groupExternalID string, jsonOutput bool)
 	for _, t := range targets {
 		repoName := resolveRepoName(ctx, gormDB, t.RepoID)
 		results = append(results, targetListResult{
-			Repo:     repoName,
-			Branch:   t.Branch,
-			Position: t.Position,
-			GroupID:  groupExternalID,
+			Repo:      repoName,
+			Branch:    t.Branch,
+			CloneMode: t.CloneMode,
+			Position:  t.Position,
+			GroupID:   groupExternalID,
 		})
 	}
 
@@ -141,6 +145,10 @@ func runTargetList(ctx context.Context, groupExternalID string, jsonOutput bool)
 		branch := r.Branch
 		if branch == "" {
 			branch = "(default)"
+		}
+		if r.CloneMode != "" {
+			output.Info(fmt.Sprintf("  %s (branch: %s, clone mode: %s)", r.Repo, branch, r.CloneMode))
+			continue
 		}
 		output.Info(fmt.Sprintf("  %s (branch: %s)", r.Repo, branch))
 	}
@@ -218,6 +226,7 @@ func buildTargetDetailResult(ctx context.Context, gormDB *gorm.DB, t *db.Target)
 	result := targetDetailResult{
 		Repo:            resolveRepoName(ctx, gormDB, t.RepoID),
 		Branch:          t.Branch,
+		CloneMode:       t.CloneMode,
 		PRLabels:        []string(t.PRLabels),
 		PRAssignees:     []string(t.PRAssignees),
 		PRReviewers:     []string(t.PRReviewers),
@@ -472,6 +481,7 @@ func newDBTargetUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&prReviewers, "pr-reviewers", "", "Comma-separated PR reviewers")
 	cmd.Flags().StringVar(&securityEmail, "security-email", "", "Set the security contact email (omit to leave unchanged)")
 	cmd.Flags().StringVar(&supportEmail, "support-email", "", "Set the support contact email (omit to leave unchanged)")
+	cmd.Flags().String("clone-mode", "", `How syncs clone this target: "sparse" (default, only changed files) or "full" (entire repository); empty resets to the default`)
 	_ = cmd.MarkFlagRequired("group")
 	_ = cmd.MarkFlagRequired("repo")
 	return cmd
@@ -520,10 +530,21 @@ func runTargetUpdate(cmd *cobra.Command, groupExternalID, repoFullName, branch, 
 	if cmd.Flags().Changed("support-email") {
 		target.SupportEmail = supportEmail
 	}
+	// Validated here for a friendly error; the DB-layer hook enforces it too.
+	if cmd.Flags().Changed("clone-mode") {
+		cloneMode, _ := cmd.Flags().GetString("clone-mode")
+		if err = config.ValidateCloneMode(cloneMode); err != nil {
+			return printErrorResponse("target", "updated", err.Error(),
+				fmt.Sprintf("use --clone-mode %s, --clone-mode %s, or --clone-mode \"\" to reset to the default", config.CloneModeSparse, config.CloneModeFull),
+				jsonOutput)
+		}
+		target.CloneMode = cloneMode
+	}
 
 	result := targetListResult{
 		Repo:          repoFullName,
 		Branch:        target.Branch,
+		CloneMode:     target.CloneMode,
 		Position:      target.Position,
 		GroupID:       groupExternalID,
 		SecurityEmail: target.SecurityEmail,
@@ -772,6 +793,7 @@ func runTargetClone(cmd *cobra.Command, groupExternalID, fromRepo, toRepo, branc
 			Data: targetListResult{
 				Repo:          toRepo,
 				Branch:        previewBranch,
+				CloneMode:     source.CloneMode,
 				Position:      len(targets),
 				GroupID:       groupExternalID,
 				SecurityEmail: resolvedSecurityEmail,
@@ -796,6 +818,7 @@ func runTargetClone(cmd *cobra.Command, groupExternalID, fromRepo, toRepo, branc
 	result := targetListResult{
 		Repo:          toRepo,
 		Branch:        newTarget.Branch,
+		CloneMode:     newTarget.CloneMode,
 		Position:      newTarget.Position,
 		GroupID:       groupExternalID,
 		SecurityEmail: newTarget.SecurityEmail,
@@ -836,6 +859,7 @@ func cloneTargetInTx(
 		RepoID:          destRepo.ID,
 		Branch:          source.Branch,
 		BlobSizeLimit:   source.BlobSizeLimit,
+		CloneMode:       source.CloneMode,
 		SecurityEmail:   securityEmail,
 		SupportEmail:    supportEmail,
 		PRLabels:        copyJSONStringSlice(source.PRLabels),

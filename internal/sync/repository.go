@@ -821,28 +821,8 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 	targetPath := filepath.Join(rs.tempDir, "target")
 	targetURL := fmt.Sprintf("https://github.com/%s.git", rs.target.Repo)
 
-	// Disable partial clone for target repo - we need full blob content for accurate diffs.
-	// Partial clone with lazy blob fetching can cause git diff to show wrong base content
-	// because blobs may be fetched from origin/HEAD (master) instead of origin/development.
-	// See: https://github.com/mrz1836/go-broadcast/issues/XXX for details.
-	opts := &git.CloneOptions{BlobSizeLimit: "0"} // "0" disables blob filtering
-
-	// Clone from the configured target branch (rs.target.Branch) to ensure the local diff
-	// matches what GitHub shows in the PR diff. This is critical for AI-generated descriptions.
-	// We intentionally do NOT clone from existing sync branches because:
-	// 1. Old sync branches may have been created from a different base branch
-	// 2. The PR diff is always relative to target branch, not old sync branches
-	// 3. Cloning from wrong base causes AI to describe incorrect changes
-	targetBranch := rs.target.Branch
-	if targetBranch != "" {
-		rs.logger.WithField("target_branch", targetBranch).Info("Cloning repository with target branch")
-		if err := rs.engine.git.CloneWithBranch(ctx, targetURL, targetPath, targetBranch, opts); err != nil {
-			return "", nil, fmt.Errorf("failed to clone target repository with branch %s: %w", targetBranch, err)
-		}
-	} else {
-		if err := rs.engine.git.Clone(ctx, targetURL, targetPath, opts); err != nil {
-			return "", nil, fmt.Errorf("failed to clone target repository: %w", err)
-		}
+	if err := rs.cloneTarget(ctx, targetURL, targetPath, changedFiles); err != nil {
+		return "", nil, err
 	}
 
 	// Create and checkout the new sync branch from the target branch
@@ -1046,6 +1026,85 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 	}
 
 	return commitSHA, actualChangedFiles, nil
+}
+
+// cloneTarget clones the target repository into targetPath for the commit phase.
+//
+// By default the clone is sparse (see git.CloneOptions.SparsePaths): shallow,
+// blobless, and materializing only the paths this sync touches, so its cost
+// scales with the number of changed files rather than the repository's size or
+// history. Staged diffs stay accurate: missing blobs are fetched by object ID,
+// which is content-addressed and cannot resolve to another branch's content.
+//
+// Targets configured with clone_mode "full" get a complete clone instead. If a
+// sparse clone succeeds but its sparse checkout cannot be set up (for example,
+// a git version without non-cone sparse-checkout support), it is retried as a
+// full clone so the sync still completes.
+func (rs *RepositorySync) cloneTarget(ctx context.Context, targetURL, targetPath string, changedFiles []FileChange) error {
+	fullOpts := &git.CloneOptions{BlobSizeLimit: "0"} // "0" disables blob filtering
+
+	if config.ResolveCloneMode(rs.target.CloneMode) == config.CloneModeFull {
+		rs.logger.WithField("clone_mode", config.CloneModeFull).Info("Cloning target repository")
+		return rs.cloneTargetWithOptions(ctx, targetURL, targetPath, fullOpts)
+	}
+
+	sparsePaths := rs.targetSparsePaths(changedFiles)
+	rs.logger.WithFields(logrus.Fields{
+		"clone_mode":   config.CloneModeSparse,
+		"sparse_paths": len(sparsePaths),
+	}).Info("Cloning target repository")
+
+	err := rs.cloneTargetWithOptions(ctx, targetURL, targetPath, &git.CloneOptions{SparsePaths: sparsePaths})
+	if err == nil || !errors.Is(err, git.ErrSparseCheckout) {
+		return err
+	}
+
+	rs.logger.WithError(err).Warn("Sparse checkout setup failed, falling back to a full clone of the target repository")
+	if rmErr := os.RemoveAll(targetPath); rmErr != nil {
+		return fmt.Errorf("failed to clean up target clone before full clone fallback: %w", rmErr)
+	}
+	return rs.cloneTargetWithOptions(ctx, targetURL, targetPath, fullOpts)
+}
+
+// cloneTargetWithOptions clones the configured target branch (rs.target.Branch),
+// or the remote's default branch when none is configured.
+//
+// Cloning from the configured target branch ensures the local diff matches what
+// GitHub shows in the PR diff, which is critical for AI-generated descriptions.
+// We intentionally do NOT clone from existing sync branches because:
+// 1. Old sync branches may have been created from a different base branch
+// 2. The PR diff is always relative to target branch, not old sync branches
+// 3. Cloning from wrong base causes AI to describe incorrect changes
+func (rs *RepositorySync) cloneTargetWithOptions(ctx context.Context, targetURL, targetPath string, opts *git.CloneOptions) error {
+	targetBranch := rs.target.Branch
+	if targetBranch != "" {
+		rs.logger.WithField("target_branch", targetBranch).Info("Cloning repository with target branch")
+		if err := rs.engine.git.CloneWithBranch(ctx, targetURL, targetPath, targetBranch, opts); err != nil {
+			return fmt.Errorf("failed to clone target repository with branch %s: %w", targetBranch, err)
+		}
+		return nil
+	}
+
+	if err := rs.engine.git.Clone(ctx, targetURL, targetPath, opts); err != nil {
+		return fmt.Errorf("failed to clone target repository: %w", err)
+	}
+	return nil
+}
+
+// targetSparsePaths returns every repository-relative path commitChanges reads
+// or writes in the target clone: all changed files (including deletions) and the
+// go.mod files touched by module reference updates. A sparse clone materializes
+// only these paths, so anything commitChanges touches must be listed here;
+// otherwise a deletion would fail to stage and a go.mod update would be skipped.
+func (rs *RepositorySync) targetSparsePaths(changedFiles []FileChange) []string {
+	paths := make([]string, 0, len(changedFiles)+len(rs.moduleUpdates))
+	for _, fileChange := range changedFiles {
+		paths = append(paths, fileChange.Path)
+	}
+	for _, update := range rs.moduleUpdates {
+		paths = append(paths, update.DestPath)
+	}
+	return paths
 }
 
 // pushChanges pushes the branch to the target repository

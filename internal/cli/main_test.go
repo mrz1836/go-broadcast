@@ -3,7 +3,9 @@ package cli
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -43,8 +45,22 @@ func TestMain(m *testing.M) {
 		return nil, errNoNetwork
 	}
 
+	// Never fall back to the developer's real database at db.DefaultPath().
+	// Commands that open the database (sync metrics, settings presets, db CRUD)
+	// run AutoMigrate on open, so a test reaching the default path would migrate
+	// the real database. Tests that need a database point dbPath at their own
+	// temporary file (see setupTestDB); everything else sees a missing database,
+	// exactly as on CI.
+	isolatedDBDir, err := os.MkdirTemp("", "go-broadcast-cli-test-db-*")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create isolated test database dir: %v\n", err)
+		os.Exit(1)
+	}
+	dbPath = filepath.Join(isolatedDBDir, "broadcast.db")
+
 	code := m.Run()
 	restoreAIEnv()
+	_ = os.RemoveAll(isolatedDBDir)
 
 	os.Exit(code)
 }

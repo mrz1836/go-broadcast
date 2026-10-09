@@ -179,24 +179,34 @@ func (g *gitClient) Clone(ctx context.Context, url, path string, opts *CloneOpti
 		return fmt.Errorf("%w: %s", ErrRepositoryExists, path)
 	}
 
-	// Build clone arguments
-	args := []string{"clone"}
-
-	// Add blob filter if specified and not "0"
-	if opts != nil && opts.BlobSizeLimit != "" && opts.BlobSizeLimit != "0" {
-		args = append(args, "--filter=blob:limit="+opts.BlobSizeLimit)
+	// Validate sparse paths before touching the network
+	sparsePatterns, err := sparsePatternsFor(opts)
+	if err != nil {
+		return err
 	}
 
+	// Build clone arguments
+	filterArgs := cloneFilterArgs(opts)
+	args := make([]string, 0, 3+len(filterArgs))
+	args = append(args, "clone")
+	args = append(args, filterArgs...)
 	args = append(args, url, path)
 
-	return g.cloneWithRetry(ctx, cloneRetry{
+	if err := g.cloneWithRetry(ctx, cloneRetry{
 		args:       args,
 		dest:       path,
 		url:        url,
 		retryWarn:  "Network error during git clone - retrying",
 		errContext: "clone repository",
 		failLabel:  "clone",
-	})
+	}); err != nil {
+		return err
+	}
+
+	if sparsePatterns == "" {
+		return nil
+	}
+	return g.configureSparseCheckout(ctx, path, sparsePatterns)
 }
 
 // CloneWithBranch clones a repository to the specified path with a specific branch.
@@ -213,24 +223,28 @@ func (g *gitClient) CloneWithBranch(ctx context.Context, url, path, branch strin
 		return g.Clone(ctx, url, path, opts)
 	}
 
+	// Validate sparse paths before touching the network
+	sparsePatterns, err := sparsePatternsFor(opts)
+	if err != nil {
+		return err
+	}
+
 	logger := logging.WithStandardFields(g.logger, g.logConfig, logging.ComponentNames.Git)
 	logger.WithFields(logrus.Fields{
 		"url":    url,
 		"path":   path,
 		"branch": branch,
+		"sparse": sparsePatterns != "",
 	}).Debug("Cloning repository with specific branch")
 
 	// Build clone arguments
-	args := []string{"clone"}
-
-	// Add blob filter if specified and not "0"
-	if opts != nil && opts.BlobSizeLimit != "" && opts.BlobSizeLimit != "0" {
-		args = append(args, "--filter=blob:limit="+opts.BlobSizeLimit)
-	}
-
+	filterArgs := cloneFilterArgs(opts)
+	args := make([]string, 0, 5+len(filterArgs))
+	args = append(args, "clone")
+	args = append(args, filterArgs...)
 	args = append(args, "--branch", branch, url, path)
 
-	return g.cloneWithRetry(ctx, cloneRetry{
+	if err := g.cloneWithRetry(ctx, cloneRetry{
 		args:       args,
 		dest:       path,
 		url:        url,
@@ -239,7 +253,14 @@ func (g *gitClient) CloneWithBranch(ctx context.Context, url, path, branch strin
 		successLog: "Successfully cloned repository with branch",
 		errContext: fmt.Sprintf("clone repository with branch %s", branch),
 		failLabel:  fmt.Sprintf("clone with branch %s", branch),
-	})
+	}); err != nil {
+		return err
+	}
+
+	if sparsePatterns == "" {
+		return nil
+	}
+	return g.configureSparseCheckout(ctx, path, sparsePatterns)
 }
 
 // CloneAtTag clones a repository at a specific tag with a shallow clone (depth 1).

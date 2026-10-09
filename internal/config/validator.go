@@ -53,7 +53,20 @@ var (
 	ErrInvalidRateLimitMargin = errors.New("rate_limit_preflight primary_margin_percent must be between 0 and 100")
 	// ErrInvalidRateLimitReserve indicates the secondary reserve is negative
 	ErrInvalidRateLimitReserve = errors.New("rate_limit_preflight secondary_reserve must be >= 0")
+	// ErrInvalidCloneMode indicates a target clone_mode value is not supported
+	ErrInvalidCloneMode = errors.New("invalid clone_mode")
 )
+
+// ValidateCloneMode checks that mode is empty (use the default) or a supported
+// target clone mode.
+func ValidateCloneMode(mode string) error {
+	switch mode {
+	case "", CloneModeSparse, CloneModeFull:
+		return nil
+	default:
+		return fmt.Errorf("%w %q: must be %q or %q", ErrInvalidCloneMode, mode, CloneModeSparse, CloneModeFull)
+	}
+}
 
 // containsPathTraversal checks if a path contains path traversal sequences.
 // It uses filepath.Clean to normalize the path and checks if it escapes the current directory.
@@ -660,6 +673,16 @@ func (t *TargetConfig) validateWithLogging(ctx context.Context, logConfig *loggi
 			}
 			return fmt.Errorf("invalid target branch name %q: %w", t.Branch, err)
 		}
+	}
+
+	if err := ValidateCloneMode(t.CloneMode); err != nil {
+		if logConfig != nil && logConfig.Debug.Config {
+			logger.WithFields(logrus.Fields{
+				"clone_mode":                     t.CloneMode,
+				logging.StandardFields.ErrorType: "invalid_clone_mode",
+			}).Error("Invalid target clone mode")
+		}
+		return err
 	}
 
 	if logConfig != nil && logConfig.Debug.Config {

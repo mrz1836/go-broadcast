@@ -259,6 +259,7 @@ func (c *Converter) exportTargets(dbTargets []Target, reverseRefs *reverseRefMap
 			Repo:              dbTarget.RepoRef.Organization.Name + "/" + dbTarget.RepoRef.Name,
 			Branch:            dbTarget.Branch,
 			BlobSizeLimit:     dbTarget.BlobSizeLimit,
+			CloneMode:         dbTarget.CloneMode,
 			SecurityEmail:     dbTarget.SecurityEmail,
 			SupportEmail:      dbTarget.SupportEmail,
 			Files:             c.exportFileMappings(dbTarget.FileMappings),

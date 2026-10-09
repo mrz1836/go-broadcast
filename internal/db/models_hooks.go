@@ -5,6 +5,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/validation"
 )
 
@@ -96,6 +97,9 @@ func (t *Target) BeforeCreate(_ *gorm.DB) error {
 		return fmt.Errorf("%w: %w", ErrValidationFailed, err)
 	}
 	if err := validation.ValidateEmail(t.SupportEmail, "support_email"); err != nil {
+		return fmt.Errorf("%w: %w", ErrValidationFailed, err)
+	}
+	if err := config.ValidateCloneMode(t.CloneMode); err != nil {
 		return fmt.Errorf("%w: %w", ErrValidationFailed, err)
 	}
 	return nil
