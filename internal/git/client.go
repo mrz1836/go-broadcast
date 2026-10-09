@@ -18,7 +18,24 @@ type CloneOptions struct {
 	// Uses git's --filter=blob:limit=<size> option.
 	// Examples: "10m" (10 megabytes), "1g" (1 gigabyte)
 	// Use "0" or empty string to disable filtering (clone all blobs).
+	// Ignored when SparsePaths is set.
 	BlobSizeLimit string
+
+	// SparsePaths, when non-empty, makes Clone and CloneWithBranch perform a
+	// minimal clone for editing a known set of files: shallow (--depth 1),
+	// blobless (--filter=blob:none), single-branch, without tags, and with a
+	// non-cone sparse checkout that materializes only these repository-relative
+	// file paths. Paths that do not exist yet (new files) are allowed.
+	//
+	// The index still holds the full tree, so staging, diffing, committing and
+	// pushing behave exactly as in a full clone; the contents of files outside
+	// SparsePaths are simply never downloaded. Git refuses to stage or remove
+	// paths outside SparsePaths, so callers must list every path they touch.
+	//
+	// If the sparse checkout cannot be set up after cloning, the clone directory
+	// is removed and the error wraps ErrSparseCheckout, so callers can retry
+	// with a regular clone. CloneAtTag ignores this option.
+	SparsePaths []string
 }
 
 // Client defines the interface for Git operations

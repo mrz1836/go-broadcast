@@ -623,6 +623,7 @@ func (c *Converter) importTargets(tx *gorm.DB, groupID uint, targets []config.Ta
 			RepoID:          repoID,
 			Branch:          target.Branch,
 			BlobSizeLimit:   target.BlobSizeLimit,
+			CloneMode:       target.CloneMode,
 			SecurityEmail:   target.SecurityEmail,
 			SupportEmail:    target.SupportEmail,
 			PRLabels:        stringSliceToJSON(target.PRLabels),

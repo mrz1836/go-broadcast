@@ -90,3 +90,33 @@ func TestGitClient_FullWorkflow_Integration(t *testing.T) {
 		assert.Equal(t, "https://github.com/octocat/Hello-World.git", url)
 	})
 }
+
+// TestGitClient_SparseClone_GitHub_Integration verifies that GitHub serves the
+// shallow, blobless, sparse clones used for sync targets.
+func TestGitClient_SparseClone_GitHub_Integration(t *testing.T) {
+	client, err := NewClient(logrus.New(), &logging.LogConfig{})
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	repoPath := filepath.Join(t.TempDir(), "spoon-knife")
+
+	err = client.CloneWithBranch(ctx, "https://github.com/octocat/Spoon-Knife.git", repoPath, "main",
+		&CloneOptions{SparsePaths: []string{"README.md"}})
+	require.NoError(t, err)
+
+	entries, err := os.ReadDir(repoPath)
+	require.NoError(t, err)
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	assert.ElementsMatch(t, []string{".git", "README.md"}, names, "only the requested path should be checked out")
+
+	out, err := exec.CommandContext(ctx, "git", "-C", repoPath, "status", "--porcelain").Output() //nolint:gosec // repoPath is from t.TempDir()
+	require.NoError(t, err)
+	assert.Empty(t, string(out), "unrequested files must not appear deleted")
+
+	out, err = exec.CommandContext(ctx, "git", "-C", repoPath, "rev-parse", "--is-shallow-repository").Output() //nolint:gosec // repoPath is from t.TempDir()
+	require.NoError(t, err)
+	assert.Equal(t, "true\n", string(out))
+}

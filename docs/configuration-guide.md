@@ -136,6 +136,25 @@ targets:
       repo_name: true
     pr_labels: ["service-specific"]
     pr_assignees: ["owner"]
+    clone_mode: "sparse"           # How the target is cloned to commit changes (optional, default: sparse)
+```
+
+#### Clone Mode
+
+To commit changes, go-broadcast clones each target repository. `clone_mode` controls how:
+
+| Value | Behavior |
+|-------|----------|
+| `sparse` (default) | Shallow (`--depth 1`), blobless (`--filter=blob:none`) clone that checks out only the files the sync changes. Cost scales with the number of changed files, not the repository's size or history, so large repositories sync as fast as small ones. |
+| `full` | Complete clone with full history and every file checked out. Slower; use it only as an escape hatch if a repository misbehaves with sparse clones. |
+
+Commits, staged diffs (used for AI commit messages and PR descriptions) and pushes are identical in both modes; the index always holds the full tree. If a sparse checkout cannot be set up (for example, git older than 2.35), go-broadcast logs a warning and falls back to a full clone automatically.
+
+Set it per target from the database CLI:
+
+```bash
+go-broadcast db target update --group my-group --repo org/target-repo --clone-mode full
+go-broadcast db target update --group my-group --repo org/target-repo --clone-mode ""   # back to the default
 ```
 
 ## Settings Hierarchy

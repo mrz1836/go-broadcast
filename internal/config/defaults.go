@@ -6,6 +6,27 @@ package config
 // Use "0" to disable filtering and clone all blobs.
 const DefaultBlobSizeLimit = "10m"
 
+// Target clone modes (see TargetConfig.CloneMode). They control how a target
+// repository is cloned when a sync commits changes to it.
+const (
+	// CloneModeSparse makes a shallow, blobless clone that checks out only the
+	// files the sync changes, so cost scales with the change rather than the
+	// repository's size or history. This is the default.
+	CloneModeSparse = "sparse"
+
+	// CloneModeFull makes a complete clone with full history and working tree.
+	CloneModeFull = "full"
+)
+
+// ResolveCloneMode returns the effective clone mode for a configured value,
+// treating an empty value as the default (CloneModeSparse).
+func ResolveCloneMode(mode string) string {
+	if mode == "" {
+		return CloneModeSparse
+	}
+	return mode
+}
+
 // Rate-limit preflight defaults (see RateLimitPreflightConfig). These match the
 // conservative defaults agreed for the sync preflight gate: keep 20% of the
 // live primary budget as headroom, and reserve 10 of the documented 80/min

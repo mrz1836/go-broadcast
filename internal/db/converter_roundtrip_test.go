@@ -99,6 +99,7 @@ func TestConverterFullRoundTrip(t *testing.T) {
 						Repo:              "mrz1836/target1",
 						Branch:            "develop",
 						BlobSizeLimit:     "50MB",
+						CloneMode:         config.CloneModeFull,
 						SecurityEmail:     "sec@target1.com",
 						SupportEmail:      "sup@target1.com",
 						PRLabels:          []string{"target-label1", "target-label2"},
@@ -199,6 +200,8 @@ func TestConverterFullRoundTrip(t *testing.T) {
 	target1 := group1.Targets[0]
 	assert.Equal(t, "mrz1836/target1", target1.Repo)
 	assert.Equal(t, "develop", target1.Branch)
+	assert.Equal(t, config.CloneModeFull, target1.CloneMode)
+	assert.Empty(t, group1.Targets[1].CloneMode, "unset clone_mode must round-trip as empty (default)")
 	assert.Len(t, target1.FileListRefs, 1)
 	assert.Len(t, target1.DirectoryListRefs, 1)
 	assert.Len(t, target1.Files, 1)
