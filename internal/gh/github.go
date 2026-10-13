@@ -245,12 +245,23 @@ func (g *githubClient) setAssignees(ctx context.Context, repo string, prNumber i
 		return appErrors.WrapWithContext(err, "marshal assignee data")
 	}
 
-	_, err = g.runner.RunWithInput(ctx, jsonData, "gh", "api", fmt.Sprintf("repos/%s/issues/%d/assignees", repo, prNumber), "--method", "POST", "--input", "-")
-	if err != nil {
+	if err = g.postIdempotent(ctx, fmt.Sprintf("repos/%s/issues/%d/assignees", repo, prNumber), jsonData); err != nil {
 		return appErrors.WrapWithContext(err, "set PR assignees")
 	}
 
 	return nil
+}
+
+// postIdempotent POSTs jsonData to endpoint, retrying transient GitHub failures.
+//
+// Only use it for endpoints where repeating a request that already landed is a
+// no-op (adding assignees, reviewers or labels). These calls run moments after
+// the PR is created, which is exactly when GitHub is most likely to blip.
+func (g *githubClient) postIdempotent(ctx context.Context, endpoint string, jsonData []byte) error {
+	return rateLimitedDoIf(ctx, 0, isTransientServerError, func() error {
+		_, err := g.runner.RunWithInput(ctx, jsonData, "gh", "api", endpoint, "--method", "POST", "--input", "-")
+		return err
+	})
 }
 
 // setReviewers sets reviewers and team reviewers for a pull request
@@ -270,8 +281,7 @@ func (g *githubClient) setReviewers(ctx context.Context, repo string, prNumber i
 		return appErrors.WrapWithContext(err, "marshal reviewer data")
 	}
 
-	_, err = g.runner.RunWithInput(ctx, jsonData, "gh", "api", fmt.Sprintf("repos/%s/pulls/%d/requested_reviewers", repo, prNumber), "--method", "POST", "--input", "-")
-	if err != nil {
+	if err = g.postIdempotent(ctx, fmt.Sprintf("repos/%s/pulls/%d/requested_reviewers", repo, prNumber), jsonData); err != nil {
 		return appErrors.WrapWithContext(err, "set PR reviewers")
 	}
 
@@ -289,8 +299,7 @@ func (g *githubClient) setLabels(ctx context.Context, repo string, prNumber int,
 		return appErrors.WrapWithContext(err, "marshal label data")
 	}
 
-	_, err = g.runner.RunWithInput(ctx, jsonData, "gh", "api", fmt.Sprintf("repos/%s/issues/%d/labels", repo, prNumber), "--method", "POST", "--input", "-")
-	if err != nil {
+	if err = g.postIdempotent(ctx, fmt.Sprintf("repos/%s/issues/%d/labels", repo, prNumber), jsonData); err != nil {
 		return appErrors.WrapWithContext(err, "set PR labels")
 	}
 
@@ -530,13 +539,19 @@ func isNotFoundError(err error) bool {
 // otherwise perfectly valid, and gh surfaces them verbatim (e.g. "gh: Server Error
 // (HTTP 502)"). Retrying these is safe as long as the caller reconciles
 // non-idempotent writes - see CreatePR.
+//
+// When an error response arrives with a JSON content type but an empty body, gh
+// fails while parsing it and prints only the raw decoder error ("unexpected end
+// of JSON input"), dropping the status code. That is a GitHub-side blip, not a
+// rejection of the request, so it is treated as transient too.
 func isTransientServerError(err error) bool {
 	if err == nil {
 		return false
 	}
 
 	errStr := strings.ToLower(err.Error())
-	return strings.Contains(errStr, "502") ||
+	return strings.Contains(errStr, "unexpected end of json input") ||
+		strings.Contains(errStr, "502") ||
 		strings.Contains(errStr, "503") ||
 		strings.Contains(errStr, "504") ||
 		strings.Contains(errStr, "server error") ||
