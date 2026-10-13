@@ -199,6 +199,9 @@ func (g *PRBodyGenerator) generateFromAI(ctx context.Context, prCtx *PRContext) 
 	// Make the extracted changes the single source of truth: strip model bullets that
 	// merely restate a covered version, then insert the authoritative verified list.
 	guarded = ApplyVerifiedChanges(guarded, changeset)
+	// Keep every list tight: one stray blank line between bullets makes GitHub
+	// render the entire list with paragraph spacing.
+	guarded = tightenLists(guarded)
 
 	// The guard can, in pathological cases, remove enough content to break the
 	// required structure. Re-validate and fall back if so.
