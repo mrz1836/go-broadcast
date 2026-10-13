@@ -178,6 +178,74 @@ func TestApplyVerifiedChanges_KeepsBulletWithSubstringKey(t *testing.T) {
 	assert.Contains(t, got, "Default ACCOUNT_ID now set to 0 for tests")
 }
 
+func TestApplyVerifiedChanges_ThenTighten_SingleTightList(t *testing.T) {
+	// Reproduces the loose What Changed list: the verified block was inserted above
+	// the model's bullets with a blank line between them, so GitHub rendered every
+	// bullet in the section as a spaced-out paragraph.
+	cs := &Changeset{KeyChanges: []KeyChange{
+		{File: "a.env", Key: "MAGE_X_VERSION", Old: "v1.28.0", New: "v1.29.0", Kind: ChangeModified},
+		{File: "a.env", Key: "OSV_SCANNER_VERSION", Old: "v2.6.0", New: "v2.7.0", Kind: ChangeModified},
+	}}
+	body := "## What Changed\n\n" +
+		"* Replaced `interface{}` with `any` in documentation examples\n" +
+		"* Updated benchmark example to use `for b.Loop()`\n\n" +
+		"## Why It Was Necessary\n\n* Keep repos aligned"
+
+	got := tightenLists(ApplyVerifiedChanges(body, cs))
+
+	want := "## What Changed\n\n" +
+		"* `MAGE_X_VERSION`: `v1.28.0` → `v1.29.0` (`a.env`)\n" +
+		"* `OSV_SCANNER_VERSION`: `v2.6.0` → `v2.7.0` (`a.env`)\n" +
+		"* Replaced `interface{}` with `any` in documentation examples\n" +
+		"* Updated benchmark example to use `for b.Loop()`\n\n" +
+		"## Why It Was Necessary\n\n* Keep repos aligned"
+	assert.Equal(t, want, got)
+}
+
+func TestTightenLists(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "removes blank lines between bullets",
+			in:   "## A\n\n* one\n\n* two\n\n\n- three\n\n## B\n\n* x",
+			want: "## A\n\n* one\n* two\n- three\n\n## B\n\n* x",
+		},
+		{
+			name: "removes blank lines between ordered and nested items",
+			in:   "1. one\n\n2. two\n\n   * nested\n\n3. three",
+			want: "1. one\n2. two\n   * nested\n3. three",
+		},
+		{
+			name: "keeps blank line before a paragraph",
+			in:   "* one\n\nA closing paragraph.\n\n* two",
+			want: "* one\n\nA closing paragraph.\n\n* two",
+		},
+		{
+			name: "does not treat bold text as a bullet",
+			in:   "* one\n\n**Note**: something",
+			want: "* one\n\n**Note**: something",
+		},
+		{
+			name: "leaves fenced code blocks untouched",
+			in:   "* one\n\n```\n- a\n\n- b\n```\n\n* two",
+			want: "* one\n\n```\n- a\n\n- b\n```\n\n* two",
+		},
+		{
+			name: "empty body",
+			in:   "",
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tightenLists(tt.in))
+		})
+	}
+}
+
 func TestContainsIdentifier(t *testing.T) {
 	assert.True(t, containsIdentifier("* Added `COUNT` = `0`", "COUNT"))
 	assert.True(t, containsIdentifier("COUNT", "COUNT"))

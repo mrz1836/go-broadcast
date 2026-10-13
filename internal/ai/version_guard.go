@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"regexp"
 	"strings"
 )
 
@@ -201,6 +202,44 @@ func insertUnderWhatChanged(body, block string) string {
 	}
 	insertAt := idx + nl + 1
 	return body[:insertAt] + "\n" + block + "\n" + body[insertAt:]
+}
+
+// listItemRe matches a Markdown bullet or ordered list item at any indentation.
+var listItemRe = regexp.MustCompile(`^\s*(?:[*+-]|\d+[.)])\s`)
+
+// tightenLists removes blank lines that separate consecutive list items. CommonMark
+// renders a list as "loose" when ANY two of its items are separated by a blank
+// line, and GitHub then wraps every item in a paragraph, spacing the whole list
+// out. This happens when the verified block is inserted above the model's own
+// bullets, or when the model emits blank lines between bullets. Blank lines
+// between a list item and non-list content are kept (removing them would fold the
+// following paragraph into the last item), and fenced code blocks are untouched.
+func tightenLists(body string) string {
+	lines := strings.Split(body, "\n")
+	out := make([]string, 0, len(lines))
+	inFence := false
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "```") {
+			inFence = !inFence
+		}
+		if !inFence && trimmed == "" && len(out) > 0 &&
+			listItemRe.MatchString(out[len(out)-1]) && nextNonBlankIsListItem(lines[i+1:]) {
+			continue
+		}
+		out = append(out, line)
+	}
+	return strings.Join(out, "\n")
+}
+
+// nextNonBlankIsListItem reports whether the first non-blank line is a list item.
+func nextNonBlankIsListItem(lines []string) bool {
+	for _, line := range lines {
+		if strings.TrimSpace(line) != "" {
+			return listItemRe.MatchString(line)
+		}
+	}
+	return false
 }
 
 // collapseBlankRuns compresses runs of 3+ blank lines (which can appear after the
