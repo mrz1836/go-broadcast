@@ -40,6 +40,17 @@ func serverError() error {
 	return &CommandError{Stderr: "gh: Server Error (HTTP 502)\n"}
 }
 
+// emptyBodyError builds the error gh returns when GitHub sends an error status
+// with an empty JSON body - gh fails to parse it and loses the status code
+func emptyBodyError() error {
+	return &CommandError{Stderr: "unexpected end of JSON input\n"}
+}
+
+// assigneesArgs is the argument list used when assigning users to PR 42
+func assigneesArgs() []string {
+	return []string{"api", "repos/org/repo/issues/42/assignees", "--method", "POST", "--input", "-"}
+}
+
 func testPRRequest() PRRequest {
 	return PRRequest{
 		Title: "Test PR",
@@ -281,6 +292,57 @@ func TestCreatePR_RespectsContextCancellation(t *testing.T) {
 	mockRunner.AssertNumberOfCalls(t, "RunWithInput", 1)
 }
 
+// TestCreatePR_RetriesAssigneesOnEmptyErrorBody covers a GitHub blip right after PR
+// creation that previously left the PR without its configured assignees.
+func TestCreatePR_RetriesAssigneesOnEmptyErrorBody(t *testing.T) {
+	useFastRetries(t)
+
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	req := testPRRequest()
+	req.Assignees = []string{"user1"}
+
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", createPRArgs()).
+		Return(marshalPR(t, PR{Number: 42, State: "open"}), nil).Once()
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", assigneesArgs()).
+		Return(nil, emptyBodyError()).Once()
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", assigneesArgs()).
+		Return([]byte(`{}`), nil).Once()
+
+	result, err := client.CreatePR(ctx, "org/repo", req)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestCreatePR_DoesNotRetryPermanentAssigneeFailure ensures an invalid assignee
+// (HTTP 422) is not retried - it cannot succeed and would only add backoff delay.
+func TestCreatePR_DoesNotRetryPermanentAssigneeFailure(t *testing.T) {
+	useFastRetries(t)
+
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	req := testPRRequest()
+	req.Assignees = []string{"not-a-collaborator"}
+
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", createPRArgs()).
+		Return(marshalPR(t, PR{Number: 42, State: "open"}), nil).Once()
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", assigneesArgs()).
+		Return(nil, &CommandError{Stderr: "gh: Validation Failed (HTTP 422)"})
+
+	result, err := client.CreatePR(ctx, "org/repo", req)
+	require.NoError(t, err, "assignee failures are logged, not fatal")
+	require.NotNil(t, result)
+
+	// One create, one assignee attempt
+	mockRunner.AssertNumberOfCalls(t, "RunWithInput", 2)
+}
+
 func TestIsTransientServerError(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -295,6 +357,7 @@ func TestIsTransientServerError(t *testing.T) {
 		{name: "connection reset", err: &CommandError{Stderr: "connection reset by peer"}, expected: true},
 		{name: "connection refused", err: &CommandError{Stderr: "connection refused"}, expected: true},
 		{name: "request timeout", err: &CommandError{Stderr: "request timeout"}, expected: true},
+		{name: "empty error body", err: emptyBodyError(), expected: true},
 		{name: "422 validation failed", err: &CommandError{Stderr: "gh: Validation Failed (HTTP 422)"}, expected: false},
 		{name: "404 not found", err: &CommandError{Stderr: "gh: Not Found (HTTP 404)"}, expected: false},
 		{name: "403 forbidden", err: &CommandError{Stderr: "gh: Forbidden (HTTP 403)"}, expected: false},
