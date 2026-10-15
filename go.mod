@@ -54,7 +54,7 @@ require (
 	github.com/pb33f/go-yaml v0.1.1 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.2 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/stretchr/objx v0.5.3 // indirect
+	github.com/stretchr/objx v0.8.0 // indirect
 	github.com/tidwall/gjson v1.20.0 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
 	github.com/tidwall/pretty v1.2.2 // indirect
@@ -75,9 +75,9 @@ require (
 	golang.org/x/net v0.61.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
-	google.golang.org/api v0.301.0 // indirect
-	google.golang.org/genai v1.73.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20261005182115-fad411399dd8 // indirect
+	google.golang.org/api v0.304.0 // indirect
+	google.golang.org/genai v1.75.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20261012220534-4341edf3f941 // indirect
 	google.golang.org/grpc v1.84.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	modernc.org/libc v1.78.0 // indirect
