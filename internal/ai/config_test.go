@@ -48,7 +48,7 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	// Provider defaults
 	assert.Equal(t, ProviderAnthropic, cfg.Provider)
 	assert.Empty(t, cfg.APIKey)
-	assert.Equal(t, "claude-sonnet-4-5-20250929", cfg.Model) // default model for anthropic
+	assert.Equal(t, "claude-sonnet-5-5", cfg.Model) // default model for anthropic
 
 	// Generation parameters
 	assert.Equal(t, 2000, cfg.MaxTokens)
@@ -236,7 +236,7 @@ func TestLoadConfig_DefaultModel(t *testing.T) {
 		{
 			name:          "Anthropic default model",
 			provider:      "anthropic",
-			expectedModel: "claude-sonnet-4-5-20250929",
+			expectedModel: "claude-sonnet-5-5",
 		},
 		{
 			name:          "OpenAI default model",
@@ -422,7 +422,7 @@ func TestGetDefaultModel(t *testing.T) {
 		provider      string
 		expectedModel string
 	}{
-		{ProviderAnthropic, "claude-sonnet-4-5-20250929"},
+		{ProviderAnthropic, "claude-sonnet-5-5"},
 		{ProviderOpenAI, "gpt-5.2"},
 		{ProviderGoogle, "gemini-3.1-pro-preview"},
 		{"unknown", ""},

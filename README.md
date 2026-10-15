@@ -1459,7 +1459,7 @@ export ANTHROPIC_API_KEY=sk-ant-...
 **Supported Providers:**
 | Provider | Env Var | Default Model |
 |----------|---------|---------------|
-| Anthropic | `ANTHROPIC_API_KEY` | claude-sonnet-4-5-20250929 |
+| Anthropic | `ANTHROPIC_API_KEY` | claude-sonnet-5-5 |
 | OpenAI | `OPENAI_API_KEY` | gpt-5.2 |
 | Google | `GEMINI_API_KEY` | gemini-3-pro-preview |
 
