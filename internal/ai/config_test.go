@@ -48,7 +48,7 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	// Provider defaults
 	assert.Equal(t, ProviderAnthropic, cfg.Provider)
 	assert.Empty(t, cfg.APIKey)
-	assert.Equal(t, "claude-sonnet-4-5-20250929", cfg.Model) // default model for anthropic
+	assert.Equal(t, "claude-sonnet-5-5", cfg.Model) // default model for anthropic
 
 	// Generation parameters
 	assert.Equal(t, 2000, cfg.MaxTokens)
@@ -77,7 +77,7 @@ func TestLoadConfig_AllEnvVars(t *testing.T) {
 	t.Setenv("GO_BROADCAST_AI_COMMIT_ENABLED", "false")
 	t.Setenv("GO_BROADCAST_AI_PROVIDER", "openai")
 	t.Setenv("GO_BROADCAST_AI_API_KEY", "test-api-key")
-	t.Setenv("GO_BROADCAST_AI_MODEL", "gpt-4-turbo")
+	t.Setenv("GO_BROADCAST_AI_MODEL", "gpt-6-astra")
 	t.Setenv("GO_BROADCAST_AI_MAX_TOKENS", "4000")
 	t.Setenv("GO_BROADCAST_AI_TIMEOUT", "60")
 	t.Setenv("GO_BROADCAST_AI_TEMPERATURE", "0.7")
@@ -98,7 +98,7 @@ func TestLoadConfig_AllEnvVars(t *testing.T) {
 	assert.False(t, cfg.CommitEnabled)
 	assert.Equal(t, "openai", cfg.Provider)
 	assert.Equal(t, "test-api-key", cfg.APIKey)
-	assert.Equal(t, "gpt-4-turbo", cfg.Model)
+	assert.Equal(t, "gpt-6-astra", cfg.Model)
 	assert.Equal(t, 4000, cfg.MaxTokens)
 	assert.Equal(t, 60*time.Second, cfg.Timeout)
 	assert.InDelta(t, 0.7, cfg.Temperature, 0.001)
@@ -236,17 +236,17 @@ func TestLoadConfig_DefaultModel(t *testing.T) {
 		{
 			name:          "Anthropic default model",
 			provider:      "anthropic",
-			expectedModel: "claude-sonnet-4-5-20250929",
+			expectedModel: "claude-sonnet-5-5",
 		},
 		{
 			name:          "OpenAI default model",
 			provider:      "openai",
-			expectedModel: "gpt-5.2",
+			expectedModel: "gpt-6.1-sol",
 		},
 		{
 			name:          "Google default model",
 			provider:      "google",
-			expectedModel: "gemini-3.1-pro-preview",
+			expectedModel: "gemini-4-argon",
 		},
 		{
 			name:          "Unknown provider empty model",
@@ -269,11 +269,11 @@ func TestLoadConfig_DefaultModel(t *testing.T) {
 
 func TestLoadConfig_CustomModelOverridesDefault(t *testing.T) {
 	t.Setenv("GO_BROADCAST_AI_PROVIDER", "anthropic")
-	t.Setenv("GO_BROADCAST_AI_MODEL", "claude-3-opus")
+	t.Setenv("GO_BROADCAST_AI_MODEL", "claude-opus-5-5")
 
 	cfg := LoadConfig()
 
-	assert.Equal(t, "claude-3-opus", cfg.Model)
+	assert.Equal(t, "claude-opus-5-5", cfg.Model)
 }
 
 func TestConfig_IsEnabled(t *testing.T) {
@@ -422,9 +422,9 @@ func TestGetDefaultModel(t *testing.T) {
 		provider      string
 		expectedModel string
 	}{
-		{ProviderAnthropic, "claude-sonnet-4-5-20250929"},
-		{ProviderOpenAI, "gpt-5.2"},
-		{ProviderGoogle, "gemini-3.1-pro-preview"},
+		{ProviderAnthropic, "claude-sonnet-5-5"},
+		{ProviderOpenAI, "gpt-6.1-sol"},
+		{ProviderGoogle, "gemini-4-argon"},
 		{"unknown", ""},
 		{"", ""},
 	}

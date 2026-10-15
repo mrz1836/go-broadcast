@@ -19,8 +19,8 @@ func TestGetModelPath_AllProviders(t *testing.T) {
 		{
 			name:         "Anthropic with custom model",
 			provider:     ProviderAnthropic,
-			model:        "claude-3-opus",
-			expectedPath: "anthropic/claude-3-opus",
+			model:        "claude-opus-5-5",
+			expectedPath: "anthropic/claude-opus-5-5",
 		},
 		{
 			name:         "Anthropic with empty model uses default",
@@ -31,8 +31,8 @@ func TestGetModelPath_AllProviders(t *testing.T) {
 		{
 			name:         "OpenAI with custom model",
 			provider:     ProviderOpenAI,
-			model:        "gpt-4-turbo",
-			expectedPath: "openai/gpt-4-turbo",
+			model:        "gpt-6-astra",
+			expectedPath: "openai/gpt-6-astra",
 		},
 		{
 			name:         "OpenAI with empty model uses default",
@@ -43,8 +43,8 @@ func TestGetModelPath_AllProviders(t *testing.T) {
 		{
 			name:         "Google with custom model",
 			provider:     ProviderGoogle,
-			model:        "gemini-1.5-pro",
-			expectedPath: "googleai/gemini-1.5-pro",
+			model:        "gemini-3.8-flash",
+			expectedPath: "googleai/gemini-3.8-flash",
 		},
 		{
 			name:         "Google with empty model uses default",
@@ -76,7 +76,7 @@ func TestNewGenkitProvider_MissingAPIKey(t *testing.T) {
 	cfg := &Config{
 		Provider: ProviderAnthropic,
 		APIKey:   "",
-		Model:    "claude-3-sonnet",
+		Model:    "claude-haiku-5-5",
 	}
 
 	provider, err := NewGenkitProvider(context.Background(), cfg, nil)

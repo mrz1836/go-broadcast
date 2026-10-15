@@ -81,11 +81,11 @@ const (
 func GetDefaultModel(provider string) string {
 	switch provider {
 	case ProviderAnthropic:
-		return "claude-sonnet-4-5-20250929"
+		return "claude-sonnet-5-5"
 	case ProviderOpenAI:
-		return "gpt-5.2"
+		return "gpt-6.1-sol"
 	case ProviderGoogle:
-		return "gemini-3.1-pro-preview"
+		return "gemini-4-argon"
 	default:
 		return ""
 	}
