@@ -481,6 +481,76 @@ func TestEngineNeedsSync(t *testing.T) {
 	})
 }
 
+// TestEngineNeedsSync_OpenPRForSourceCommit covers re-running a partially failed
+// sync: targets that already got their PR must be skipped, the rest retried.
+func TestEngineNeedsSync_OpenPRForSourceCommit(t *testing.T) {
+	const (
+		sourceCommit  = "fc9be838da3b4a35400474ae571d8f3bd26d52c2"
+		currentBranch = "chore/sync-files-target-20261018-012835-fc9be83"
+		olderBranch   = "chore/sync-files-target-20261014-172556-968bacd"
+	)
+
+	syncBranch := func(name, commit string) state.SyncBranch {
+		return state.SyncBranch{Name: name, Metadata: &state.BranchMetadata{CommitSHA: commit}}
+	}
+	openPR := func(number int, branch string) gh.PR {
+		pr := gh.PR{Number: number, State: "open"}
+		pr.Head.Ref = branch
+		return pr
+	}
+
+	tests := []struct {
+		name        string
+		targetState *state.TargetState
+		expected    bool
+	}{
+		{
+			name: "open PR already built from the current commit is skipped",
+			targetState: &state.TargetState{
+				Status:       state.StatusPending,
+				SyncBranches: []state.SyncBranch{syncBranch(currentBranch, "fc9be83")},
+				OpenPRs:      []gh.PR{openPR(106, currentBranch)},
+			},
+			expected: false,
+		},
+		{
+			name: "open PR from an older commit is still updated",
+			targetState: &state.TargetState{
+				Status:       state.StatusPending,
+				SyncBranches: []state.SyncBranch{syncBranch(olderBranch, "968bacd")},
+				OpenPRs:      []gh.PR{openPR(98, olderBranch)},
+			},
+			expected: true,
+		},
+		{
+			name: "pushed branch for the current commit without a PR is retried",
+			targetState: &state.TargetState{
+				Status: state.StatusPending,
+				SyncBranches: []state.SyncBranch{
+					syncBranch(olderBranch, "968bacd"),
+					syncBranch(currentBranch, "fc9be83"),
+				},
+				OpenPRs: []gh.PR{openPR(98, olderBranch)},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			engine := &Engine{options: DefaultOptions(), logger: logrus.New()}
+			require.True(t, engine.options.UpdateExistingPRs, "guard must hold even when updating PRs is enabled")
+
+			currentState := &state.State{
+				Source:  state.SourceState{LatestCommit: sourceCommit},
+				Targets: map[string]*state.TargetState{"org/target": tt.targetState},
+			}
+
+			assert.Equal(t, tt.expected, engine.needsSync(config.TargetConfig{Repo: "org/target"}, currentState))
+		})
+	}
+}
+
 func TestEngineWithDryRun(t *testing.T) {
 	cfg := &config.Config{
 		Groups: []config.Group{{
@@ -1601,4 +1671,51 @@ func TestEngineSyncRateLimitPreflightZeroWrites(t *testing.T) {
 	// Zero writes: the gate returns before any state discovery or PR creation.
 	stateDiscoverer.AssertNotCalled(t, "DiscoverState", mock.Anything, mock.Anything)
 	ghClient.AssertNotCalled(t, "CreatePR", mock.Anything, mock.Anything, mock.Anything)
+}
+
+// TestPrintSyncSummary verifies a partially failed run lists every target and
+// tells the user how to retry only what failed.
+func TestPrintSyncSummary(t *testing.T) {
+	t.Run("partial failure lists every target and the retry hint", func(t *testing.T) {
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		printSyncSummary("my-group", "fc9be838da3b4a35400474ae571d8f3bd26d52c2", []RepoOutcome{
+			{Repo: "org/atlas", Status: RepoStatusFailed, Err: fmt.Errorf("connect: operation timed out\n")}, //nolint:err113 // test fixture
+			{Repo: "org/hush", Status: RepoStatusSuccess, PRURL: "https://github.com/org/hush/pull/106"},
+			{Repo: "org/lucid", Status: RepoStatusSuccess},
+		})
+
+		stdout := scope.Stdout.String()
+		stderr := scope.Stderr.String()
+
+		assert.Contains(t, stdout, `Sync summary for group "my-group": 2 succeeded, 1 failed`)
+		assert.Contains(t, stdout, "✓ org/hush  https://github.com/org/hush/pull/106")
+		assert.Contains(t, stdout, "✓ org/lucid  already in sync, no PR needed")
+		assert.Contains(t, stderr, "✗ org/atlas  connect: operation timed out\n")
+		assert.Contains(t, stderr, "open sync PR for fc9be83 are skipped")
+		assert.Contains(t, stderr, "append them to the command: org/atlas")
+	})
+
+	t.Run("full success prints no retry hint", func(t *testing.T) {
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		printSyncSummary("my-group", "fc9be83", []RepoOutcome{
+			{Repo: "org/hush", Status: RepoStatusSuccess, PRURL: "https://github.com/org/hush/pull/106"},
+		})
+
+		assert.Contains(t, scope.Stdout.String(), "1 succeeded, 0 failed")
+		assert.NotContains(t, scope.Stderr.String(), "retry")
+	})
+
+	t.Run("nothing processed prints nothing", func(t *testing.T) {
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		printSyncSummary("my-group", "fc9be83", nil)
+
+		assert.Empty(t, scope.Stdout.String())
+		assert.Empty(t, scope.Stderr.String())
+	})
 }

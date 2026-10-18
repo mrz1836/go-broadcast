@@ -559,6 +559,10 @@ func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, tar
 		log.WithError(err).WithField("error_index", i+1).Error("Individual sync failure")
 	}
 
+	if !e.options.DryRun {
+		printSyncSummary(group.Name, currentState.Source.LatestCommit, progress.Outcomes())
+	}
+
 	if results.Failed > 0 {
 		// If context was canceled/timeout, include context information in the error
 		if hasContextError.Load() {
@@ -587,6 +591,54 @@ func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, tar
 	}
 
 	return nil
+}
+
+// printSyncSummary prints one line per repository so a partially failed run shows
+// exactly which targets got their PR and which still need to be retried.
+func printSyncSummary(groupName, sourceCommit string, outcomes []RepoOutcome) {
+	if len(outcomes) == 0 {
+		return
+	}
+
+	failed := make([]string, 0, len(outcomes))
+	for _, o := range outcomes {
+		if o.Status == RepoStatusFailed {
+			failed = append(failed, o.Repo)
+		}
+	}
+
+	output.Info(fmt.Sprintf("\nSync summary for group %q: %d succeeded, %d failed",
+		groupName, len(outcomes)-len(failed), len(failed)))
+
+	for _, o := range outcomes {
+		switch {
+		case o.Status == RepoStatusFailed:
+			reason := "unknown error"
+			if o.Err != nil {
+				reason = strings.TrimSpace(o.Err.Error())
+			}
+			output.Error(fmt.Sprintf("  ✗ %s  %s", o.Repo, reason))
+		case o.PRURL != "":
+			output.Success(fmt.Sprintf("  ✓ %s  %s", o.Repo, o.PRURL))
+		default:
+			output.Success(fmt.Sprintf("  ✓ %s  already in sync, no PR needed", o.Repo))
+		}
+	}
+
+	if len(failed) == 0 {
+		return
+	}
+
+	shortCommit := sourceCommit
+	if len(shortCommit) > 7 {
+		shortCommit = shortCommit[:7]
+	}
+
+	output.Warn(fmt.Sprintf(
+		"To retry, re-run the same command: targets that already have an open sync PR for %s are skipped.\n"+
+			"To retry only the failed targets, append them to the command: %s",
+		shortCommit, strings.Join(failed, " "),
+	))
 }
 
 // filterGroupTargets determines which targets need to be synced based on filters, group, and current state
@@ -689,7 +741,17 @@ func (e *Engine) needsSync(target config.TargetConfig, currentState *state.State
 	case state.StatusBehind:
 		return true
 	case state.StatusPending:
-		// PR is open, check if we should update it
+		// An open sync PR built from the current source commit already carries this
+		// sync. Syncing again would push a second branch and open a duplicate PR, so
+		// skipping it is what makes re-running a partially failed sync safe.
+		if pr := openSyncPRForCommit(targetState, currentState.Source.LatestCommit); pr != nil {
+			e.logger.WithFields(logrus.Fields{
+				"repo":      target.Repo,
+				"pr_number": pr.Number,
+			}).Info("Target already has an open sync PR for the current source commit, skipping")
+			return false
+		}
+		// PR is open for an older commit, check if we should update it
 		return e.options.UpdateExistingPRs
 	case state.StatusConflict:
 		// Conflicts require manual intervention
@@ -699,6 +761,33 @@ func (e *Engine) needsSync(target config.TargetConfig, currentState *state.State
 		// Unknown status, err on the side of caution and sync
 		return true
 	}
+}
+
+// openSyncPRForCommit returns the target's open sync PR whose branch was generated
+// from sourceCommit, or nil when there is none.
+//
+// Sync branch names carry only the short source SHA, so it is matched as a prefix
+// of the full commit.
+func openSyncPRForCommit(targetState *state.TargetState, sourceCommit string) *gh.PR {
+	if targetState == nil || sourceCommit == "" {
+		return nil
+	}
+
+	branchCommits := make(map[string]string, len(targetState.SyncBranches))
+	for _, branch := range targetState.SyncBranches {
+		if branch.Metadata != nil {
+			branchCommits[branch.Name] = branch.Metadata.CommitSHA
+		}
+	}
+
+	for i := range targetState.OpenPRs {
+		commit := branchCommits[targetState.OpenPRs[i].Head.Ref]
+		if commit != "" && strings.HasPrefix(sourceCommit, commit) {
+			return &targetState.OpenPRs[i]
+		}
+	}
+
+	return nil
 }
 
 // syncRepository handles synchronization for a single repository
@@ -745,6 +834,9 @@ func (e *Engine) syncRepository(ctx context.Context, target config.TargetConfig,
 
 	log.Info("Repository sync completed successfully")
 	progress.RecordSuccess(target.Repo)
+	if repoSync.lastPRURL != "" {
+		progress.RecordPRURL(target.Repo, repoSync.lastPRURL)
+	}
 	return nil
 }
 
