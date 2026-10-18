@@ -35,6 +35,7 @@
 #  - Every commit must be authored by dependabot[bot] and signed by GitHub
 #  - The base branch must require status checks, so nothing merges before CI
 #  - A push to the PR by anyone else revokes the bot approval and disarms auto-merge
+#    (even when the analysis fails, e.g. because fetch-metadata rejects the commits)
 #  - The approval and auto-merge are pinned to the analyzed head commit
 #
 #  Maintainer: @mrz1836
@@ -749,6 +750,8 @@ jobs:
       #      non-Dependabot actor) → revoke: dismiss the bot approval and
       #      disarm auto-merge. Auto-merge persists across pushes, so without
       #      this a later human/bot push could ride an earlier approval.
+      #      The `apply` job enforces this from the event as well, so the
+      #      revocation still happens if an earlier step here fails.
       #   2. Only runs Dependabot itself triggered may approve.
       #   3. Every commit must be authored by dependabot[bot], committed by
       #      GitHub (web-flow) and carry a verified signature. Author emails
@@ -1126,6 +1129,8 @@ jobs:
           DEPENDENCY_TYPE: ${{ steps.metadata.outputs.dependency-type }}
           ACTION: ${{ steps.guard.outputs.action }}
           APP_CLIENT_ID: ${{ vars.AUTO_MERGE_APP_CLIENT_ID }}
+          # Mirrors the `apply` job's revoke condition, which holds even if this job fails
+          FOREIGN_PUSH: ${{ github.event.action == 'synchronize' && github.actor != 'dependabot[bot]' }}
         run: |
           echo "📊 Generating workflow summary..."
 
@@ -1148,7 +1153,7 @@ jobs:
             *)                             ACTION_DESC="❓ Unknown action" ;;
           esac
 
-          if [[ "$ACTION" == auto-merge-* || "$ACTION" == "revoke-foreign-push" ]]; then
+          if [[ "$ACTION" == auto-merge-* || "$FOREIGN_PUSH" == "true" ]]; then
             if [[ -n "$APP_CLIENT_ID" ]]; then
               APPLY_DESC="Handled by the **apply** job (GitHub App) — see its summary below."
             else
@@ -1238,9 +1243,18 @@ jobs:
   apply:
     name: 🚀 Approve & arm auto-merge
     needs: analyze
+    # Approving requires a successful analysis. Revoking does NOT: a foreign push is
+    # detected from the event itself, because it usually makes `analyze` fail (e.g.
+    # dependabot/fetch-metadata rejects PRs with non-Dependabot commits), which would
+    # otherwise skip this job and leave an earlier approval + auto-merge armed.
     if: |
+      !cancelled() &&
       vars.AUTO_MERGE_APP_CLIENT_ID != '' &&
-      (startsWith(needs.analyze.outputs.action, 'auto-merge-') || needs.analyze.outputs.action == 'revoke-foreign-push')
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      (
+        (github.event.action == 'synchronize' && github.actor != 'dependabot[bot]') ||
+        (needs.analyze.result == 'success' && startsWith(needs.analyze.outputs.action, 'auto-merge-'))
+      )
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     environment:
@@ -1268,7 +1282,7 @@ jobs:
       # --------------------------------------------------------------------
       - name: 🚀 Approve and arm auto-merge
         id: approve
-        if: startsWith(needs.analyze.outputs.action, 'auto-merge-')
+        if: needs.analyze.result == 'success' && startsWith(needs.analyze.outputs.action, 'auto-merge-')
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           APP_BOT: ${{ steps.app-token.outputs.app-slug }}[bot]
@@ -1318,8 +1332,10 @@ jobs:
           # timeline doesn't fill with duplicate reviews.
           echo "Step 1: Approving PR..."
           echo "────────────────────────────────────────────────────────────────"
-          LATEST_APP_REVIEW=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews" \
-            --jq ".[] | select(.user.login == \"$APP_BOT\") | .state" | tail -n 1)
+          # Checked assignment (no pipe) so a failed review listing stops the step.
+          APP_REVIEW_STATES=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews" \
+            --jq ".[] | select(.user.login == \"$APP_BOT\") | .state")
+          LATEST_APP_REVIEW=$(tail -n 1 <<< "$APP_REVIEW_STATES")
           if [[ "$LATEST_APP_REVIEW" == "APPROVED" ]]; then
             echo "✅ Already approved by $APP_BOT — skipping re-approval"
           elif gh api -X POST "repos/$REPO/pulls/$PR_NUMBER/reviews" \
@@ -1361,10 +1377,11 @@ jobs:
 
       # --------------------------------------------------------------------
       # Revoke: someone other than Dependabot pushed to this PR
+      # (keyed off the event, not the analyze output — see the job-level if:)
       # --------------------------------------------------------------------
       - name: 🚫 Revoke approval and disarm auto-merge
         id: revoke
-        if: needs.analyze.outputs.action == 'revoke-foreign-push'
+        if: github.event.action == 'synchronize' && github.actor != 'dependabot[bot]'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           APP_BOT: ${{ steps.app-token.outputs.app-slug }}[bot]
@@ -1384,15 +1401,17 @@ jobs:
             echo "ℹ️ Auto-merge was not enabled"
           fi
 
+          # Checked assignment (not process substitution) so a failed review listing
+          # fails the step instead of being reported as a successful revocation.
+          APPROVAL_IDS=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews" \
+            --jq ".[] | select(.user.login == \"$APP_BOT\" and .state == \"APPROVED\") | .id")
           DISMISSED=0
-          while read -r REVIEW_ID; do
-            [[ -z "$REVIEW_ID" ]] && continue
+          for REVIEW_ID in $APPROVAL_IDS; do
             gh api -X PUT "repos/$REPO/pulls/$PR_NUMBER/reviews/$REVIEW_ID/dismissals" \
               -f event=DISMISS \
               -f message="Revoked: @$PUSHER pushed to this Dependabot PR, so it needs a human review." --silent
             DISMISSED=$((DISMISSED + 1))
-          done < <(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews" \
-            --jq ".[] | select(.user.login == \"$APP_BOT\" and .state == \"APPROVED\") | .id")
+          done
           echo "🧹 Dismissed $DISMISSED approval(s) by $APP_BOT"
 
           if [[ "$ARMED" == "true" || "$DISMISSED" -gt 0 ]]; then
