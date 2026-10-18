@@ -898,6 +898,8 @@ fi
 
 // TestGetBranch_OtherCommandError tests GetBranch with non-404 command errors
 func TestGetBranch_OtherCommandError(t *testing.T) {
+	useFastRetries(t)
+
 	ctx := context.Background()
 	mockRunner := new(MockCommandRunner)
 	client := NewClientWithRunner(mockRunner, logrus.New())

@@ -81,9 +81,25 @@ func NewClient(ctx context.Context, logger *logrus.Logger, logConfig *logging.Lo
 	}, nil
 }
 
+// getIdempotent runs a read-only gh command, retrying transient GitHub and network
+// failures.
+//
+// Reads are safe to repeat, and one dropped connection should not fail a sync
+// target - especially late in a target's sync, after its branch is already pushed
+// and only the PR is left to open.
+func (g *githubClient) getIdempotent(ctx context.Context, args ...string) ([]byte, error) {
+	var output []byte
+	err := rateLimitedDoIf(ctx, 0, isTransientServerError, func() error {
+		var runErr error
+		output, runErr = g.runner.Run(ctx, "gh", args...)
+		return runErr
+	})
+	return output, err
+}
+
 // ListBranches returns all branches for a repository
 func (g *githubClient) ListBranches(ctx context.Context, repo string) ([]Branch, error) {
-	output, err := g.runner.Run(ctx, "gh", "api", fmt.Sprintf("repos/%s/branches", repo), "--paginate")
+	output, err := g.getIdempotent(ctx, "api", fmt.Sprintf("repos/%s/branches", repo), "--paginate")
 	if err != nil {
 		return nil, appErrors.WrapWithContext(err, "list branches")
 	}
@@ -98,7 +114,7 @@ func (g *githubClient) ListBranches(ctx context.Context, repo string) ([]Branch,
 
 // GetBranch returns details for a specific branch
 func (g *githubClient) GetBranch(ctx context.Context, repo, branch string) (*Branch, error) {
-	output, err := g.runner.Run(ctx, "gh", "api", fmt.Sprintf("repos/%s/branches/%s", repo, branch))
+	output, err := g.getIdempotent(ctx, "api", fmt.Sprintf("repos/%s/branches/%s", repo, branch))
 	if err != nil {
 		if isNotFoundError(err) {
 			return nil, ErrBranchNotFound
@@ -308,7 +324,7 @@ func (g *githubClient) setLabels(ctx context.Context, repo string, prNumber int,
 
 // GetPR retrieves a pull request by number
 func (g *githubClient) GetPR(ctx context.Context, repo string, number int) (*PR, error) {
-	output, err := g.runner.Run(ctx, "gh", "api", fmt.Sprintf("repos/%s/pulls/%d", repo, number))
+	output, err := g.getIdempotent(ctx, "api", fmt.Sprintf("repos/%s/pulls/%d", repo, number))
 	if err != nil {
 		if isNotFoundError(err) {
 			return nil, ErrPRNotFound
@@ -331,9 +347,7 @@ func (g *githubClient) ListPRs(ctx context.Context, repo, state string) ([]PR, e
 		apiURL += fmt.Sprintf("?state=%s", state)
 	}
 
-	args := []string{"api", apiURL, "--paginate"}
-
-	output, err := g.runner.Run(ctx, "gh", args...)
+	output, err := g.getIdempotent(ctx, "api", apiURL, "--paginate")
 	if err != nil {
 		return nil, appErrors.WrapWithContext(err, "list PRs")
 	}
@@ -353,7 +367,7 @@ func (g *githubClient) GetFile(ctx context.Context, repo, path, ref string) (*Fi
 		url += fmt.Sprintf("?ref=%s", ref)
 	}
 
-	output, err := g.runner.Run(ctx, "gh", "api", url)
+	output, err := g.getIdempotent(ctx, "api", url)
 	if err != nil {
 		if isNotFoundError(err) {
 			return nil, ErrFileNotFound
@@ -381,7 +395,7 @@ func (g *githubClient) GetFile(ctx context.Context, repo, path, ref string) (*Fi
 
 // GetCommit retrieves commit details
 func (g *githubClient) GetCommit(ctx context.Context, repo, sha string) (*Commit, error) {
-	output, err := g.runner.Run(ctx, "gh", "api", fmt.Sprintf("repos/%s/commits/%s", repo, sha))
+	output, err := g.getIdempotent(ctx, "api", fmt.Sprintf("repos/%s/commits/%s", repo, sha))
 	if err != nil {
 		if isNotFoundError(err) {
 			return nil, ErrCommitNotFound
@@ -478,7 +492,7 @@ func (g *githubClient) GetCurrentUser(ctx context.Context) (*User, error) {
 	}
 	g.mu.RUnlock()
 
-	output, err := g.runner.Run(ctx, "gh", "api", "user")
+	output, err := g.getIdempotent(ctx, "api", "user")
 	if err != nil {
 		return nil, appErrors.WrapWithContext(err, "get current user")
 	}
@@ -503,7 +517,7 @@ func (g *githubClient) GetGitTree(ctx context.Context, repo, treeSHA string, rec
 		apiURL += "?recursive=1"
 	}
 
-	output, err := g.runner.Run(ctx, "gh", "api", apiURL)
+	output, err := g.getIdempotent(ctx, "api", apiURL)
 	if err != nil {
 		if isNotFoundError(err) {
 			return nil, fmt.Errorf("%w: %s", ErrGitTreeNotFound, treeSHA)
@@ -544,6 +558,10 @@ func isNotFoundError(err error) bool {
 // fails while parsing it and prints only the raw decoder error ("unexpected end
 // of JSON input"), dropping the status code. That is a GitHub-side blip, not a
 // rejection of the request, so it is treated as transient too.
+//
+// Network failures that never reached GitHub are transient as well. Note that a
+// connect timeout reads "connect: operation timed out" on macOS, which does not
+// contain "timeout", so both spellings are matched.
 func isTransientServerError(err error) bool {
 	if err == nil {
 		return false
@@ -559,8 +577,13 @@ func isTransientServerError(err error) bool {
 		strings.Contains(errStr, "service unavailable") ||
 		strings.Contains(errStr, "gateway timeout") ||
 		strings.Contains(errStr, "timeout") ||
+		strings.Contains(errStr, "timed out") ||
 		strings.Contains(errStr, "connection reset") ||
-		strings.Contains(errStr, "connection refused")
+		strings.Contains(errStr, "connection refused") ||
+		strings.Contains(errStr, "network is unreachable") ||
+		strings.Contains(errStr, "no route to host") ||
+		strings.Contains(errStr, "no such host") ||
+		strings.Contains(errStr, "unexpected eof")
 }
 
 // findOpenPRByHead returns the open PR whose head branch matches branch, or nil
