@@ -10,7 +10,7 @@
 #
 #  Triggers:
 #  - Completion of "Auto-merge Trigger" (auto-merge-trigger.yml), which runs on
-#    pull request reviews (submitted) and pull request state changes
+#    pull request reviews (submitted, dismissed) and pull request state changes
 #    (ready_for_review, review_request_removed)
 #
 #  Why two workflows: review events always run the PR's own copy of a workflow,
