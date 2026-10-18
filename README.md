@@ -400,6 +400,50 @@ go-broadcast sync --config sync.yaml --ignore-rate-limit-preflight --confirm-sco
 
 <br/>
 
+### Sync a single repository (and retry a partially failed sync)
+
+Any repositories passed as arguments narrow the run to just those targets. This
+works with `--groups`, `--from-db`, `--automerge`, and every other `sync` flag, and
+is the safest way to retry a target that failed in a larger run:
+
+```bash
+# Preview, then sync, one repository from a group
+go-broadcast sync --dry-run --groups "core" --from-db org/service-a
+go-broadcast sync --groups "core" --from-db org/service-a
+
+# Retry several failed targets at once
+go-broadcast sync --automerge --groups "core" --from-db org/service-a org/service-b
+```
+
+When a run finishes, go-broadcast prints a summary with one line per repository,
+so a partial failure shows exactly what landed and what did not:
+
+```
+Sync summary for group "core": 2 succeeded, 1 failed
+  ✓ org/service-b  https://github.com/org/service-b/pull/106
+  ✓ org/service-c  already in sync, no PR needed
+  ✗ org/service-a  failed to create/update PR: ... connect: operation timed out
+To retry, re-run the same command: targets that already have an open sync PR for abc123f are skipped.
+To retry only the failed targets, append them to the command: org/service-a
+```
+
+Either retry is safe:
+
+- **Re-running the whole command** skips any target that already has an open sync
+  PR for the current source commit, so it will not open duplicate PRs. Targets
+  with an open PR from an *older* commit are still synced as usual.
+- **Appending the failed repositories** limits the run to exactly those targets.
+
+If a target failed after its branch was pushed but before its PR was opened, the
+retry creates a fresh branch and PR. The leftover branch is deleted automatically
+by a later sync once it is more than an hour old and still has no PR.
+
+Transient network and GitHub errors (timeouts, dropped connections, 5xx responses)
+are retried automatically (up to 3 attempts with backoff), so a single blip rarely
+fails a target in the first place.
+
+<br/>
+
 ### Install [MAGE-X](https://github.com/mrz1836/mage-x) build tool
 Want to contribute to go-broadcast? Use MAGE-X for building, testing, linting, and more.
 
