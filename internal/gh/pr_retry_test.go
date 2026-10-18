@@ -46,6 +46,14 @@ func emptyBodyError() error {
 	return &CommandError{Stderr: "unexpected end of JSON input\n"}
 }
 
+// connectTimeoutError builds the error gh returns on macOS when the TCP connection
+// to GitHub cannot be established - it says "timed out", never "timeout"
+func connectTimeoutError() error {
+	return &CommandError{
+		Stderr: `Get "https://api.github.com/repos/org/repo/branches/main": dial tcp 140.82.114.6:443: connect: operation timed out` + "\n",
+	}
+}
+
 // assigneesArgs is the argument list used when assigning users to PR 42
 func assigneesArgs() []string {
 	return []string{"api", "repos/org/repo/issues/42/assignees", "--method", "POST", "--input", "-"}
@@ -357,6 +365,10 @@ func TestIsTransientServerError(t *testing.T) {
 		{name: "connection reset", err: &CommandError{Stderr: "connection reset by peer"}, expected: true},
 		{name: "connection refused", err: &CommandError{Stderr: "connection refused"}, expected: true},
 		{name: "request timeout", err: &CommandError{Stderr: "request timeout"}, expected: true},
+		{name: "macOS connect timeout", err: connectTimeoutError(), expected: true},
+		{name: "i/o timeout", err: &CommandError{Stderr: "dial tcp 140.82.114.6:443: i/o timeout"}, expected: true},
+		{name: "network unreachable", err: &CommandError{Stderr: "dial tcp 140.82.114.6:443: connect: network is unreachable"}, expected: true},
+		{name: "dns lookup failure", err: &CommandError{Stderr: "dial tcp: lookup api.github.com: no such host"}, expected: true},
 		{name: "empty error body", err: emptyBodyError(), expected: true},
 		{name: "422 validation failed", err: &CommandError{Stderr: "gh: Validation Failed (HTTP 422)"}, expected: false},
 		{name: "404 not found", err: &CommandError{Stderr: "gh: Not Found (HTTP 404)"}, expected: false},
@@ -369,6 +381,48 @@ func TestIsTransientServerError(t *testing.T) {
 			assert.Equal(t, tt.expected, isTransientServerError(tt.err))
 		})
 	}
+}
+
+// TestGetBranch_RetriesConnectTimeout covers a sync target that failed after its
+// branch was pushed because one base-branch check hit a dropped connection.
+func TestGetBranch_RetriesConnectTimeout(t *testing.T) {
+	useFastRetries(t)
+
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	args := []string{"api", "repos/org/repo/branches/main"}
+	mockRunner.On("Run", ctx, "gh", args).
+		Return(nil, connectTimeoutError()).Once()
+	mockRunner.On("Run", ctx, "gh", args).
+		Return([]byte(`{"name":"main"}`), nil).Once()
+
+	branch, err := client.GetBranch(ctx, "org/repo", "main")
+	require.NoError(t, err)
+	require.NotNil(t, branch)
+	assert.Equal(t, "main", branch.Name)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestGetBranch_DoesNotRetryNotFound ensures a missing branch is reported at once
+// rather than after the retry backoff.
+func TestGetBranch_DoesNotRetryNotFound(t *testing.T) {
+	useFastRetries(t)
+
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/branches/main"}).
+		Return(nil, &CommandError{Stderr: "gh: Not Found (HTTP 404)"})
+
+	branch, err := client.GetBranch(ctx, "org/repo", "main")
+	require.ErrorIs(t, err, ErrBranchNotFound)
+	assert.Nil(t, branch)
+
+	mockRunner.AssertNumberOfCalls(t, "Run", 1)
 }
 
 // TestRateLimitedDoIf covers the retry predicate in isolation
