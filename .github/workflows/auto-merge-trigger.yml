@@ -11,7 +11,7 @@
 #  PR from the API, and is the only workflow that can use the GitHub App key.
 #
 #  Triggers:
-#  - Pull request reviews (submitted)
+#  - Pull request reviews (submitted, dismissed)
 #  - Pull request state changes (ready_for_review, review_request_removed)
 #
 #  Maintainer: @mrz1836
@@ -25,7 +25,9 @@ name: Auto-merge Trigger
 # --------------------------------------------------------------------
 on:
   pull_request_review:
-    types: [submitted]
+    # `dismissed`: dismissing a "Changes Requested" review must wake the evaluator,
+    # or auto-merge stays disabled even once the remaining approvals satisfy policy.
+    types: [submitted, dismissed]
   pull_request:
     types: [ready_for_review, review_request_removed]
 
@@ -42,14 +44,19 @@ jobs:
     # Event gate: skip review events that can't meaningfully
     # change the auto-merge decision.
     #
-    # `pull_request_review:submitted` fires for ALL review states —
-    # "approved", "changes_requested", "commented", and "dismissed".
-    # Only the first two affect auto-merge state. A skipped run
-    # finishes as "skipped", which the evaluator ignores, so a pure
-    # "commented" review costs no evaluation at all.
+    # `pull_request_review:submitted` fires for every review state —
+    # "approved", "changes_requested" and "commented". Only the first
+    # two affect auto-merge state. A skipped run finishes as
+    # "skipped", which the evaluator ignores, so a pure "commented"
+    # review costs no evaluation at all.
+    #
+    # `pull_request_review:dismissed` always passes: the payload only
+    # carries state "dismissed" (not what was dismissed), and removing
+    # an approval or a "Changes Requested" review can flip the decision.
     # ----------------------------------------------------------------
     if: |
       github.event_name != 'pull_request_review' ||
+      github.event.action == 'dismissed' ||
       contains(fromJSON('["approved", "changes_requested"]'), github.event.review.state)
     runs-on: ubuntu-26.04
     timeout-minutes: 2
