@@ -67,7 +67,7 @@ Delete the `.pem` file from your machine afterwards. To rotate the key, generate
 | The apply job fails at **Create GitHub App token** | The App isn't installed on this repository, or the environment secret is missing or wrong. |
 | *Branch "…" is not allowed to deploy to auto-merge* | The PR's base branch isn't listed in the `auto-merge` environment's deployment branches. |
 | The analysis ends in `skip-no-required-checks` | The base branch doesn't require any status checks. |
-| The analysis ends in `skip-foreign-commits` or `revoke-foreign-push` | Someone other than Dependabot pushed to the PR, so it needs a human review. |
+| The analysis ends in `skip-foreign-commits` or `revoke-foreign-push`, or fails at **Fetch Dependabot metadata** after a push | Someone other than Dependabot pushed to the PR, so it needs a human review. The apply job still revokes the bot approval and disarms auto-merge. |
 | The PR is approved, but auto-merge waits forever | The ruleset requires a review the App can't satisfy (for example, code owner review), or an extra approval rule applies. |
 
 <br>
