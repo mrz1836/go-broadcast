@@ -2,6 +2,7 @@ package sync
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -18,6 +19,7 @@ type ProgressTracker struct {
 	skipped    int
 	errors     map[string]error
 	repoStatus map[string]RepoStatus
+	prURLs     map[string]string
 	startTime  time.Time
 	dryRun     bool
 	lastError  error
@@ -57,12 +59,21 @@ type Results struct {
 	DryRun     bool
 }
 
+// RepoOutcome is the final state of one repository in a sync operation
+type RepoOutcome struct {
+	Repo   string
+	Status RepoStatus
+	PRURL  string // empty when no PR was created or updated
+	Err    error
+}
+
 // NewProgressTracker creates a new progress tracker
 func NewProgressTracker(totalRepos int, dryRun bool) *ProgressTracker {
 	return &ProgressTracker{
 		totalRepos: totalRepos,
 		errors:     make(map[string]error),
 		repoStatus: make(map[string]RepoStatus),
+		prURLs:     make(map[string]string),
 		startTime:  time.Now(),
 		dryRun:     dryRun,
 	}
@@ -74,6 +85,7 @@ func NewProgressTrackerWithGroup(totalRepos int, dryRun bool, groupName, groupID
 		totalRepos: totalRepos,
 		errors:     make(map[string]error),
 		repoStatus: make(map[string]RepoStatus),
+		prURLs:     make(map[string]string),
 		startTime:  time.Now(),
 		dryRun:     dryRun,
 		groupName:  groupName,
@@ -186,6 +198,34 @@ func (p *ProgressTracker) RecordSkipped(repo, reason string) {
 		fields["group_id"] = p.groupID
 	}
 	logrus.WithFields(fields).Info("Repository sync skipped")
+}
+
+// RecordPRURL records the PR a repository sync created or updated
+func (p *ProgressTracker) RecordPRURL(repo, url string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.prURLs[repo] = url
+}
+
+// Outcomes returns the final state of every repository, sorted by name
+func (p *ProgressTracker) Outcomes() []RepoOutcome {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	outcomes := make([]RepoOutcome, 0, len(p.repoStatus))
+	for repo, status := range p.repoStatus {
+		outcomes = append(outcomes, RepoOutcome{
+			Repo:   repo,
+			Status: status,
+			PRURL:  p.prURLs[repo],
+			Err:    p.errors[repo],
+		})
+	}
+
+	sort.Slice(outcomes, func(i, j int) bool { return outcomes[i].Repo < outcomes[j].Repo })
+
+	return outcomes
 }
 
 // SetError sets a global error for the sync operation

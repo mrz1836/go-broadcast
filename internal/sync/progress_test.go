@@ -239,3 +239,28 @@ func TestProgressTrackerNoDoubleCount(t *testing.T) {
 	assert.Equal(t, 5, total)
 	assert.InEpsilon(t, 80.0, percentage, 0.001)
 }
+
+func TestProgressTrackerOutcomes(t *testing.T) {
+	tracker := NewProgressTracker(3, false)
+
+	tracker.StartRepository("org/repo-c")
+	tracker.RecordSuccess("org/repo-c")
+	tracker.RecordPRURL("org/repo-c", "https://github.com/org/repo-c/pull/7")
+
+	tracker.StartRepository("org/repo-a")
+	tracker.RecordError("org/repo-a", errors.ErrTest)
+
+	tracker.StartRepository("org/repo-b")
+	tracker.RecordSuccess("org/repo-b")
+
+	outcomes := tracker.Outcomes()
+	require.Len(t, outcomes, 3)
+
+	assert.Equal(t, RepoOutcome{Repo: "org/repo-a", Status: RepoStatusFailed, Err: errors.ErrTest}, outcomes[0])
+	assert.Equal(t, RepoOutcome{Repo: "org/repo-b", Status: RepoStatusSuccess}, outcomes[1])
+	assert.Equal(t, RepoOutcome{
+		Repo:   "org/repo-c",
+		Status: RepoStatusSuccess,
+		PRURL:  "https://github.com/org/repo-c/pull/7",
+	}, outcomes[2])
+}
