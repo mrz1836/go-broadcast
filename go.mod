@@ -85,32 +85,3 @@ require (
 	modernc.org/memory v1.12.1 // indirect
 	modernc.org/sqlite v1.60.1 // indirect
 )
-
-// These replace directives patch vulnerabilities in transitive dependencies that we do
-// not compile, but that Nancy still reports because it audits the full module graph.
-// Our direct dependencies are already at their latest versions, so bumping them does not
-// help - the replace is the only lever. Drop a replace once the upstream dependency
-// requires a patched version on its own.
-
-// openai-go requires v5.2.1
-// Fix CVE-2025-30204: excessive memory allocation during header parsing (patched in v5.2.2)
-replace github.com/golang-jwt/jwt/v5 => github.com/golang-jwt/jwt/v5 v5.3.1
-
-// genkit requires v1.30.0
-// Fix CVE-2025-67818: backup ZipSlip path traversal (patched in v1.30.20)
-// Fix CVE-2026-11500: affects Weaviate through v1.37.7
-// Fix CVE-2026-59093: RBAC role assignment not verified before v1.38.0
-replace github.com/weaviate/weaviate => github.com/weaviate/weaviate v1.38.7
-
-// genkit requires v5.7.5
-// Fix CVE-2026-33815, CVE-2026-33816: memory safety (patched in v5.9.0)
-// Fix CVE-2026-41889: SQL injection via dollar-quoted string literals (patched in v5.9.2)
-replace github.com/jackc/pgx/v5 => github.com/jackc/pgx/v5 v5.9.2
-
-// genkit requires v1.14.0
-// Fix CVE-2026-2303: heap out-of-bounds read in GSSAPI error handling (patched in v1.17.7)
-replace go.mongodb.org/mongo-driver => go.mongodb.org/mongo-driver v1.17.7
-
-// genkit requires v1.17.11
-// Fix CVE-2026-63209: integer overflow leads to out-of-bounds read in S2
-replace github.com/klauspost/compress => github.com/klauspost/compress v1.19.1
