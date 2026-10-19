@@ -1711,8 +1711,10 @@ jobs:
   #             arm auto-merge for it
   #   revoke  → anything else (a commit Dependabot didn't produce, unreadable
   #             metadata, a decision that doesn't auto-merge, a failed analysis):
-  #             dismiss the App's approvals and disarm the App's auto-merge, or any
-  #             auto-merge after a push by someone else. Once the head has moved, a
+  #             disarm the App's auto-merge (or any auto-merge after a push by
+  #             someone else), then dismiss the App's approvals. A failed call
+  #             doesn't skip the rest: everything is attempted, then the job fails
+  #             and the PR comment says what's left. Once the head has moved, a
   #             newer evaluation decides it: an App approval of the current head
   #             stands, and only authorization for older commits is revoked.
   #
@@ -1900,9 +1902,14 @@ jobs:
           # Label names from `analyze` (empty when it didn't get that far)
           AUTO_MERGE_LABELS: ${{ needs.analyze.outputs.auto-merge-labels }}
           MANUAL_REVIEW_LABEL: ${{ needs.analyze.outputs.manual-review-label }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
           outcome() { echo "outcome=$1" >> "$GITHUB_OUTPUT"; }
+          # What couldn't be undone. A failed call never skips the rest: every
+          # revocation is still attempted, then the step fails if this isn't empty.
+          FAILED=""
+          failed() { FAILED="${FAILED:+$FAILED or }$1"; }
           SHORT_SHA="${VERIFIED_SHA:0:7}"
 
           # Why, for the log, the dismissal message and the PR comment
@@ -1926,7 +1933,14 @@ jobs:
           echo "🚫 REVOKE as $APP_BOT: $WHY"
           echo "════════════════════════════════════════════════════════════════"
 
-          PR_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
+          # Without the PR's state, head and arming, no guard below can be checked:
+          # fail without guessing
+          if ! PR_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER"); then
+            echo "❌ Could not read PR #$PR_NUMBER, so nothing was checked or revoked"
+            echo "failed=read the PR" >> "$GITHUB_OUTPUT"
+            outcome revoke-incomplete
+            exit 1
+          fi
           STATE=$(jq -r '.state' <<< "$PR_JSON")
           CURRENT_SHA=$(jq -r '.head.sha' <<< "$PR_JSON")
           ARMED_BY=$(jq -r 'if .auto_merge == null then "" else (.auto_merge.enabled_by.login // "unknown") end' <<< "$PR_JSON")
@@ -1936,39 +1950,42 @@ jobs:
             exit 0
           fi
 
-          REVIEWS_JSON=$(gh api --paginate --slurp "repos/$REPO/pulls/$PR_NUMBER/reviews")
           # The App's standing approvals, one "<review id> <commit>" per line
-          APPROVALS=$(jq -r --arg bot "$APP_BOT" '
-            add // [] | .[] | select(.user.login == $bot and .state == "APPROVED")
-            | "\(.id) \(.commit_id)"' <<< "$REVIEWS_JSON")
+          REVIEWS_READ=true
+          if ! REVIEWS_JSON=$(gh api --paginate --slurp "repos/$REPO/pulls/$PR_NUMBER/reviews") \
+            || ! APPROVALS=$(jq -r --arg bot "$APP_BOT" '
+                 add // [] | .[] | select(.user.login == $bot and .state == "APPROVED")
+                 | "\(.id) \(.commit_id)"' <<< "$REVIEWS_JSON"); then
+            REVIEWS_READ=false
+            APPROVALS=""
+            echo "❌ Could not list the PR's reviews, so no approval can be dismissed"
+            failed "read the reviews"
+          fi
 
           # An App approval of the current head was made by an evaluation that
           # Dependabot triggered and that verified that exact commit. It stands when
           # this run judged other content (the head has moved since), or when only
-          # who triggered this run is in question (skip-untrusted-actor).
+          # who triggered this run is in question (skip-untrusted-actor). Unreadable
+          # reviews can't show one, so the arming is revoked below (fail closed).
           if [[ "$CURRENT_SHA" != "$VERIFIED_SHA" || "$ACTION" == "skip-untrusted-actor" ]]; then
             if grep -q " $CURRENT_SHA\$" <<< "$APPROVALS"; then
               echo "✅ $APP_BOT approved the current head $CURRENT_SHA in an evaluation Dependabot triggered — nothing to revoke"
               outcome kept-current
               exit 0
+            elif [[ "$REVIEWS_READ" != "true" ]]; then
+              echo "⚠️ Can't check for an App approval of the current head $CURRENT_SHA, so revoking anyway"
             fi
           fi
-          if [[ "$CURRENT_SHA" != "$VERIFIED_SHA" ]]; then
+          if [[ "$CURRENT_SHA" != "$VERIFIED_SHA" && "$REVIEWS_READ" == "true" ]]; then
             echo "📌 Head moved from $VERIFIED_SHA to $CURRENT_SHA, which no App approval covers yet"
+          elif [[ "$CURRENT_SHA" != "$VERIFIED_SHA" ]]; then
+            echo "📌 Head moved from $VERIFIED_SHA to $CURRENT_SHA"
           fi
 
-          DISMISSED=0
-          while read -r REVIEW_ID _; do
-            [[ -z "$REVIEW_ID" ]] && continue
-            gh api -X PUT "repos/$REPO/pulls/$PR_NUMBER/reviews/$REVIEW_ID/dismissals" \
-              -f event=DISMISS \
-              -f message="Revoked: $WHY, so it needs a human review." --silent
-            DISMISSED=$((DISMISSED + 1))
-          done <<< "$APPROVALS"
-          echo "🧹 Dismissed $DISMISSED approval(s) by $APP_BOT"
-
-          # The App's own arming always goes. Anyone's goes after a push by someone
-          # other than Dependabot to the verified commit (a newer run judges a moved head).
+          # 1. Disarm first: that alone stops the automatic merge, whatever the
+          # ruleset requires. The App's own arming always goes. Anyone's goes after a
+          # push by someone other than Dependabot to the verified commit (a newer run
+          # judges a moved head).
           DISARMED=false
           if [[ -z "$ARMED_BY" ]]; then
             echo "ℹ️ Auto-merge is not enabled"
@@ -1981,24 +1998,54 @@ jobs:
             else
               echo "$DISABLE_OUTPUT"
               echo "❌ Failed to disable auto-merge"
-              exit 1
+              failed "disable auto-merge"
             fi
           else
             echo "ℹ️ Auto-merge armed by $ARMED_BY is left alone (not this App's, no push by anyone else)"
           fi
 
-          if [[ "$DISMISSED" -gt 0 || "$DISARMED" == "true" ]]; then
-            if [[ "$DISMISSED" -gt 0 && "$DISARMED" == "true" ]]; then
-              UNDONE="the automated approval was dismissed and auto-merge was disabled"
-            elif [[ "$DISMISSED" -gt 0 ]]; then
-              UNDONE="the automated approval was dismissed"
+          # 2. Dismiss every App approval, each on its own: one failure doesn't
+          # keep the others standing
+          DISMISSED=0
+          NOT_DISMISSED=0
+          while read -r REVIEW_ID _; do
+            [[ -z "$REVIEW_ID" ]] && continue
+            if gh api -X PUT "repos/$REPO/pulls/$PR_NUMBER/reviews/$REVIEW_ID/dismissals" \
+                -f event=DISMISS \
+                -f message="Revoked: $WHY, so it needs a human review." --silent; then
+              DISMISSED=$((DISMISSED + 1))
             else
-              UNDONE="auto-merge was disabled"
+              echo "❌ Failed to dismiss review $REVIEW_ID"
+              NOT_DISMISSED=$((NOT_DISMISSED + 1))
             fi
-            gh api -X POST "repos/$REPO/issues/$PR_NUMBER/comments" --silent \
-              -f body="🚫 **Auto-merge revoked**
+          done <<< "$APPROVALS"
+          echo "🧹 Dismissed $DISMISSED approval(s) by $APP_BOT"
+          if [[ "$NOT_DISMISSED" -gt 0 ]]; then
+            failed "dismiss $NOT_DISMISSED approval(s)"
+          fi
 
-          $WHY, so $UNDONE. A human needs to review and merge it, unless a later Dependabot update is approved again."
+          # 3. Tell the PR what was undone and what wasn't (best effort)
+          if [[ "$DISMISSED" -gt 0 || "$DISARMED" == "true" || -n "$FAILED" ]]; then
+            if [[ "$DISMISSED" -gt 0 && "$DISARMED" == "true" ]]; then
+              UNDONE=", so the automated approval was dismissed and auto-merge was disabled"
+            elif [[ "$DISMISSED" -gt 0 ]]; then
+              UNDONE=", so the automated approval was dismissed"
+            elif [[ "$DISARMED" == "true" ]]; then
+              UNDONE=", so auto-merge was disabled"
+            else
+              UNDONE=""
+            fi
+            if [[ -z "$FAILED" ]]; then
+              BODY="🚫 **Auto-merge revoked**
+
+          $WHY$UNDONE. A human needs to review and merge it, unless a later Dependabot update is approved again."
+            else
+              BODY="⚠️ **Auto-merge revocation incomplete**
+
+          $WHY$UNDONE, but this run could not $FAILED ([run log]($RUN_URL)). A maintainer needs to remove any automated approval or auto-merge still in place, then review and merge it."
+            fi
+            gh api -X POST "repos/$REPO/issues/$PR_NUMBER/comments" --silent -f body="$BODY" \
+              || echo "⚠️ Could not post the revocation comment"
 
             # Labels follow, best effort, while the PR is still at the judged commit
             # (a newer run labels a moved head; `analyze` already did foreign pushes)
@@ -2018,6 +2065,14 @@ jobs:
                   || echo "⚠️ Could not add the '$MANUAL_REVIEW_LABEL' label"
               fi
             fi
+          fi
+
+          if [[ -n "$FAILED" ]]; then
+            echo "❌ Revocation incomplete: could not $FAILED"
+            echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
+            outcome revoke-incomplete
+            exit 1
+          elif [[ "$DISMISSED" -gt 0 || "$DISARMED" == "true" ]]; then
             outcome revoked
           else
             echo "ℹ️ Nothing was approved or armed — nothing to revoke"
@@ -2033,6 +2088,7 @@ jobs:
           APPROVE_OUTCOME: ${{ steps.approve.outputs.outcome }}
           REVOKE_OUTCOME: ${{ steps.revoke.outputs.outcome }}
           REVOKE_REASON: ${{ steps.revoke.outputs.reason }}
+          REVOKE_FAILED: ${{ steps.revoke.outputs.failed }}
           STEP_OUTCOME: ${{ steps.approve.outcome == 'failure' && 'failure' || steps.revoke.outcome }}
           TOKEN_OUTCOME: ${{ steps.app-token.outcome }}
           APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
@@ -2052,6 +2108,7 @@ jobs:
             skipped-not-dependabot)   DESC="⏭️ Skipped (no longer a same-repo Dependabot PR)" ;;
             skipped-head-moved)       DESC="⏭️ Skipped (head moved — the newer run decides)" ;;
             revoked)                  DESC="🚫 Bot approval dismissed and/or auto-merge disabled: $REVOKE_REASON" ;;
+            revoke-incomplete)        DESC="❌ Revocation incomplete: could not ${REVOKE_FAILED:-finish}. A bot approval or auto-merge may still be in place — check the PR" ;;
             kept-current)             DESC="✅ Nothing revoked: the App's approval of the current head (from an evaluation Dependabot triggered) stands" ;;
             nothing-to-revoke)        DESC="ℹ️ Nothing to revoke: no bot approval or auto-merge was in place" ;;
             token-failed)             DESC="❌ Could not create the GitHub App token (App installed? key set in the 'auto-merge' environment?)" ;;

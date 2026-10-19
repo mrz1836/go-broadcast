@@ -100,6 +100,7 @@ Delete the `.pem` file from your machine afterwards. To rotate the key, generate
 | The analysis ends in `skip-no-required-checks` | The base branch doesn't require any status checks. |
 | The run ends in `revoke-foreign-push` or `skip-foreign-commits` | Someone other than Dependabot pushed to the PR, so it needs a human review. The apply job revokes the bot approval and disarms auto-merge. |
 | An **Auto-merge revoked** comment after Dependabot updated its own PR | The update changed what the PR does (for example, a grouped update now includes a major version), so the new decision doesn't auto-merge and the earlier bot approval was dismissed. |
+| The apply job fails with **Revocation incomplete**, and the PR has an **Auto-merge revocation incomplete** comment | A GitHub API call failed while revoking. The job still disables auto-merge first and tries every dismissal, then lists what it couldn't undo. Remove any bot approval or auto-merge still on the PR by hand, or re-run the job. |
 | The apply job reports **Nothing to revoke**, or that the App's approval of the current head stands | Normal. The evaluation didn't approve, but there was no bot approval or auto-merge to undo, or the PR's current commit already has an approval from an evaluation Dependabot triggered (for example, after a human reopened it, or after a newer run). |
 | The PR is approved, but auto-merge waits forever | The ruleset requires a review the App can't satisfy (for example, code owner review), or an extra approval rule applies. |
 
