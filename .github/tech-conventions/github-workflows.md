@@ -230,6 +230,7 @@ permissions: {}
 jobs:
   queue:
     runs-on: ubuntu-26.04
+    timeout-minutes: 2
     steps:
       - run: echo "queued"
 ```
@@ -246,6 +247,7 @@ jobs:
   act:
     if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-26.04
+    timeout-minutes: 5
     permissions:
       pull-requests: write
     steps:
@@ -255,11 +257,15 @@ jobs:
         with:
           script: |
             const run = context.payload.workflow_run;
-            const number = run.pull_requests.find(p => p.head.sha === run.head_sha)?.number;
-            if (!number) return; // fork PRs aren't listed: look them up via the API
-            const { data: pr } = await github.rest.pulls.get({ ...context.repo, pull_number: number });
+            // Only this repository's PRs, and never guess between several
+            const prs = run.pull_requests.filter(p =>
+              p.head.sha === run.head_sha && p.base.repo.id === context.payload.repository.id);
+            if (prs.length !== 1) return; // fork PRs aren't listed: look them up via the API
+            const { data: pr } = await github.rest.pulls.get({ ...context.repo, pull_number: prs[0].number });
             if (pr.state !== 'open' || pr.head.sha !== run.head_sha) return; // re-verify everything
 ```
+
+Pin whatever the privileged half does to the commit it verified (for example `commit_id` on an approval, `--match-head-commit` on `gh pr merge`), and re-read the PR right before acting.
 
 <br><br>
 

@@ -24,7 +24,7 @@ None of the workflows use `pull_request_target`. GitHub's [workflow execution pr
 | `pull_request`, `pull_request_review` | [auto-merge-trigger.yml](../workflows/auto-merge-trigger.yml) ("Auto-merge Trigger") | The PR (merge commit) | None (`permissions: {}`). It only echoes; each job is a wake-up hint for one consumer. |
 | `workflow_run` of the trigger | [dependabot-auto-merge.yml](../workflows/dependabot-auto-merge.yml) | The default branch | `verify`: read-only. `analyze`: labels and comments. `apply`: GitHub App token from the `auto-merge` environment. |
 | `workflow_run` of the trigger | [auto-merge-on-approval.yml](../workflows/auto-merge-on-approval.yml) | The default branch | `evaluate`: read-only. `apply`: GitHub App token from the `auto-merge` environment. |
-| `workflow_run` of the trigger (fork PRs) | [pull-request-management.yml](../workflows/pull-request-management.yml), fork job | The default branch | `GITHUB_TOKEN`: labels, comments, cache cleanup. |
+| `workflow_run` of the trigger (fork PRs) | [pull-request-management.yml](../workflows/pull-request-management.yml), fork jobs | The default branch | `GITHUB_TOKEN`: a read-only lookup job finds the PR (skipping any ambiguous match), then labels, comments, cache cleanup. |
 | `pull_request` (same-repo PRs) | [pull-request-management.yml](../workflows/pull-request-management.yml), same-repo job | The PR (merge commit) | `GITHUB_TOKEN` with the job's write scopes. Pushing a same-repo branch already takes write access. |
 
 The consumers trust nothing the trigger's run produces: no artifacts, outputs, logs or files. Whether its job ran is only a hint that saves runs. They identify the PR from GitHub's event payload (`workflow_run.head_sha`, `head_repository`, `pull_requests[]`, or `GET /repos/{owner}/{repo}/commits/{sha}/pulls`) and re-read everything from the API.
@@ -40,7 +40,7 @@ For a Dependabot PR, the `verify` job checks that the PR is open, was opened by 
 | The private key lives in an **environment secret** (`auto-merge`) that only protected long-lived branches can use. | A workflow pushed to any other branch can't read it. Repository and organization secrets don't give you this. |
 | Both workflows that use the key run on `workflow_run`, whose ref is the default branch. | They always run the default branch's workflow file, never the copy inside the PR. Neither checks out PR code. |
 | The job that holds the key runs only `actions/create-github-app-token` (pinned by SHA) and the `gh` CLI. | Any step in a job can read every secret that job uses. Keeping third-party code out of that job keeps it away from the key. |
-| Approvals and auto-merge are pinned to the verified head commit. Dependabot approvals also require that Dependabot triggered the run (`workflow_run.actor`) and authored every commit, signed by GitHub. | Code pushed after the analysis can't ride an earlier approval. A commit by anyone else revokes the bot approval and disarms auto-merge. |
+| Approvals and auto-merge are pinned to the verified head commit. Dependabot approvals also require that Dependabot triggered the run (`workflow_run.actor`) and authored every commit, signed by GitHub. Every Dependabot evaluation that doesn't approve revokes the bot approval and the App's auto-merge. | Code pushed after the analysis can't ride an earlier approval: a commit by anyone else, a push someone else triggered, or a Dependabot update that now needs review dismisses the bot approval and disarms auto-merge. |
 | The base branch must require status checks. | Auto-merge never merges before CI. |
 
 ### Recommended: dismiss stale approvals on push
@@ -96,9 +96,11 @@ Delete the `.pem` file from your machine afterwards. To rotate the key, generate
 | Nothing runs for a new Dependabot PR | The PR has a merge conflict (GitHub runs no `pull_request` workflow until it's resolved), the trigger or the consumer isn't on the right branch (see above), or an Actions policy blocks the run (it ends in `startup_failure`). Check **Policy insights**. |
 | **Verify Dependabot PR** ends in `skip-trigger-gated` | Normal for events that queue nothing (labels, edits, the App's own arming). Only opening, updating or reopening a Dependabot PR queues an evaluation. |
 | **Verify Dependabot PR** ends in `skip-head-moved` | The PR changed after the trigger ran. The run for the new commit decides. |
-| **Verify Dependabot PR** ends in `skip-no-metadata` | The head commit's message has no readable `updated-dependencies` block. It's left for manual review. |
+| **Verify Dependabot PR** ends in `manual-no-metadata` | The head commit's message has no readable `updated-dependencies` block. It's left for manual review, and the apply job revokes any earlier bot approval. |
 | The analysis ends in `skip-no-required-checks` | The base branch doesn't require any status checks. |
 | The run ends in `revoke-foreign-push` or `skip-foreign-commits` | Someone other than Dependabot pushed to the PR, so it needs a human review. The apply job revokes the bot approval and disarms auto-merge. |
+| An **Auto-merge revoked** comment after Dependabot updated its own PR | The update changed what the PR does (for example, a grouped update now includes a major version), so the new decision doesn't auto-merge and the earlier bot approval was dismissed. |
+| The apply job reports **Nothing to revoke**, or that the App's approval of the current head stands | Normal. The evaluation didn't approve, but there was no bot approval or auto-merge to undo, or the PR's current commit already has an approval from an evaluation Dependabot triggered (for example, after a human reopened it, or after a newer run). |
 | The PR is approved, but auto-merge waits forever | The ruleset requires a review the App can't satisfy (for example, code owner review), or an extra approval rule applies. |
 
 <br>
