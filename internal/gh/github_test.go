@@ -2433,7 +2433,7 @@ func TestGetPRCheckStatus_SomeFailed(t *testing.T) {
 		CheckRuns: []CheckRun{
 			{ID: 1, Name: "CI / Build", Status: "completed", Conclusion: "success"},
 			{ID: 2, Name: "CI / Tests", Status: "completed", Conclusion: "failure"},
-			{ID: 3, Name: "CI / Lint", Status: "completed", Conclusion: "canceled"},
+			{ID: 3, Name: "CI / Lint", Status: "completed", Conclusion: conclusionCancelled},
 			{ID: 4, Name: "CI / Security", Status: "completed", Conclusion: "timed_out"},
 			{ID: 5, Name: "CI / Deploy", Status: "completed", Conclusion: "action_required"},
 		},

@@ -15,7 +15,7 @@ func TestSummarizeChecks(t *testing.T) {
 		{Name: "neutral", Status: "completed", Conclusion: "neutral"},
 		{Name: "skipped", Status: "completed", Conclusion: "skipped"},
 		{Name: "failure", Status: "completed", Conclusion: "failure"},
-		{Name: "canceled", Status: "completed", Conclusion: "canceled"},
+		{Name: "canceled", Status: "completed", Conclusion: "cancelled"}, //nolint:misspell // GitHub's literal API value
 		{Name: "timed_out", Status: "completed", Conclusion: "timed_out"},
 		{Name: "action_required", Status: "completed", Conclusion: "action_required"},
 		{Name: "queued", Status: "queued"},

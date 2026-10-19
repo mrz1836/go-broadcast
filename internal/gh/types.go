@@ -206,12 +206,17 @@ type AutoMerge struct {
 	CommitTitle string      `json:"commit_title,omitempty"`
 }
 
+// conclusionCancelled is the conclusion GitHub's API reports for a canceled check
+// run or workflow run. GitHub spells it with two Ls; the US spelling never matches,
+// so a canceled check would count as neither passed nor failed.
+const conclusionCancelled = "cancelled" //nolint:misspell // GitHub API value, not prose
+
 // CheckRun represents a GitHub check run
 type CheckRun struct {
 	ID         int64  `json:"id"`
 	Name       string `json:"name"`
 	Status     string `json:"status"`     // "queued", "in_progress", "completed"
-	Conclusion string `json:"conclusion"` // "success", "failure", "neutral", "canceled", "skipped", "timed_out", "action_required"
+	Conclusion string `json:"conclusion"` // "success", "failure", "neutral", conclusionCancelled, "skipped", "timed_out", "action_required"
 }
 
 // CheckRunsResponse represents the response from GitHub's check-runs API
@@ -226,7 +231,7 @@ type CheckStatusSummary struct {
 	Completed int        // Checks that have completed (any conclusion)
 	Passed    int        // success + neutral
 	Skipped   int        // skipped (CI-skipped checks)
-	Failed    int        // failure + canceled + timed_out + action_required
+	Failed    int        // failure + conclusionCancelled + timed_out + action_required
 	Running   int        // queued + in_progress
 	Checks    []CheckRun // All check runs for detailed output
 }
@@ -268,7 +273,7 @@ func (s *CheckStatusSummary) FailedCheckNames() []string {
 	for _, check := range s.Checks {
 		if check.Status == "completed" {
 			switch check.Conclusion {
-			case "failure", "canceled", "timed_out", "action_required":
+			case "failure", conclusionCancelled, "timed_out", "action_required":
 				names = append(names, check.Name)
 			}
 		}
@@ -413,7 +418,7 @@ type WorkflowRun struct {
 	ID         int64  `json:"id"`
 	Name       string `json:"name"`
 	Status     string `json:"status"`     // completed, in_progress, queued
-	Conclusion string `json:"conclusion"` // success, failure, canceled, skipped
+	Conclusion string `json:"conclusion"` // success, failure, conclusionCancelled, skipped
 	HeadBranch string `json:"head_branch"`
 	HeadSHA    string `json:"head_sha"`
 	RunNumber  int    `json:"run_number"`

@@ -24,7 +24,7 @@ func summarizeChecks(checks []CheckRun, total int) *CheckStatusSummary {
 				summary.Passed++
 			case "skipped":
 				summary.Skipped++
-			case "failure", "canceled", "timed_out", "action_required":
+			case "failure", conclusionCancelled, "timed_out", "action_required":
 				summary.Failed++
 			}
 		case "queued", "in_progress":
