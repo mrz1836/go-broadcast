@@ -32,29 +32,34 @@
 #  │  ✅ Checkout uses `ref: github.base_ref` (sparse, config files only).       │
 #  └─────────────────────────────────────────────────────────────────────────────┘
 #  ┌─────────────────────────────────────────────────────────────────────────────┐
-#  │ FORK PRs → `workflow_run`, job pr-management-fork                           │
+#  │ FORK PRs → `workflow_run`, jobs pr-management-fork-lookup + -fork           │
 #  │                                                                             │
 #  │  ✅ A fork's pull_request runs only ever get a read-only token, so the      │
-#  │     permission-less Auto-merge Trigger queues this job instead.             │
+#  │     permission-less Auto-merge Trigger queues these jobs instead.           │
 #  │     `workflow_run` always runs this file from the DEFAULT branch: a fork    │
 #  │     cannot change what runs here.                                           │
 #  │  ✅ Nothing from the trigger's run is trusted (its jobs list is only a      │
-#  │     wake-up hint). The PR is looked up from GitHub's payload + the API,     │
-#  │     and what to do follows the PR's state there (open → labels, assignee,   │
-#  │     welcome; closed → cache cleanup).                                       │
+#  │     wake-up hint). The PR is looked up from GitHub's payload + the API      │
+#  │     (an ambiguous match is skipped, never guessed), and what to do follows  │
+#  │     the PR's state there (open → labels, assignee, welcome; closed → cache  │
+#  │     cleanup).                                                               │
 #  │  ✅ PR-controlled values (branch, title, author) reach shell/jq only via    │
 #  │     env: and quoted "$VAR"s or jq --arg, never ${{ }} in a script.          │
 #  │  ✅ Only GITHUB_TOKEN is exposed. No custom secrets are referenced.         │
 #  │  ✅ Narrower permissions than same-repo: no `contents: write`.              │
 #  └─────────────────────────────────────────────────────────────────────────────┘
 #
-#  Job structure (exactly one does work per PR event, the other skips):
+#  Job structure (one path does work per PR event, the other skips):
 #    ├─ pr-management-same-repo   → pull_request, head.repo.full_name == github.repository
 #    │     Permissions: actions:write, contents:write, pull-requests:write
 #    │     Work: type labels, default assignee, first-timer welcome, size label,
 #    │           cache cleanup on close, branch deletion on merge.
 #    │
-#    └─ pr-management-fork        → workflow_run, head repository != github.repository
+#    ├─ pr-management-fork-lookup → workflow_run, head repository != github.repository
+#    │     Permissions: actions:read, pull-requests:read
+#    │     Work: finds and re-reads the fork PR (or skips, with the reason)
+#    │
+#    └─ pr-management-fork        → needs the lookup to have found the PR
 #          Permissions: actions:write, contents:read, issues:write, pull-requests:write
 #                       (NOT contents:write — fork branches can't be deleted from base)
 #          Work: fork+triage labels, default assignee, fork welcome notice,
@@ -81,8 +86,13 @@ name: PR Management
 # it lets maintainers manually override auto-applied labels without the workflow
 # fighting back on the next commit. For fork PRs, the trigger's PR management job
 # fires only on these same four events.
+#
+# zizmor's dangerous-triggers audit flags every `workflow_run` trigger. Here it
+# only feeds the fork lookup job, which uses no artifacts, outputs or code from
+# the triggering run: it re-reads the PR from the API, skips anything ambiguous,
+# and the work job only checks out the default branch's config.
 # --------------------------------------------------------------------
-on:
+on: # zizmor: ignore[dangerous-triggers] see "Trigger Configuration" above
   pull_request:
     types: [opened, reopened, ready_for_review, closed]
   workflow_run:
@@ -95,9 +105,10 @@ permissions: {}
 
 # --------------------------------------------------------------------
 # Concurrency Control: per job, one group per PR. A new event for the
-# same PR cancels an in-flight run. It is set on the jobs, not the workflow,
-# because every Auto-merge Trigger run starts a run here, and a run whose
-# jobs all skip must never cancel one that is doing work.
+# same PR cancels an in-flight run. It is set on the working jobs, not the
+# workflow, because every Auto-merge Trigger run starts a run here, and a run
+# that has nothing to do must never cancel one that is doing work. The fork
+# lookup job has none for the same reason.
 # --------------------------------------------------------------------
 
 jobs:
@@ -505,19 +516,17 @@ jobs:
 
           if [ "$cacheCount" -eq "0" ]; then
             echo "ℹ️ No caches found for this PR"
-            echo "caches-cleaned=0" >> $GITHUB_OUTPUT
+            echo "caches-cleaned=0" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           echo "🗑️ Found $cacheCount cache(s) to clean"
 
-          set +e
           cleanedCount=0
-
           for cacheKey in $cacheKeysForPR; do
             if gh cache delete "$cacheKey"; then
               echo "  ✅ Deleted cache: $cacheKey"
-              ((cleanedCount++))
+              cleanedCount=$((cleanedCount + 1))
             else
               echo "  ⚠️ Failed to delete cache: $cacheKey"
             fi
@@ -525,7 +534,7 @@ jobs:
 
           echo "════════════════════════════════════════════════════════════════"
           echo "✅ Cleaned $cleanedCount out of $cacheCount cache(s)"
-          echo "caches-cleaned=$cleanedCount" >> $GITHUB_OUTPUT
+          echo "caches-cleaned=$cleanedCount" >> "$GITHUB_OUTPUT"
 
       # --------------------------------------------------------------------
       # Delete the merged branch (same-repo only — branches in forks can't
@@ -619,7 +628,7 @@ jobs:
             echo "**👤 Author:** @$PR_AUTHOR"
             echo "**🔒 PR Type:** Same-repo (trusted contributor)"
             echo ""
-          } >> $GITHUB_STEP_SUMMARY
+          } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "$PR_ACTION" != "closed" ]; then
             {
@@ -627,36 +636,36 @@ jobs:
               echo ""
               echo "| Action | Result |"
               echo "|--------|--------|"
-            } >> $GITHUB_STEP_SUMMARY
+            } >> "$GITHUB_STEP_SUMMARY"
 
             if [ "$APPLY_LABELS_OUTCOME" = "success" ]; then
               if [ "$APPLY_LABELS_OUTPUT" != "[]" ] && [ -n "$APPLY_LABELS_OUTPUT" ]; then
-                echo "| 🏷️ Labels Applied | $APPLY_LABELS_OUTPUT |" >> $GITHUB_STEP_SUMMARY
+                echo "| 🏷️ Labels Applied | $APPLY_LABELS_OUTPUT |" >> "$GITHUB_STEP_SUMMARY"
               else
-                echo "| 🏷️ Labels Applied | None needed |" >> $GITHUB_STEP_SUMMARY
+                echo "| 🏷️ Labels Applied | None needed |" >> "$GITHUB_STEP_SUMMARY"
               fi
             elif [ "$APPLY_LABELS_OUTCOME" = "skipped" ]; then
-              echo "| 🏷️ Labels Applied | Skipped (disabled) |" >> $GITHUB_STEP_SUMMARY
+              echo "| 🏷️ Labels Applied | Skipped (disabled) |" >> "$GITHUB_STEP_SUMMARY"
             fi
 
             if [ "$ASSIGN_OUTCOME" = "success" ]; then
               if [ "$ASSIGN_OUTPUT" = "true" ]; then
-                echo "| 👤 Default Assignee | Added |" >> $GITHUB_STEP_SUMMARY
+                echo "| 👤 Default Assignee | Added |" >> "$GITHUB_STEP_SUMMARY"
               else
-                echo "| 👤 Default Assignee | Already assigned |" >> $GITHUB_STEP_SUMMARY
+                echo "| 👤 Default Assignee | Already assigned |" >> "$GITHUB_STEP_SUMMARY"
               fi
             fi
 
             if [ "$WELCOME_OUTCOME" = "success" ] && [ "$WELCOME_OUTPUT" = "true" ]; then
-              echo "| 👋 Welcome Message | Posted |" >> $GITHUB_STEP_SUMMARY
+              echo "| 👋 Welcome Message | Posted |" >> "$GITHUB_STEP_SUMMARY"
             fi
 
             if [ "$SIZE_OUTCOME" = "success" ]; then
               if [ -n "$SIZE_LABEL" ]; then
-                echo "| 📏 Size Analysis | $SIZE_LABEL ($TOTAL_CHANGES changes) |" >> $GITHUB_STEP_SUMMARY
+                echo "| 📏 Size Analysis | $SIZE_LABEL ($TOTAL_CHANGES changes) |" >> "$GITHUB_STEP_SUMMARY"
               fi
             elif [ "$SIZE_OUTCOME" = "skipped" ]; then
-              echo "| 📏 Size Analysis | Skipped |" >> $GITHUB_STEP_SUMMARY
+              echo "| 📏 Size Analysis | Skipped |" >> "$GITHUB_STEP_SUMMARY"
             fi
           else
             {
@@ -664,23 +673,23 @@ jobs:
               echo ""
               echo "| Action | Result |"
               echo "|--------|--------|"
-            } >> $GITHUB_STEP_SUMMARY
+            } >> "$GITHUB_STEP_SUMMARY"
 
             if [ "$CACHE_OUTCOME" = "success" ]; then
-              echo "| 🧹 Cache Cleanup | ${CACHES_CLEANED} cache(s) cleaned |" >> $GITHUB_STEP_SUMMARY
+              echo "| 🧹 Cache Cleanup | ${CACHES_CLEANED} cache(s) cleaned |" >> "$GITHUB_STEP_SUMMARY"
             fi
 
             if [ "$PR_MERGED" = "true" ]; then
               if [ "$DELETE_OUTCOME" = "success" ]; then
                 if [ "$BRANCH_DELETED" = "true" ]; then
-                  echo "| 🌿 Branch Deletion | Deleted |" >> $GITHUB_STEP_SUMMARY
+                  echo "| 🌿 Branch Deletion | Deleted |" >> "$GITHUB_STEP_SUMMARY"
                 elif [ "$BRANCH_DELETED" = "skip" ]; then
-                  echo "| 🌿 Branch Deletion | Skipped (protected) |" >> $GITHUB_STEP_SUMMARY
+                  echo "| 🌿 Branch Deletion | Skipped (protected) |" >> "$GITHUB_STEP_SUMMARY"
                 else
-                  echo "| 🌿 Branch Deletion | Already deleted |" >> $GITHUB_STEP_SUMMARY
+                  echo "| 🌿 Branch Deletion | Already deleted |" >> "$GITHUB_STEP_SUMMARY"
                 fi
               elif [ "$DELETE_OUTCOME" = "skipped" ]; then
-                echo "| 🌿 Branch Deletion | Skipped |" >> $GITHUB_STEP_SUMMARY
+                echo "| 🌿 Branch Deletion | Skipped |" >> "$GITHUB_STEP_SUMMARY"
               fi
             fi
           fi
@@ -698,16 +707,21 @@ jobs:
             echo ""
             echo "---"
             echo "🤖 _Automated by GitHub Actions_"
-          } >> $GITHUB_STEP_SUMMARY
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ====================================================================================
   # Fork PRs
   #
-  # Runs from the DEFAULT branch (workflow_run) after the permission-less Auto-merge
+  # Run from the DEFAULT branch (workflow_run) after the permission-less Auto-merge
   # Trigger ran for a fork PR event: a fork's own pull_request runs only ever get a
-  # read-only token. Performs only the operations that are safe and meaningful for
-  # forks: fork+triage labels, default assignee, security-aware welcome notice,
-  # cache cleanup.
+  # read-only token. Two jobs, like the Dependabot workflow's verify → analyze:
+  #   pr-management-fork-lookup → finds the PR, read-only and with no concurrency
+  #                               group, so trigger runs that queue nothing never
+  #                               cancel one that does work
+  #   pr-management-fork        → acts on that PR, one run at a time per PR
+  # Performs only the operations that are safe and meaningful for forks:
+  # fork+triage labels, default assignee, security-aware welcome notice, cache
+  # cleanup.
   #
   # NOT performed for forks:
   #   - Type labels (require pre-merge code review to be meaningful)
@@ -717,8 +731,8 @@ jobs:
   # Permissions are intentionally narrower than the same-repo job above:
   # NO `contents: write` since there is no work that requires it.
   # ====================================================================================
-  pr-management-fork:
-    name: 🔧 PR Management (Fork)
+  pr-management-fork-lookup:
+    name: 🔍 Find fork PR
     # Pre-filter on GitHub's payload: a successful trigger run for a pull_request
     # event whose head is another repository. The PR is re-read from the API below.
     if: |
@@ -728,15 +742,18 @@ jobs:
       github.event.workflow_run.head_repository &&
       github.event.workflow_run.head_repository.full_name != github.repository
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
-    concurrency:
-      group: ${{ github.workflow }}-fork-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
-      cancel-in-progress: true
+    timeout-minutes: 5
     permissions:
-      actions: write # Required: Delete GitHub Actions caches for closed PRs (and read the trigger's jobs)
-      contents: read # Sparse checkout of the default branch only — no write needed
-      issues: write # Required: Create fork/triage labels lazily if missing
-      pull-requests: write # Required: Apply labels, assign reviewers, post comments
+      actions: read # Required: Confirm the trigger's fork PR management job ran (wake-up filter)
+      pull-requests: read # Required: Find and re-read the fork PR
+    outputs:
+      proceed: ${{ steps.pr.outputs.proceed }}
+      pr-number: ${{ steps.pr.outputs.pr-number }}
+      state: ${{ steps.pr.outputs.state }}
+      author: ${{ steps.pr.outputs.author }}
+      assignee-count: ${{ steps.pr.outputs.assignee-count }}
+      head-repo: ${{ steps.pr.outputs.head-repo }}
+      title: ${{ steps.pr.outputs.title }}
 
     steps:
       # --------------------------------------------------------------------
@@ -773,26 +790,36 @@ jobs:
               return skip(`"${process.env.QUEUE_JOB}" did not run for this event`);
             }
 
-            // workflow_run.pull_requests is empty for fork PRs: look the PR up by
-            // its head (fork owner + branch), preferring the triggering commit.
+            // workflow_run.pull_requests is empty for fork PRs: look the PR up by its
+            // head (fork owner + branch). A fork branch can back several PRs (other
+            // base branches, or an older closed PR from a reused branch name), so all
+            // of them are listed and an ambiguous match is never guessed.
             const headRepo = run.head_repository?.full_name;
             const headOwner = run.head_repository?.owner?.login;
             if (!headRepo || !headOwner || !run.head_branch) {
               return skip('The trigger run has no head repository or branch (deleted fork?)');
             }
-            const { data: candidates } = await github.rest.pulls.list({
+            const candidates = (await github.paginate(github.rest.pulls.list, {
               owner,
               repo,
               state: 'all',
               head: `${headOwner}:${run.head_branch}`,
-              sort: 'updated',
-              direction: 'desc',
-              per_page: 20,
-            });
-            const fromHead = candidates.filter(p => p.head?.repo?.full_name === headRepo);
-            const match = fromHead.find(p => p.head?.sha === run.head_sha) ?? fromHead[0];
-            if (!match) {
-              return skip(`No pull request in ${repoFullName} comes from ${headRepo} (${run.head_sha})`);
+              per_page: 100,
+            })).filter(p => p.head?.repo?.full_name === headRepo);
+            const atHead = candidates.filter(p => p.head?.sha === run.head_sha);
+            const numbers = (list) => `#${list.map(p => p.number).join(', #')}`;
+            let match;
+            if (atHead.length === 1) {
+              [match] = atHead;
+            } else if (atHead.length > 1) {
+              return skip(`Several pull requests (${numbers(atHead)}) come from ${headRepo} at ${run.head_sha}, so none is acted on`);
+            } else if (candidates.length === 1) {
+              // The fork pushed again after the trigger ran: still the only PR from that branch
+              [match] = candidates;
+            } else if (candidates.length === 0) {
+              return skip(`No pull request in ${repoFullName} comes from ${headRepo}:${run.head_branch}`);
+            } else {
+              return skip(`Several pull requests (${numbers(candidates)}) come from ${headRepo}:${run.head_branch}, none at ${run.head_sha}, so none is acted on`);
             }
 
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: match.number });
@@ -814,6 +841,44 @@ jobs:
             core.setOutput('proceed', 'true');
 
       # --------------------------------------------------------------------
+      # Summary when there is nothing to do (the next job summarizes the rest)
+      # --------------------------------------------------------------------
+      - name: 📊 Generate lookup summary
+        if: always() && steps.pr.outputs.proceed != 'true'
+        env:
+          SKIP_REASON: ${{ steps.pr.outputs.reason }}
+        run: |
+          {
+            echo "# 🔧 Pull Request Management Summary (Fork)"
+            echo ""
+            echo "⏭️ Skipped: ${SKIP_REASON:-the lookup step failed; see its log}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  pr-management-fork:
+    name: 🔧 PR Management (Fork)
+    needs: pr-management-fork-lookup
+    if: needs.pr-management-fork-lookup.outputs.proceed == 'true'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    # One group per PR (found by the lookup job): a newer event for the same PR
+    # cancels an in-flight run.
+    concurrency:
+      group: ${{ github.workflow }}-fork-${{ needs.pr-management-fork-lookup.outputs.pr-number }}
+      cancel-in-progress: true
+    permissions:
+      actions: write # Required: Delete GitHub Actions caches for closed PRs
+      contents: read # Sparse checkout of the default branch only — no write needed
+      issues: write # Required: Create fork/triage labels lazily if missing
+      pull-requests: write # Required: Apply labels, assign reviewers, post comments
+    env:
+      # Found and re-read from the API by the lookup job
+      PR_NUMBER: ${{ needs.pr-management-fork-lookup.outputs.pr-number }}
+      PR_STATE: ${{ needs.pr-management-fork-lookup.outputs.state }}
+      PR_AUTHOR: ${{ needs.pr-management-fork-lookup.outputs.author }}
+      PR_HEAD_REPO: ${{ needs.pr-management-fork-lookup.outputs.head-repo }}
+
+    steps:
+      # --------------------------------------------------------------------
       # SECURITY-CRITICAL CHECKOUT — default branch + sparse + no fetch-depth
       #
       # On workflow_run, github.sha is the latest commit on the DEFAULT branch,
@@ -821,7 +886,6 @@ jobs:
       # out or executed.
       # --------------------------------------------------------------------
       - name: 📥 Checkout default branch (sparse)
-        if: steps.pr.outputs.proceed == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -833,14 +897,12 @@ jobs:
 
       - name: 🌍 Load environment variables
         id: load-env
-        if: steps.pr.outputs.proceed == 'true'
         uses: ./.github/actions/load-env
 
       # --------------------------------------------------------------------
       # Extract fork-management configuration (single jq pass)
       # --------------------------------------------------------------------
       - name: 🔧 Extract configuration
-        if: steps.pr.outputs.proceed == 'true'
         env:
           ENV_JSON: ${{ steps.load-env.outputs.env-json }}
         run: |
@@ -863,23 +925,20 @@ jobs:
           echo "  🧹 Clean cache on close: $(echo "$ENV_JSON" | jq -r '.PR_MANAGEMENT_CLEAN_CACHE_ON_CLOSE // "true"')"
 
       # --------------------------------------------------------------------
-      # Debug log: confirm fork classification (the lookup step already
+      # Debug log: confirm fork classification (the lookup job already
       # enforces this, but logging the values is useful when triaging issues).
       # --------------------------------------------------------------------
       - name: 🔍 Fork detection (debug)
-        if: steps.pr.outputs.proceed == 'true'
         env:
-          PR_HEAD_REPO: ${{ steps.pr.outputs.head-repo }}
           BASE_REPO: ${{ github.repository }}
-          PR_STATE: ${{ steps.pr.outputs.state }}
         run: |
           echo "════════════════════════════════════════════════════════════════"
           echo "🔍 Fork Detection Debug"
           echo "════════════════════════════════════════════════════════════════"
+          echo "  PR: #${PR_NUMBER} (${PR_STATE})"
           echo "  PR Head Repo: '${PR_HEAD_REPO}'"
           echo "  Base Repo: '${BASE_REPO}'"
-          echo "  PR state: ${PR_STATE}"
-          echo "🚨 FORK PR confirmed (the lookup step would have skipped otherwise)"
+          echo "🚨 FORK PR confirmed (the lookup job would have skipped otherwise)"
           echo "════════════════════════════════════════════════════════════════"
 
       # --------------------------------------------------------------------
@@ -887,11 +946,8 @@ jobs:
       # --------------------------------------------------------------------
       - name: 🏷️ Add fork + triage labels
         id: fork-labels
-        if: steps.pr.outputs.proceed == 'true' && steps.pr.outputs.state == 'open'
+        if: env.PR_STATE == 'open'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          PR_NUMBER: ${{ steps.pr.outputs.pr-number }}
-          PR_AUTHOR: ${{ steps.pr.outputs.author }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -949,12 +1005,10 @@ jobs:
       # --------------------------------------------------------------------
       - name: 👤 Assign default assignee (optional)
         id: fork-assign
-        if: steps.pr.outputs.proceed == 'true' && steps.pr.outputs.state == 'open' && env.DEFAULT_ASSIGNEE != ''
+        if: env.PR_STATE == 'open' && env.DEFAULT_ASSIGNEE != ''
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
-          PR_NUMBER: ${{ steps.pr.outputs.pr-number }}
-          PR_AUTHOR: ${{ steps.pr.outputs.author }}
-          ASSIGNEE_COUNT: ${{ steps.pr.outputs.assignee-count }}
+          ASSIGNEE_COUNT: ${{ needs.pr-management-fork-lookup.outputs.assignee-count }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -986,11 +1040,8 @@ jobs:
       # --------------------------------------------------------------------
       - name: 💬 Welcome fork contributor
         id: fork-welcome
-        if: steps.pr.outputs.proceed == 'true' && steps.pr.outputs.state == 'open' && env.WELCOME_FORKS == 'true'
+        if: env.PR_STATE == 'open' && env.WELCOME_FORKS == 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          PR_NUMBER: ${{ steps.pr.outputs.pr-number }}
-          PR_AUTHOR: ${{ steps.pr.outputs.author }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -1044,9 +1095,8 @@ jobs:
       # --------------------------------------------------------------------
       - name: 🧹 Cleanup caches
         id: fork-clean-cache
-        if: steps.pr.outputs.proceed == 'true' && steps.pr.outputs.state == 'closed' && env.CLEAN_CACHE == 'true'
+        if: env.PR_STATE == 'closed' && env.CLEAN_CACHE == 'true'
         env:
-          PR_NUMBER: ${{ steps.pr.outputs.pr-number }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
@@ -1074,19 +1124,17 @@ jobs:
 
           if [ "$cacheCount" -eq "0" ]; then
             echo "ℹ️ No caches found for this PR"
-            echo "caches-cleaned=0" >> $GITHUB_OUTPUT
+            echo "caches-cleaned=0" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           echo "🗑️ Found $cacheCount cache(s) to clean"
 
-          set +e
           cleanedCount=0
-
           for cacheKey in $cacheKeysForPR; do
             if gh cache delete "$cacheKey"; then
               echo "  ✅ Deleted cache: $cacheKey"
-              ((cleanedCount++))
+              cleanedCount=$((cleanedCount + 1))
             else
               echo "  ⚠️ Failed to delete cache: $cacheKey"
             fi
@@ -1094,7 +1142,7 @@ jobs:
 
           echo "════════════════════════════════════════════════════════════════"
           echo "✅ Cleaned $cleanedCount out of $cacheCount cache(s)"
-          echo "caches-cleaned=$cleanedCount" >> $GITHUB_OUTPUT
+          echo "caches-cleaned=$cleanedCount" >> "$GITHUB_OUTPUT"
 
       # --------------------------------------------------------------------
       # Workflow summary
@@ -1102,26 +1150,11 @@ jobs:
       - name: 📊 Generate workflow summary
         if: always()
         env:
-          PROCEED: ${{ steps.pr.outputs.proceed }}
-          SKIP_REASON: ${{ steps.pr.outputs.reason }}
-          PR_NUMBER: ${{ steps.pr.outputs.pr-number }}
-          PR_TITLE: ${{ steps.pr.outputs.title }}
-          PR_AUTHOR: ${{ steps.pr.outputs.author }}
-          PR_STATE: ${{ steps.pr.outputs.state }}
-          PR_HEAD_REPO: ${{ steps.pr.outputs.head-repo }}
+          PR_TITLE: ${{ needs.pr-management-fork-lookup.outputs.title }}
           BASE_REPO: ${{ github.repository }}
           CACHE_OUTCOME: ${{ steps.fork-clean-cache.outcome }}
           CACHES_CLEANED: ${{ steps.fork-clean-cache.outputs.caches-cleaned }}
         run: |
-          if [ "$PROCEED" != "true" ]; then
-            {
-              echo "# 🔧 Pull Request Management Summary (Fork)"
-              echo ""
-              echo "⏭️ Skipped: ${SKIP_REASON:-the lookup step failed; see its log}"
-            } >> $GITHUB_STEP_SUMMARY
-            exit 0
-          fi
-
           {
             echo "# 🔧 Pull Request Management Summary (Fork)"
             echo ""
@@ -1138,7 +1171,7 @@ jobs:
             echo "| Is Fork PR? | **true** |"
             echo "| Status | ✅ Fork PR — handled with restricted permissions |"
             echo ""
-          } >> $GITHUB_STEP_SUMMARY
+          } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "$PR_STATE" = "closed" ]; then
             {
@@ -1146,17 +1179,16 @@ jobs:
               echo ""
               echo "| Action | Result |"
               echo "|--------|--------|"
-            } >> $GITHUB_STEP_SUMMARY
-
-            if [ "$CACHE_OUTCOME" = "success" ]; then
-              echo "| 🧹 Cache Cleanup | ${CACHES_CLEANED} cache(s) cleaned |" >> $GITHUB_STEP_SUMMARY
-            elif [ "$CACHE_OUTCOME" = "skipped" ]; then
-              echo "| 🧹 Cache Cleanup | Skipped (disabled) |" >> $GITHUB_STEP_SUMMARY
-            fi
-            echo "" >> $GITHUB_STEP_SUMMARY
+              if [ "$CACHE_OUTCOME" = "success" ]; then
+                echo "| 🧹 Cache Cleanup | ${CACHES_CLEANED} cache(s) cleaned |"
+              elif [ "$CACHE_OUTCOME" = "skipped" ]; then
+                echo "| 🧹 Cache Cleanup | Skipped (disabled) |"
+              fi
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
           {
             echo "---"
             echo "**Security:** This job ran from the default branch via **workflow_run** with a **default-branch sparse checkout only**. PR code was **not** checked out or executed."
-          } >> $GITHUB_STEP_SUMMARY
+          } >> "$GITHUB_STEP_SUMMARY"

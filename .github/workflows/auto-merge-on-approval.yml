@@ -52,8 +52,13 @@ name: Auto-merge on Approval
 
 # --------------------------------------------------------------------
 # Trigger Configuration
+#
+# zizmor's dangerous-triggers audit flags every `workflow_run` trigger. This one
+# uses no artifacts, outputs or code from the triggering run: `evaluate` re-reads
+# the PR from the API, and `apply` re-checks it and pins arming to the evaluated
+# head commit (see "Why two workflows" above).
 # --------------------------------------------------------------------
-on:
+on: # zizmor: ignore[dangerous-triggers] see "Trigger Configuration" above
   workflow_run:
     workflows: ["Auto-merge Trigger"]
     types: [completed]
@@ -271,27 +276,36 @@ jobs:
             // ————————————————————————————————————————————————————————————————
             // Resolve the PR. Nothing from the trigger run is trusted: only its
             // head branch/SHA are used to find the PR, then everything is
-            // re-read from the API.
+            // re-read from the API. Only PRs in this repository count (the
+            // payload can list PRs of other repositories with the same head),
+            // and a head shared by several PRs is skipped, never guessed.
             // ————————————————————————————————————————————————————————————————
-            let prNumber = (run.pull_requests || [])
-              .find(p => p.head && p.head.sha === run.head_sha)?.number;
-            if (!prNumber) {
+            const candidates = new Set((run.pull_requests || [])
+              .filter(p => p.head?.sha === run.head_sha && p.base?.repo?.id === context.payload.repository.id)
+              .map(p => p.number));
+            if (candidates.size === 0) {
               const { data: associated } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
                 owner,
                 repo,
                 commit_sha: run.head_sha,
               });
-              prNumber = associated.find(p =>
-                p.state === 'open' &&
-                p.head?.ref === run.head_branch &&
-                p.head?.repo?.full_name === `${owner}/${repo}`
-              )?.number;
+              for (const p of associated) {
+                if (p.state === 'open' && p.head?.ref === run.head_branch && p.head?.repo?.full_name === `${owner}/${repo}`) {
+                  candidates.add(p.number);
+                }
+              }
             }
-            if (!prNumber) {
+            if (candidates.size === 0) {
               console.log(`ℹ️  No open pull request found for ${run.head_branch} @ ${run.head_sha}`);
               core.setOutput('action', 'skip-no-pr');
               return;
             }
+            if (candidates.size > 1) {
+              console.log(`ℹ️  Several pull requests (#${[...candidates].join(', #')}) have head ${run.head_sha} - none is acted on`);
+              core.setOutput('action', 'skip-ambiguous-pr');
+              return;
+            }
+            const [prNumber] = candidates;
 
             console.log(`🔍 Checking auto-merge conditions for PR #${prNumber}`);
             console.log('════════════════════════════════════════════════════════════════');
@@ -535,6 +549,7 @@ jobs:
             "skip-missing-automerge-label")  ACTION_DESC="🏷️ Skipped (missing automerge label)" ;;
             "skip-no-required-checks")       ACTION_DESC="🚫 Skipped (base branch requires no status checks)" ;;
             "skip-no-pr")                    ACTION_DESC="ℹ️ Skipped (no open PR for this run)" ;;
+            "skip-ambiguous-pr")             ACTION_DESC="ℹ️ Skipped (several PRs share this head commit)" ;;
             "skip-trigger-gated")            ACTION_DESC="ℹ️ Skipped (trigger event can't change the decision)" ;;
             "skip-not-open")                 ACTION_DESC="ℹ️ Skipped (PR not open)" ;;
             "conditions-not-met")            ACTION_DESC="⏳ Conditions not met" ;;
@@ -643,6 +658,9 @@ jobs:
           REQUIRE_LABEL: ${{ needs.evaluate.outputs.require-label }}
           AUTOMERGE_LABEL: ${{ needs.evaluate.outputs.automerge-label }}
         run: |
+          # pipefail: a failed review listing below must fail this step (and so
+          # skip enabling/disabling), not count as zero approvals
+          set -o pipefail
           PR_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
           read -r STATE CURRENT_SHA ARMED ARMED_BY_APP DRAFT PENDING_REVIEWS HAS_LABEL IS_WIP < <(jq -r \
             --arg app_bot "$APP_BOT" --arg label "$AUTOMERGE_LABEL" --arg wip "$WIP_LABELS" '

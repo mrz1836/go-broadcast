@@ -57,11 +57,14 @@
 #    dependabot[bot])
 #  - Every commit must be authored by dependabot[bot] and signed by GitHub
 #  - The base branch must require status checks, so nothing merges before CI
-#  - A commit on the PR that Dependabot didn't produce (a push by anyone else)
-#    revokes the bot approval and disarms auto-merge, even if the analysis then
-#    fails. This needs the trigger to run for that push. A pusher who also edits
-#    the trigger in the same push can prevent that, so base branches should also
-#    dismiss stale approvals on push (see .github/docs/auto-merge-github-app.md)
+#  - The bot approval and the App's auto-merge only stand while the latest
+#    evaluation allows them. Every evaluation that doesn't approve (a commit
+#    Dependabot didn't produce, a run someone else triggered, an update that now
+#    needs review, unreadable metadata, a failed analysis) revokes them. A push
+#    by anyone else also disarms an auto-merge armed by hand. This needs the
+#    trigger to run for that push. A pusher who also edits the trigger in the
+#    same push can prevent that, so base branches should also dismiss stale
+#    approvals on push (see .github/docs/auto-merge-github-app.md)
 #  - The approval and auto-merge are pinned to the verified head commit
 #
 #  Maintainer: @mrz1836
@@ -86,8 +89,13 @@ name: Dependabot Auto-merge
 #
 # `branches` is only a pre-filter, not a security check: Dependabot branches are
 # always named dependabot<separator>..., so no other PR starts a run here at all.
+#
+# zizmor's dangerous-triggers audit flags every `workflow_run` trigger. This one
+# is used the way that audit asks for: no artifacts, outputs or code from the
+# triggering run are used; `verify` re-reads the PR and its commits from the API
+# and pins everything to the verified head; `apply` re-checks before acting.
 # --------------------------------------------------------------------
-on:
+on: # zizmor: ignore[dangerous-triggers] see "Trigger Configuration" above
   workflow_run:
     workflows: ["Auto-merge Trigger"]
     types: [completed]
@@ -103,6 +111,8 @@ permissions: {}
 # - `analyze` cancels an older analysis of the same PR.
 # - `apply` must never be cancelled halfway (e.g. after approving, before arming):
 #   applies queue instead, and each one re-checks the PR on fresh data first.
+#   GitHub keeps one pending job per group, so a newer apply replaces an older
+#   one that is still waiting; the newer one carries the fresher evaluation.
 # --------------------------------------------------------------------
 
 # --------------------------------------------------------------------
@@ -117,9 +127,12 @@ jobs:
   # Ends with one `result`:
   #   analyze             → a genuine Dependabot PR on the triggering commit;
   #                         `analyze` decides what to do with it
-  #   revoke-foreign-push → the PR has a commit Dependabot didn't produce;
-  #                         `apply` revokes the bot approval and auto-merge
-  #   skip-*              → nothing to do (reason in the summary)
+  #   revoke-foreign-push → the PR has a commit Dependabot didn't produce
+  #   manual-no-metadata  → Dependabot's metadata can't be read: manual review
+  #   skip-*              → not a PR this workflow acts on, or no longer at the
+  #                         triggering commit: nothing to do (reason in the summary)
+  # Every result but skip-* reaches `apply`, which approves the verified head
+  # (auto-merge decisions) or revokes the bot approval and auto-merge (all others).
   # ----------------------------------------------------------------------------------
   verify:
     name: 🔐 Verify Dependabot PR
@@ -415,7 +428,7 @@ jobs:
               per_page: 100,
             });
             if (commits.length === 0) {
-              return finish('skip-no-metadata', `PR #${pr.number} has no commits`, verified);
+              return finish('manual-no-metadata', `PR #${pr.number} has no commits`, verified);
             }
             const foreign = commits.filter(c => !isDependabotCommit(c));
             if (foreign.length > 0) {
@@ -437,7 +450,7 @@ jobs:
             }
             const metadata = parseDependabotCommit(headCommit.commit?.message ?? '', pr.head.ref, pr.title ?? '');
             if (!metadata) {
-              return finish('skip-no-metadata', `Couldn't read Dependabot's updated-dependencies metadata from commit ${pr.head.sha}`, verified);
+              return finish('manual-no-metadata', `Couldn't read Dependabot's updated-dependencies metadata from commit ${pr.head.sha}; it needs a manual review`, verified);
             }
             const { deps, ecosystem } = metadata;
             const depTypes = new Set(deps.map(d => d.type));
@@ -501,7 +514,7 @@ jobs:
   #   📊 Generate summary       → always
   #
   # On `revoke-foreign-push` only the configuration, labels and summary run.
-  # The approval and auto-merge happen in the separate `apply` job below.
+  # Approving, arming and revoking happen in the separate `apply` job below.
   # ----------------------------------------------------------------------------------
   analyze:
     name: 🤖 Dependabot Auto-merge
@@ -521,6 +534,8 @@ jobs:
       PR_NUMBER: ${{ needs.verify.outputs.pr-number }}
     outputs:
       action: ${{ steps.guard.outputs.action || needs.verify.outputs.result }}
+      manual-review-label: ${{ steps.config.outputs.manual-review-label }}
+      auto-merge-labels: ${{ steps.config.outputs.auto-merge-labels }}
 
     steps:
       # --------------------------------------------------------------------
@@ -549,6 +564,7 @@ jobs:
       # Extract Dependabot configuration up-front
       # --------------------------------------------------------------------
       - name: 🔧 Extract configuration
+        id: config
         env:
           ENV_JSON: ${{ steps.load-env.outputs.env-json }}
           APP_CLIENT_ID: ${{ vars.AUTO_MERGE_APP_CLIENT_ID }}
@@ -580,6 +596,12 @@ jobs:
             echo "MANUAL_REVIEW_LABEL=$(echo "$ENV_JSON" | jq -r '.DEPENDABOT_MANUAL_REVIEW_LABEL')"
             echo "AUTO_MERGE_LABELS=$(echo "$ENV_JSON" | jq -r '.DEPENDABOT_AUTO_MERGE_LABELS')"
           } >> "$GITHUB_ENV"
+
+          # Label names for the `apply` job, which has no checkout or env files
+          {
+            echo "manual-review-label=$(echo "$ENV_JSON" | jq -r '.DEPENDABOT_MANUAL_REVIEW_LABEL // ""')"
+            echo "auto-merge-labels=$(echo "$ENV_JSON" | jq -r '.DEPENDABOT_AUTO_MERGE_LABELS // ""')"
+          } >> "$GITHUB_OUTPUT"
 
           # Log configuration
           echo "🔍 Configuration loaded:"
@@ -655,14 +677,14 @@ jobs:
           # Using environment variables to prevent script injection
           if [[ "${PR_LABELS,,}" == *"security"* ]]; then
             echo "  ✅ MATCH: 'security' found in PR labels"
-            echo "is_security=true" >> $GITHUB_OUTPUT
+            echo "is_security=true" >> "$GITHUB_OUTPUT"
             echo "════════════════════════════════════════════════════════════════"
             echo "🎯 RESULT: Security update detected (via labels)"
             echo "════════════════════════════════════════════════════════════════"
             exit 0
           elif [[ "${PR_TITLE,,}" == *"security"* ]]; then
             echo "  ✅ MATCH: Security keyword found in PR title"
-            echo "is_security=true" >> $GITHUB_OUTPUT
+            echo "is_security=true" >> "$GITHUB_OUTPUT"
             echo "════════════════════════════════════════════════════════════════"
             echo "🎯 RESULT: Security update detected (via title)"
             echo "════════════════════════════════════════════════════════════════"
@@ -711,6 +733,7 @@ jobs:
           else
             # $GQL_ECOSYSTEM (from the fixed map) and $DEPENDENCY are passed as GraphQL
             # variables (parameterized) — never concatenated into the query text.
+            # shellcheck disable=SC2016 # $ecosystem/$package are GraphQL variables
             PATCHED=$(gh api graphql -f query='
               query($ecosystem: SecurityAdvisoryEcosystem!, $package: String!) {
                 securityVulnerabilities(first: 100, ecosystem: $ecosystem, package: $package) {
@@ -883,16 +906,16 @@ jobs:
           echo "  Same Owner: $SAME_OWNER"
           echo ""
           echo "📋 Active Configuration:"
-          echo "  AUTO_MERGE_SECURITY: ${{ env.AUTO_MERGE_SECURITY }}"
-          echo "  AUTO_MERGE_PATCH: ${{ env.AUTO_MERGE_PATCH }}"
-          echo "  AUTO_MERGE_PATCH_SAME_OWNER: ${{ env.AUTO_MERGE_PATCH_SAME_OWNER }}"
-          echo "  AUTO_MERGE_PATCH_THIRD_PARTY: ${{ env.AUTO_MERGE_PATCH_THIRD_PARTY }}"
-          echo "  AUTO_MERGE_PATCH_INDIRECT: ${{ env.AUTO_MERGE_PATCH_INDIRECT }}"
-          echo "  AUTO_MERGE_MINOR_DEV: ${{ env.AUTO_MERGE_MINOR_DEV }}"
-          echo "  AUTO_MERGE_MINOR_PROD: ${{ env.AUTO_MERGE_MINOR_PROD }}"
-          echo "  AUTO_MERGE_MINOR_INDIRECT: ${{ env.AUTO_MERGE_MINOR_INDIRECT }}"
-          echo "  ALERT_ON_MAJOR: ${{ env.ALERT_ON_MAJOR }}"
-          echo "  ALERT_ON_MINOR_PROD: ${{ env.ALERT_ON_MINOR_PROD }}"
+          echo "  AUTO_MERGE_SECURITY: ${AUTO_MERGE_SECURITY}"
+          echo "  AUTO_MERGE_PATCH: ${AUTO_MERGE_PATCH}"
+          echo "  AUTO_MERGE_PATCH_SAME_OWNER: ${AUTO_MERGE_PATCH_SAME_OWNER}"
+          echo "  AUTO_MERGE_PATCH_THIRD_PARTY: ${AUTO_MERGE_PATCH_THIRD_PARTY}"
+          echo "  AUTO_MERGE_PATCH_INDIRECT: ${AUTO_MERGE_PATCH_INDIRECT}"
+          echo "  AUTO_MERGE_MINOR_DEV: ${AUTO_MERGE_MINOR_DEV}"
+          echo "  AUTO_MERGE_MINOR_PROD: ${AUTO_MERGE_MINOR_PROD}"
+          echo "  AUTO_MERGE_MINOR_INDIRECT: ${AUTO_MERGE_MINOR_INDIRECT}"
+          echo "  ALERT_ON_MAJOR: ${ALERT_ON_MAJOR}"
+          echo "  ALERT_ON_MINOR_PROD: ${ALERT_ON_MINOR_PROD}"
           echo ""
           echo "🔄 Evaluating decision tree..."
           echo "────────────────────────────────────────────────────────────────"
@@ -901,7 +924,7 @@ jobs:
           echo "🔍 Checking Rule 1: Security updates..."
           if [[ "$IS_SECURITY" == "true" ]]; then
             echo "  ✅ IS_SECURITY == true"
-            if [[ "${{ env.AUTO_MERGE_SECURITY }}" == "true" ]]; then
+            if [[ "${AUTO_MERGE_SECURITY}" == "true" ]]; then
               echo "  ✅ AUTO_MERGE_SECURITY == true"
               if [[ "$UPDATE_TYPE" != "version-update:semver-major" ]]; then
                 echo "  ✅ UPDATE_TYPE != major"
@@ -952,27 +975,27 @@ jobs:
                 # in depth: Rule 1 decides those (and routes them to manual review when
                 # security auto-merge is disabled). Major updates never reach this rule.
                 echo "  🔒 DEP_TYPE == direct:production"
-                if [[ "$IS_SECURITY" != "true" && "$SAME_OWNER" == "true" && "${{ env.AUTO_MERGE_PATCH_SAME_OWNER }}" == "true" && "${{ env.AUTO_MERGE_PATCH }}" == "true" ]]; then
+                if [[ "$IS_SECURITY" != "true" && "$SAME_OWNER" == "true" && "${AUTO_MERGE_PATCH_SAME_OWNER}" == "true" && "${AUTO_MERGE_PATCH}" == "true" ]]; then
                   echo "  ✅ SAME_OWNER == true (all dependencies owned by this repo's owner)"
                   echo "  ✅ AUTO_MERGE_PATCH_SAME_OWNER == true"
                   ACTION="auto-merge-patch-same-owner"
                   echo "  🎯 MATCH! Action: $ACTION"
                   echo "  📝 Reason: Production patch of a same-owner (first-party) dependency"
-                elif [[ "$IS_SECURITY" != "true" && "$SAME_OWNER" != "true" && "${{ env.AUTO_MERGE_PATCH_THIRD_PARTY }}" == "true" && "${{ env.AUTO_MERGE_PATCH }}" == "true" ]]; then
+                elif [[ "$IS_SECURITY" != "true" && "$SAME_OWNER" != "true" && "${AUTO_MERGE_PATCH_THIRD_PARTY}" == "true" && "${AUTO_MERGE_PATCH}" == "true" ]]; then
                   echo "  ✅ SAME_OWNER != true (third-party dependency)"
                   echo "  ✅ AUTO_MERGE_PATCH_THIRD_PARTY == true"
                   ACTION="auto-merge-patch-third-party"
                   echo "  🎯 MATCH! Action: $ACTION"
                   echo "  📝 Reason: Production patch of a third-party dependency, auto-merge enabled (DEPENDABOT_AUTO_MERGE_PATCH_THIRD_PARTY)"
                 else
-                  echo "  ❌ Not eligible for production patch auto-merge (IS_SECURITY=$IS_SECURITY, SAME_OWNER=$SAME_OWNER, AUTO_MERGE_PATCH_SAME_OWNER=${{ env.AUTO_MERGE_PATCH_SAME_OWNER }}, AUTO_MERGE_PATCH_THIRD_PARTY=${{ env.AUTO_MERGE_PATCH_THIRD_PARTY }}, AUTO_MERGE_PATCH=${{ env.AUTO_MERGE_PATCH }})"
+                  echo "  ❌ Not eligible for production patch auto-merge (IS_SECURITY=$IS_SECURITY, SAME_OWNER=$SAME_OWNER, AUTO_MERGE_PATCH_SAME_OWNER=${AUTO_MERGE_PATCH_SAME_OWNER}, AUTO_MERGE_PATCH_THIRD_PARTY=${AUTO_MERGE_PATCH_THIRD_PARTY}, AUTO_MERGE_PATCH=${AUTO_MERGE_PATCH})"
                   ACTION="manual-review"
                   echo "  🎯 MATCH! Action: $ACTION"
                   if [[ "$IS_SECURITY" == "true" ]]; then
                     echo "  📝 Reason: Security update; the patch rules never auto-merge it (Rule 1 decides security updates)"
                   elif [[ "$SAME_OWNER" == "true" ]]; then
                     echo "  📝 Reason: Same-owner production patch, but same-owner/patch auto-merge is disabled in configuration"
-                  elif [[ "${{ env.AUTO_MERGE_PATCH_THIRD_PARTY }}" != "true" ]]; then
+                  elif [[ "${AUTO_MERGE_PATCH_THIRD_PARTY}" != "true" ]]; then
                     echo "  📝 Reason: Third-party production patch requires manual review (supply-chain safety): DEPENDABOT_AUTO_MERGE_PATCH_THIRD_PARTY is off"
                   else
                     echo "  📝 Reason: Third-party production patch requires manual review: patch auto-merge is disabled in configuration (DEPENDABOT_AUTO_MERGE_PATCH)"
@@ -980,7 +1003,7 @@ jobs:
                 fi
               elif [[ "$DEP_TYPE" != "indirect" ]]; then
                 echo "  ✅ DEP_TYPE is direct:development"
-                if [[ "${{ env.AUTO_MERGE_PATCH }}" == "true" ]]; then
+                if [[ "${AUTO_MERGE_PATCH}" == "true" ]]; then
                   echo "  ✅ AUTO_MERGE_PATCH == true"
                   ACTION="auto-merge-patch"
                   echo "  🎯 MATCH! Action: $ACTION"
@@ -1009,7 +1032,7 @@ jobs:
               echo "  ✅ UPDATE_TYPE == patch"
               if [[ "$DEP_TYPE" == "indirect" ]]; then
                 echo "  ✅ DEP_TYPE == indirect"
-                if [[ "${{ env.AUTO_MERGE_PATCH_INDIRECT }}" == "true" ]]; then
+                if [[ "${AUTO_MERGE_PATCH_INDIRECT}" == "true" ]]; then
                   echo "  ✅ AUTO_MERGE_PATCH_INDIRECT == true"
                   ACTION="auto-merge-patch-indirect"
                   echo "  🎯 MATCH! Action: $ACTION"
@@ -1038,7 +1061,7 @@ jobs:
               echo "  ✅ UPDATE_TYPE == minor"
               if [[ "$DEP_TYPE" == "direct:development" ]]; then
                 echo "  ✅ DEP_TYPE == direct:development"
-                if [[ "${{ env.AUTO_MERGE_MINOR_DEV }}" == "true" ]]; then
+                if [[ "${AUTO_MERGE_MINOR_DEV}" == "true" ]]; then
                   echo "  ✅ AUTO_MERGE_MINOR_DEV == true"
                   ACTION="auto-merge-minor-dev"
                   echo "  🎯 MATCH! Action: $ACTION"
@@ -1067,12 +1090,12 @@ jobs:
               echo "  ✅ UPDATE_TYPE == minor"
               if [[ "$DEP_TYPE" == "direct:production" ]]; then
                 echo "  ✅ DEP_TYPE == direct:production"
-                if [[ "${{ env.AUTO_MERGE_MINOR_PROD }}" == "true" ]]; then
+                if [[ "${AUTO_MERGE_MINOR_PROD}" == "true" ]]; then
                   echo "  ✅ AUTO_MERGE_MINOR_PROD == true"
                   ACTION="auto-merge-minor-prod"
                   echo "  🎯 MATCH! Action: $ACTION"
                   echo "  📝 Reason: Minor update for prod dependency with auto-merge enabled"
-                elif [[ "${{ env.ALERT_ON_MINOR_PROD }}" == "true" ]]; then
+                elif [[ "${ALERT_ON_MINOR_PROD}" == "true" ]]; then
                   echo "  ❌ AUTO_MERGE_MINOR_PROD == false"
                   echo "  ✅ ALERT_ON_MINOR_PROD == true"
                   ACTION="alert-minor-prod"
@@ -1103,7 +1126,7 @@ jobs:
               echo "  ✅ UPDATE_TYPE == minor"
               if [[ "$DEP_TYPE" == "indirect" ]]; then
                 echo "  ✅ DEP_TYPE == indirect"
-                if [[ "${{ env.AUTO_MERGE_MINOR_INDIRECT }}" == "true" ]]; then
+                if [[ "${AUTO_MERGE_MINOR_INDIRECT}" == "true" ]]; then
                   echo "  ✅ AUTO_MERGE_MINOR_INDIRECT == true"
                   ACTION="auto-merge-minor-indirect"
                   echo "  🎯 MATCH! Action: $ACTION"
@@ -1130,7 +1153,7 @@ jobs:
             echo "🔍 Checking Rule 7: Major updates..."
             if [[ "$UPDATE_TYPE" == "version-update:semver-major" ]]; then
               echo "  ✅ UPDATE_TYPE == major"
-              if [[ "${{ env.ALERT_ON_MAJOR }}" == "true" ]]; then
+              if [[ "${ALERT_ON_MAJOR}" == "true" ]]; then
                 echo "  ✅ ALERT_ON_MAJOR == true"
                 ACTION="alert-major"
                 echo "  🎯 MATCH! Action: $ACTION"
@@ -1162,7 +1185,7 @@ jobs:
           echo "🎯 FINAL DECISION: $ACTION"
           echo "════════════════════════════════════════════════════════════════"
 
-          echo "action=$ACTION" >> $GITHUB_OUTPUT
+          echo "action=$ACTION" >> "$GITHUB_OUTPUT"
 
       # --------------------------------------------------------------------
       # Merge guards (always enforced, independent of configuration)
@@ -1184,8 +1207,11 @@ jobs:
       #      checked this; it is re-checked here in case of a push since then.
       #   4. The base branch must require status checks (ruleset or classic
       #      branch protection). Otherwise "auto-merge" would merge before CI.
+      # Any action other than auto-merge-* also makes `apply` revoke a bot
+      # approval and auto-merge left by an earlier evaluation, so a later push
+      # (by Dependabot or anyone else) never rides an approval of older content.
       # It also warns, without blocking, when the base branch's rulesets require
-      # approvals but keep them after new pushes. Guard 1 needs the PR-side
+      # approvals but keep them after new pushes. Revoking needs the PR-side
       # trigger to run for the push, so "dismiss stale approvals" is the backstop.
       # Fails closed: any API error leaves the PR for manual review.
       # --------------------------------------------------------------------
@@ -1235,7 +1261,9 @@ jobs:
           fi
           if [[ -n "$FOREIGN" ]]; then
             echo "  Commits not authored by Dependabot and signed by GitHub:"
-            echo "$FOREIGN" | sed 's/^/    - /'
+            while IFS= read -r FOREIGN_SHA; do
+              echo "    - $FOREIGN_SHA"
+            done <<< "$FOREIGN"
             finish skip-foreign-commits "🚫 PR contains commits not produced by Dependabot — leaving for manual review"
           fi
           echo "  ✅ All commits authored by dependabot[bot] and signed by GitHub"
@@ -1330,7 +1358,7 @@ jobs:
             - [ ] Update code if necessary to handle breaking changes`;
 
             // Check for existing alert comment to avoid duplicates
-            const { data: comments } = await github.rest.issues.listComments({
+            const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
@@ -1338,9 +1366,9 @@ jobs:
             });
 
             const alertExists = comments.some(comment =>
-              comment.body.includes('Major version update detected') &&
-              comment.body.includes(dependency) &&
-              comment.user.login === 'github-actions[bot]'
+              (comment.body ?? '').includes('Major version update detected') &&
+              (comment.body ?? '').includes(dependency) &&
+              comment.user?.login === 'github-actions[bot]'
             );
 
             if (!alertExists) {
@@ -1351,12 +1379,12 @@ jobs:
                 body: commentBody
               });
 
-              // Add label for tracking
+              // Add label for tracking (MANUAL_REVIEW_LABEL is a job-level env var)
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
-                labels: ['${{ env.MANUAL_REVIEW_LABEL }}']
+                labels: [process.env.MANUAL_REVIEW_LABEL]
               });
             } else {
               console.log('Major version alert already exists, skipping duplicate comment');
@@ -1420,7 +1448,7 @@ jobs:
             - [ ] Confirm compatibility with current code`;
 
             // Check for existing comment
-            const { data: comments } = await github.rest.issues.listComments({
+            const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
@@ -1428,9 +1456,9 @@ jobs:
             });
 
             const commentExists = comments.some(comment =>
-              comment.body.includes('Minor production dependency update') &&
-              comment.body.includes(dependency) &&
-              comment.user.login === 'github-actions[bot]'
+              (comment.body ?? '').includes('Minor production dependency update') &&
+              (comment.body ?? '').includes(dependency) &&
+              comment.user?.login === 'github-actions[bot]'
             );
 
             if (!commentExists) {
@@ -1455,26 +1483,26 @@ jobs:
           NEW_VERSION: ${{ needs.verify.outputs.new-version }}
         run: |
           echo "════════════════════════════════════════════════════════════════"
-          if [[ "$ACTION" == auto-merge-* || "$ACTION" == "revoke-foreign-push" ]]; then
-            if [[ -n "$APP_CLIENT_ID" ]]; then
-              echo "🚀 HANDING OFF TO THE APPLY JOB"
-              echo "════════════════════════════════════════════════════════════════"
-              echo "Action: $ACTION"
-              echo "Dependency: $DEPENDENCY ($PREV_VERSION → $NEW_VERSION)"
-              echo "The 'apply' job will use the GitHub App to act on this PR."
-            else
-              echo "⏭️ APPLY SKIPPED — GITHUB APP NOT CONFIGURED"
-              echo "════════════════════════════════════════════════════════════════"
-              echo "Action: $ACTION"
-              echo "Set the AUTO_MERGE_APP_CLIENT_ID repository variable and the"
-              echo "'auto-merge' environment secret AUTO_MERGE_APP_PRIVATE_KEY to enable it."
-              echo "Until then, handle this PR manually or via 'go-broadcast review-pr'."
-            fi
+          if [[ "$ACTION" == auto-merge-* ]]; then
+            echo "🚀 APPROVE + AUTO-MERGE"
+            NEXT="approves this commit and arms auto-merge"
           else
             echo "👀 NO APPROVAL OR MERGE"
-            echo "════════════════════════════════════════════════════════════════"
-            echo "Action: $ACTION"
+            NEXT="revokes any bot approval or auto-merge an earlier evaluation left"
+          fi
+          echo "════════════════════════════════════════════════════════════════"
+          echo "Action: $ACTION"
+          echo "Dependency: ${DEPENDENCY:-unknown} (${PREV_VERSION:-?} → ${NEW_VERSION:-?})"
+          if [[ "$ACTION" != auto-merge-* ]]; then
             echo "See the decision tree and merge guard output above for the reason."
+          fi
+          if [[ -n "$APP_CLIENT_ID" ]]; then
+            echo "The 'apply' job (GitHub App) $NEXT."
+          elif [[ "$ACTION" == auto-merge-* ]]; then
+            echo "⏭️ Not applied: the GitHub App isn't configured. Set the"
+            echo "AUTO_MERGE_APP_CLIENT_ID repository variable and the 'auto-merge'"
+            echo "environment secret AUTO_MERGE_APP_PRIVATE_KEY to enable it. Until"
+            echo "then, handle this PR manually or via 'go-broadcast review-pr'."
           fi
           echo "════════════════════════════════════════════════════════════════"
 
@@ -1571,8 +1599,6 @@ jobs:
           DEPENDENCY_TYPE: ${{ needs.verify.outputs.dependency-type }}
           ACTION: ${{ steps.guard.outputs.action || needs.verify.outputs.result }}
           APP_CLIENT_ID: ${{ vars.AUTO_MERGE_APP_CLIENT_ID }}
-          # Mirrors the `apply` job's revoke condition, which holds even if this job fails
-          FOREIGN_PUSH: ${{ needs.verify.outputs.result == 'revoke-foreign-push' }}
         run: |
           echo "📊 Generating workflow summary..."
 
@@ -1593,15 +1619,18 @@ jobs:
             "alert-security-major")         ACTION_DESC="🚨 Manual review required (major security update)" ;;
             "alert-minor-prod")             ACTION_DESC="🔍 Manual review suggested (minor prod update)" ;;
             "manual-review")                ACTION_DESC="👀 Manual review required" ;;
+            "analyze")                      ACTION_DESC="❌ The analysis didn't complete (see the failed step), so nothing is approved" ;;
             *)                              ACTION_DESC="❓ Unknown action" ;;
           esac
 
-          if [[ "$ACTION" == auto-merge-* || "$FOREIGN_PUSH" == "true" ]]; then
-            if [[ -n "$APP_CLIENT_ID" ]]; then
-              APPLY_DESC="Handled by the **apply** job (GitHub App) — see its summary below."
-            else
-              APPLY_DESC="⏭️ Not applied: the GitHub App is not configured (\`AUTO_MERGE_APP_CLIENT_ID\` is unset)."
-            fi
+          # Mirrors the `apply` job, which runs even if this job fails: it approves
+          # on auto-merge-* and otherwise revokes what an earlier evaluation left
+          if [[ -n "$APP_CLIENT_ID" && "$ACTION" == auto-merge-* ]]; then
+            APPLY_DESC="Handled by the **apply** job (GitHub App): approve this commit and arm auto-merge. See its summary."
+          elif [[ -n "$APP_CLIENT_ID" ]]; then
+            APPLY_DESC="The **apply** job (GitHub App) revokes any bot approval or auto-merge an earlier evaluation left. See its summary."
+          elif [[ "$ACTION" == auto-merge-* ]]; then
+            APPLY_DESC="⏭️ Not applied: the GitHub App is not configured (\`AUTO_MERGE_APP_CLIENT_ID\` is unset)."
           else
             APPLY_DESC="Nothing to apply."
           fi
@@ -1642,7 +1671,7 @@ jobs:
             echo ""
             echo "---"
             echo "🤖 _Automated by GitHub Actions_"
-          } >> $GITHUB_STEP_SUMMARY
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # --------------------------------------------------------------------
       # Report final workflow status (stdout)
@@ -1666,6 +1695,7 @@ jobs:
             skip-*)               echo "🚫 Decision: Manual review required ($ACTION)" ;;
             alert-*)              echo "⚠️ Decision: Alert sent, manual review required" ;;
             manual-review)        echo "👀 Decision: Manual review required" ;;
+            analyze)              echo "❌ Decision: none (the analysis didn't complete)" ;;
             *)                    echo "❓ Decision: $ACTION" ;;
           esac
 
@@ -1673,7 +1703,18 @@ jobs:
           echo "✅ Analysis completed!"
 
   # ----------------------------------------------------------------------------------
-  # Apply: approve + arm auto-merge (or revoke) with a GitHub App token
+  # Apply: approve + arm auto-merge, or revoke, with a GitHub App token
+  #
+  # Runs after every evaluation of a verified Dependabot PR (every `verify` result
+  # but skip-*), so the bot approval and auto-merge always follow the latest one:
+  #   approve → the decision is auto-merge-*: approve the verified head commit and
+  #             arm auto-merge for it
+  #   revoke  → anything else (a commit Dependabot didn't produce, unreadable
+  #             metadata, a decision that doesn't auto-merge, a failed analysis):
+  #             dismiss the App's approvals and disarm the App's auto-merge, or any
+  #             auto-merge after a push by someone else. Once the head has moved, a
+  #             newer evaluation decides it: an App approval of the current head
+  #             stands, and only authorization for older commits is revoked.
   #
   # SECURITY: this is the only job that can read the App private key. Every step in
   # a job can read every secret the job uses (they sit in the runner's memory), so
@@ -1688,18 +1729,13 @@ jobs:
   apply:
     name: 🚀 Approve & arm auto-merge
     needs: [verify, analyze]
-    # Approving requires a successful analysis. Revoking does NOT: `verify` found a
-    # commit Dependabot didn't produce, and that holds even if `analyze` then fails,
-    # which would otherwise leave an earlier approval + auto-merge armed.
+    # No successful analysis needed: revoking must hold even if `analyze` fails,
+    # which would otherwise leave an earlier approval + auto-merge armed. Approving
+    # requires one (see DECISION).
     if: |
       !cancelled() &&
       vars.AUTO_MERGE_APP_CLIENT_ID != '' &&
-      (
-        needs.verify.outputs.result == 'revoke-foreign-push' ||
-        (needs.verify.outputs.result == 'analyze' &&
-          needs.analyze.result == 'success' &&
-          startsWith(needs.analyze.outputs.action, 'auto-merge-'))
-      )
+      contains(fromJSON('["analyze", "revoke-foreign-push", "manual-no-metadata"]'), needs.verify.outputs.result)
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     # Queue, never cancel: see "Concurrency Control" at the top
@@ -1713,6 +1749,9 @@ jobs:
     env:
       # Verified by the `verify` job from GitHub's payload and the API
       PR_NUMBER: ${{ needs.verify.outputs.pr-number }}
+      VERIFIED_SHA: ${{ needs.verify.outputs.head-sha }}
+      # Exactly one of the two steps below runs
+      DECISION: ${{ (needs.verify.outputs.result == 'analyze' && needs.analyze.result == 'success' && startsWith(needs.analyze.outputs.action, 'auto-merge-')) && 'approve' || 'revoke' }}
 
     steps:
       # --------------------------------------------------------------------
@@ -1734,18 +1773,18 @@ jobs:
       # --------------------------------------------------------------------
       - name: 🚀 Approve and arm auto-merge
         id: approve
-        if: needs.verify.outputs.result == 'analyze' && needs.analyze.result == 'success' && startsWith(needs.analyze.outputs.action, 'auto-merge-')
+        if: env.DECISION == 'approve'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           APP_BOT: ${{ steps.app-token.outputs.app-slug }}[bot]
           REPO: ${{ github.repository }}
-          HEAD_SHA: ${{ needs.verify.outputs.head-sha }}
           ACTION: ${{ needs.analyze.outputs.action }}
           # PR-derived values via env: (never string-spliced into the shell)
           DEPENDENCY: ${{ needs.verify.outputs.dependency-names }}
           PREV_VERSION: ${{ needs.verify.outputs.previous-version }}
           NEW_VERSION: ${{ needs.verify.outputs.new-version }}
         run: |
+          set -euo pipefail
           echo "════════════════════════════════════════════════════════════════"
           echo "🚀 APPROVE + ARM AUTO-MERGE as $APP_BOT"
           echo "════════════════════════════════════════════════════════════════"
@@ -1754,20 +1793,24 @@ jobs:
 
           # Re-read the PR right before acting: it must still be an open, same-repo
           # Dependabot PR on the exact commit the verify job checked.
-          read -r STATE CURRENT_SHA ARMED AUTHOR HEAD_REPO < <(gh api "repos/$REPO/pulls/$PR_NUMBER" \
-            --jq '[.state, .head.sha, (.auto_merge != null), .user.login, (.head.repo.full_name // "-")] | @tsv')
+          PR_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
+          STATE=$(jq -r '.state' <<< "$PR_JSON")
+          CURRENT_SHA=$(jq -r '.head.sha' <<< "$PR_JSON")
+          ARMED=$(jq -r '.auto_merge != null' <<< "$PR_JSON")
+          AUTHOR=$(jq -r '.user.login // ""' <<< "$PR_JSON")
+          HEAD_REPO=$(jq -r '.head.repo.full_name // ""' <<< "$PR_JSON")
           if [[ "$STATE" != "open" ]]; then
-            echo "⏭️ PR is ${STATE:-unreadable} — nothing to do"
+            echo "⏭️ PR is $STATE — nothing to do"
             outcome skipped-not-open
             exit 0
           fi
           if [[ "$AUTHOR" != "dependabot[bot]" || "$HEAD_REPO" != "$REPO" ]]; then
-            echo "⏭️ Not a same-repo Dependabot PR (author $AUTHOR, head $HEAD_REPO) — refusing"
+            echo "⏭️ Not a same-repo Dependabot PR (author ${AUTHOR:-<deleted>}, head ${HEAD_REPO:-<deleted>}) — refusing"
             outcome skipped-not-dependabot
             exit 0
           fi
-          if [[ "$CURRENT_SHA" != "$HEAD_SHA" ]]; then
-            echo "⏭️ Head moved from $HEAD_SHA to $CURRENT_SHA — the run for the new commit decides"
+          if [[ "$CURRENT_SHA" != "$VERIFIED_SHA" ]]; then
+            echo "⏭️ Head moved from $VERIFIED_SHA to $CURRENT_SHA — the run for the new commit decides"
             outcome skipped-head-moved
             exit 0
           fi
@@ -1784,21 +1827,25 @@ jobs:
             *)                              APPROVAL_MSG="✅ Auto-approving dependency update" ;;
           esac
 
-          # Step 1: approve. Idempotency guard: Dependabot fires `synchronize` on every
-          # rebase; skip if this App's latest review is still an approval so the PR
-          # timeline doesn't fill with duplicate reviews.
+          # Step 1: approve this exact commit. Idempotency guard: skip it when this
+          # App's latest review already approves this commit (a re-run). Each new
+          # head gets its own approval, so none is ever carried over to new content.
           echo "Step 1: Approving PR..."
           echo "────────────────────────────────────────────────────────────────"
-          # Checked assignment (no pipe) so a failed review listing stops the step.
-          APP_REVIEW_STATES=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews" \
-            --jq ".[] | select(.user.login == \"$APP_BOT\") | .state")
-          LATEST_APP_REVIEW=$(tail -n 1 <<< "$APP_REVIEW_STATES")
-          if [[ "$LATEST_APP_REVIEW" == "APPROVED" ]]; then
-            echo "✅ Already approved by $APP_BOT — skipping re-approval"
+          if ! REVIEWS_JSON=$(gh api --paginate --slurp "repos/$REPO/pulls/$PR_NUMBER/reviews"); then
+            echo "❌ Could not list the PR's reviews"
+            outcome failed-approve
+            exit 1
+          fi
+          LATEST_APP_REVIEW=$(jq -r --arg bot "$APP_BOT" '
+            [add // [] | .[] | select(.user.login == $bot)] | last // {}
+            | "\(.state // "none") \(.commit_id // "")"' <<< "$REVIEWS_JSON")
+          if [[ "$LATEST_APP_REVIEW" == "APPROVED $VERIFIED_SHA" ]]; then
+            echo "✅ Already approved $VERIFIED_SHA by $APP_BOT — skipping re-approval"
           elif gh api -X POST "repos/$REPO/pulls/$PR_NUMBER/reviews" \
-              -f commit_id="$HEAD_SHA" -f event=APPROVE \
+              -f commit_id="$VERIFIED_SHA" -f event=APPROVE \
               -f body="$APPROVAL_MSG: $DEPENDENCY ($PREV_VERSION → $NEW_VERSION)" --silent; then
-            echo "✅ Approved commit $HEAD_SHA"
+            echo "✅ Approved commit $VERIFIED_SHA"
           else
             echo "❌ Failed to approve PR (is the App installed on this repository?)"
             outcome failed-approve
@@ -1814,7 +1861,7 @@ jobs:
             outcome already-enabled
             exit 0
           fi
-          if MERGE_OUTPUT=$(gh pr merge "$PR_NUMBER" --repo "$REPO" --auto --squash --match-head-commit "$HEAD_SHA" 2>&1); then
+          if MERGE_OUTPUT=$(gh pr merge "$PR_NUMBER" --repo "$REPO" --auto --squash --match-head-commit "$VERIFIED_SHA" 2>&1); then
             echo "$MERGE_OUTPUT"
             echo "✅ Auto-merge enabled — the PR merges when all required checks pass"
             outcome enabled
@@ -1829,61 +1876,153 @@ jobs:
             echo "  - Auto-merge is not allowed in the repository settings"
             echo "  - The App lacks Contents: write on this repository"
             echo "  - The head commit changed (--match-head-commit)"
+            echo "  - The PR has a merge conflict (Dependabot rebases it, and that run re-evaluates)"
             outcome approved-ready-for-merge
           fi
 
       # --------------------------------------------------------------------
-      # Revoke: the PR has a commit Dependabot didn't produce (someone else
-      # pushed). Keyed off `verify`, not the analyze output (see the job-level if:)
+      # Revoke: this evaluation doesn't approve, so nothing the App approved or
+      # armed for other content may stand. Keyed off `verify` and the analysis
+      # result, not only the analyze output (see the job-level if:).
       # --------------------------------------------------------------------
       - name: 🚫 Revoke approval and disarm auto-merge
         id: revoke
-        if: needs.verify.outputs.result == 'revoke-foreign-push'
+        if: env.DECISION == 'revoke'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           APP_BOT: ${{ steps.app-token.outputs.app-slug }}[bot]
           REPO: ${{ github.repository }}
+          VERIFY_RESULT: ${{ needs.verify.outputs.result }}
+          ANALYZE_RESULT: ${{ needs.analyze.result }}
+          ACTION: ${{ needs.analyze.outputs.action }}
           # Who triggered the trigger's run (GitHub's payload), usually the pusher
           ACTOR: ${{ needs.verify.outputs.actor }}
+          # Label names from `analyze` (empty when it didn't get that far)
+          AUTO_MERGE_LABELS: ${{ needs.analyze.outputs.auto-merge-labels }}
+          MANUAL_REVIEW_LABEL: ${{ needs.analyze.outputs.manual-review-label }}
         run: |
-          if [[ -n "$ACTOR" && "$ACTOR" != "dependabot[bot]" ]]; then
-            WHO="@$ACTOR pushed to this Dependabot PR"
+          set -euo pipefail
+          outcome() { echo "outcome=$1" >> "$GITHUB_OUTPUT"; }
+          SHORT_SHA="${VERIFIED_SHA:0:7}"
+
+          # Why, for the log, the dismissal message and the PR comment
+          if [[ "$VERIFY_RESULT" == "revoke-foreign-push" ]]; then
+            if [[ -n "$ACTOR" && "$ACTOR" != "dependabot[bot]" ]]; then
+              WHY="@$ACTOR pushed to this Dependabot PR"
+            else
+              WHY="This Dependabot PR has commits that Dependabot didn't produce"
+            fi
+          elif [[ "$VERIFY_RESULT" == "manual-no-metadata" ]]; then
+            WHY="Dependabot's update metadata couldn't be read from commit $SHORT_SHA"
+          elif [[ "$ANALYZE_RESULT" != "success" ]]; then
+            WHY="The analysis of commit $SHORT_SHA didn't complete"
+          elif [[ "$ACTION" == "skip-untrusted-actor" ]]; then
+            WHY="@${ACTOR:-someone}, not Dependabot, triggered the latest evaluation of this PR"
           else
-            WHO="This Dependabot PR has commits that Dependabot didn't produce"
+            WHY="The latest evaluation of commit $SHORT_SHA ($ACTION) doesn't allow auto-merge"
+          fi
+          echo "reason=$WHY" >> "$GITHUB_OUTPUT"
+          echo "════════════════════════════════════════════════════════════════"
+          echo "🚫 REVOKE as $APP_BOT: $WHY"
+          echo "════════════════════════════════════════════════════════════════"
+
+          PR_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
+          STATE=$(jq -r '.state' <<< "$PR_JSON")
+          CURRENT_SHA=$(jq -r '.head.sha' <<< "$PR_JSON")
+          ARMED_BY=$(jq -r 'if .auto_merge == null then "" else (.auto_merge.enabled_by.login // "unknown") end' <<< "$PR_JSON")
+          if [[ "$STATE" != "open" ]]; then
+            echo "⏭️ PR is $STATE — nothing to revoke"
+            outcome skipped-not-open
+            exit 0
           fi
 
-          echo "════════════════════════════════════════════════════════════════"
-          echo "🚫 REVOKE as $APP_BOT ($WHO)"
-          echo "════════════════════════════════════════════════════════════════"
+          REVIEWS_JSON=$(gh api --paginate --slurp "repos/$REPO/pulls/$PR_NUMBER/reviews")
+          # The App's standing approvals, one "<review id> <commit>" per line
+          APPROVALS=$(jq -r --arg bot "$APP_BOT" '
+            add // [] | .[] | select(.user.login == $bot and .state == "APPROVED")
+            | "\(.id) \(.commit_id)"' <<< "$REVIEWS_JSON")
 
-          ARMED=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.auto_merge != null')
-          if [[ "$ARMED" == "true" ]]; then
-            gh pr merge "$PR_NUMBER" --repo "$REPO" --disable-auto
-            echo "🛑 Auto-merge disabled"
-          else
-            echo "ℹ️ Auto-merge was not enabled"
+          # An App approval of the current head was made by an evaluation that
+          # Dependabot triggered and that verified that exact commit. It stands when
+          # this run judged other content (the head has moved since), or when only
+          # who triggered this run is in question (skip-untrusted-actor).
+          if [[ "$CURRENT_SHA" != "$VERIFIED_SHA" || "$ACTION" == "skip-untrusted-actor" ]]; then
+            if grep -q " $CURRENT_SHA\$" <<< "$APPROVALS"; then
+              echo "✅ $APP_BOT approved the current head $CURRENT_SHA in an evaluation Dependabot triggered — nothing to revoke"
+              outcome kept-current
+              exit 0
+            fi
+          fi
+          if [[ "$CURRENT_SHA" != "$VERIFIED_SHA" ]]; then
+            echo "📌 Head moved from $VERIFIED_SHA to $CURRENT_SHA, which no App approval covers yet"
           fi
 
-          # Checked assignment (not process substitution) so a failed review listing
-          # fails the step instead of being reported as a successful revocation.
-          APPROVAL_IDS=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews" \
-            --jq ".[] | select(.user.login == \"$APP_BOT\" and .state == \"APPROVED\") | .id")
           DISMISSED=0
-          for REVIEW_ID in $APPROVAL_IDS; do
+          while read -r REVIEW_ID _; do
+            [[ -z "$REVIEW_ID" ]] && continue
             gh api -X PUT "repos/$REPO/pulls/$PR_NUMBER/reviews/$REVIEW_ID/dismissals" \
               -f event=DISMISS \
-              -f message="Revoked: $WHO, so it needs a human review." --silent
+              -f message="Revoked: $WHY, so it needs a human review." --silent
             DISMISSED=$((DISMISSED + 1))
-          done
+          done <<< "$APPROVALS"
           echo "🧹 Dismissed $DISMISSED approval(s) by $APP_BOT"
 
-          if [[ "$ARMED" == "true" || "$DISMISSED" -gt 0 ]]; then
+          # The App's own arming always goes. Anyone's goes after a push by someone
+          # other than Dependabot to the verified commit (a newer run judges a moved head).
+          DISARMED=false
+          if [[ -z "$ARMED_BY" ]]; then
+            echo "ℹ️ Auto-merge is not enabled"
+          elif [[ "$ARMED_BY" == "$APP_BOT" || ( "$CURRENT_SHA" == "$VERIFIED_SHA" && ( "$VERIFY_RESULT" == "revoke-foreign-push" || "$ACTOR" != "dependabot[bot]" ) ) ]]; then
+            if DISABLE_OUTPUT=$(gh pr merge "$PR_NUMBER" --repo "$REPO" --disable-auto 2>&1); then
+              DISARMED=true
+              echo "🛑 Auto-merge (armed by $ARMED_BY) disabled"
+            elif grep -qi "not enabled" <<< "$DISABLE_OUTPUT"; then
+              echo "ℹ️ Auto-merge was already disabled"
+            else
+              echo "$DISABLE_OUTPUT"
+              echo "❌ Failed to disable auto-merge"
+              exit 1
+            fi
+          else
+            echo "ℹ️ Auto-merge armed by $ARMED_BY is left alone (not this App's, no push by anyone else)"
+          fi
+
+          if [[ "$DISMISSED" -gt 0 || "$DISARMED" == "true" ]]; then
+            if [[ "$DISMISSED" -gt 0 && "$DISARMED" == "true" ]]; then
+              UNDONE="the automated approval was dismissed and auto-merge was disabled"
+            elif [[ "$DISMISSED" -gt 0 ]]; then
+              UNDONE="the automated approval was dismissed"
+            else
+              UNDONE="auto-merge was disabled"
+            fi
             gh api -X POST "repos/$REPO/issues/$PR_NUMBER/comments" --silent \
               -f body="🚫 **Auto-merge revoked**
 
-          $WHO, so the automated approval was dismissed and auto-merge was disabled. A human needs to review and merge it."
+          $WHY, so $UNDONE. A human needs to review and merge it, unless a later Dependabot update is approved again."
+
+            # Labels follow, best effort, while the PR is still at the judged commit
+            # (a newer run labels a moved head; `analyze` already did foreign pushes)
+            if [[ "$CURRENT_SHA" == "$VERIFIED_SHA" && "$VERIFY_RESULT" != "revoke-foreign-push" ]]; then
+              IFS=',' read -ra LABEL_NAMES <<< "$AUTO_MERGE_LABELS"
+              for LABEL in "${LABEL_NAMES[@]}"; do
+                LABEL="${LABEL#"${LABEL%%[![:space:]]*}"}"
+                LABEL="${LABEL%"${LABEL##*[![:space:]]}"}"
+                [[ -z "$LABEL" ]] && continue
+                ENCODED=$(jq -rn --arg l "$LABEL" '$l | @uri')
+                if gh api -X DELETE "repos/$REPO/issues/$PR_NUMBER/labels/$ENCODED" --silent 2>/dev/null; then
+                  echo "🏷️ Removed label: $LABEL"
+                fi
+              done
+              if [[ -n "$MANUAL_REVIEW_LABEL" ]]; then
+                gh api -X POST "repos/$REPO/issues/$PR_NUMBER/labels" -f "labels[]=$MANUAL_REVIEW_LABEL" --silent \
+                  || echo "⚠️ Could not add the '$MANUAL_REVIEW_LABEL' label"
+              fi
+            fi
+            outcome revoked
+          else
+            echo "ℹ️ Nothing was approved or armed — nothing to revoke"
+            outcome nothing-to-revoke
           fi
-          echo "outcome=revoked" >> "$GITHUB_OUTPUT"
 
       # --------------------------------------------------------------------
       # Outcome summary
@@ -1893,12 +2032,16 @@ jobs:
         env:
           APPROVE_OUTCOME: ${{ steps.approve.outputs.outcome }}
           REVOKE_OUTCOME: ${{ steps.revoke.outputs.outcome }}
+          REVOKE_REASON: ${{ steps.revoke.outputs.reason }}
+          STEP_OUTCOME: ${{ steps.approve.outcome == 'failure' && 'failure' || steps.revoke.outcome }}
           TOKEN_OUTCOME: ${{ steps.app-token.outcome }}
           APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
         run: |
           OUTCOME="${APPROVE_OUTCOME:-${REVOKE_OUTCOME:-}}"
           if [[ "$TOKEN_OUTCOME" != "success" ]]; then
             OUTCOME="token-failed"
+          elif [[ -z "$OUTCOME" && "$STEP_OUTCOME" == "failure" ]]; then
+            OUTCOME="step-failed"
           fi
           case "$OUTCOME" in
             enabled)                  DESC="✅ Approved and auto-merge enabled" ;;
@@ -1908,8 +2051,11 @@ jobs:
             skipped-not-open)         DESC="⏭️ Skipped (PR no longer open)" ;;
             skipped-not-dependabot)   DESC="⏭️ Skipped (no longer a same-repo Dependabot PR)" ;;
             skipped-head-moved)       DESC="⏭️ Skipped (head moved — the newer run decides)" ;;
-            revoked)                  DESC="🚫 Bot approval dismissed and auto-merge disabled" ;;
+            revoked)                  DESC="🚫 Bot approval dismissed and/or auto-merge disabled: $REVOKE_REASON" ;;
+            kept-current)             DESC="✅ Nothing revoked: the App's approval of the current head (from an evaluation Dependabot triggered) stands" ;;
+            nothing-to-revoke)        DESC="ℹ️ Nothing to revoke: no bot approval or auto-merge was in place" ;;
             token-failed)             DESC="❌ Could not create the GitHub App token (App installed? key set in the 'auto-merge' environment?)" ;;
+            step-failed)              DESC="❌ The GitHub API call failed before finishing — see the step log" ;;
             *)                        DESC="❓ Unknown outcome: ${OUTCOME:-none}" ;;
           esac
           {
