@@ -292,6 +292,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_EndToEnd() {
 	// Setup mocks
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -364,6 +365,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MixedConfiguration() {
 	// Setup mocks
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -429,6 +431,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_LargeDirectory() {
 	// Setup mocks
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -513,6 +516,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_ComplexExclusions() {
 	// Setup mocks
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -597,6 +601,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_TransformIntegration() {
 	// Setup mocks with transform expectations
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -681,6 +686,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_ProgressReporting() {
 	// Setup mocks
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -749,6 +755,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_APIOptimization() {
 	// Setup mocks with API call tracking
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -823,6 +830,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_EmptyDirectory() {
 	// Setup mocks
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -888,6 +896,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_OnlyExcludedFiles() {
 	// Setup mocks
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -947,6 +956,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_DeepNesting() {
 	// Setup mocks
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1017,6 +1027,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_SymbolicLinks() {
 	// Setup mocks
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1090,6 +1101,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_UnicodeFilenames() {
 	// Setup mocks
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1154,6 +1166,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_LargeFiles() {
 	// Setup mocks
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1223,6 +1236,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_PermissionErrors() {
 	// Setup mocks
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1293,6 +1307,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_NetworkFailures() {
 	// Setup mocks with network failures
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1354,6 +1369,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_GithubDirectory() {
 	// Setup mocks
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1484,6 +1500,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_CoverageModule() {
 	// Setup mocks
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1571,6 +1588,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MultipleDirectories() {
 	// Setup mocks
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1639,6 +1657,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_PerformanceTargets() {
 	// Setup mocks
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1746,6 +1765,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MemoryUsage() {
 		// Setup fresh mocks
 		mockGH := &gh.MockClient{}
 		expectRateLimitProbe(mockGH)
+		expectTargetTreeUnavailable(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1896,6 +1916,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_APIEfficiency() {
 	// Setup mocks with API call tracking
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()

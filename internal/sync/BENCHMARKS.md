@@ -4,9 +4,9 @@ This document describes the comprehensive benchmarking suite for the directory s
 
 ## Overview
 
-The benchmarks are located in `internal/sync/benchmark_test.go` and provide comprehensive performance testing for:
+The benchmarks are located in `internal/sync/benchmark_test.go` (behind the `bench_heavy` build tag) and provide comprehensive performance testing for:
 
-1. **API Call Efficiency**: GitHub API vs Tree API performance
+1. **Change Detection**: Settling target files from one Git tree request
 2. **Memory Profiling**: Memory allocation patterns and usage
 3. **Cache Performance**: Hit rates and memory efficiency
 4. **Real-World Scenarios**: Using actual test fixtures
@@ -31,17 +31,15 @@ Tests pattern matching performance for file exclusions using common patterns lik
 
 **Key Metrics**: Pattern matches per second, memory per operation
 
-### 3. API Efficiency (`BenchmarkAPIEfficiency`)
+### 3. Target Tree Change Detection (`BenchmarkTargetTreeChangeDetection`)
 
-Compares GitHub Tree API vs individual file API calls:
-- TreeAPI vs IndividualAPI for different repository sizes
-- Includes failure simulation (5% failure rate)
-- Tests with various API delays (10-30ms)
+Settles a target whose mapped files are all unchanged, as a sync does before deciding
+whether a target needs a PR: one recursive tree request, then a Git blob-ID comparison
+per file. Runs with 10, 100 and 1000 files.
 
 **Key Metrics**:
-- `tree-api-calls`: Number of tree API calls
-- `content-api-calls`: Number of individual file calls
-- `total-api-calls`: Combined API calls
+- `tree-requests/op`: Git Trees API requests per target (expected: 1)
+- `file-requests/op`: Contents API requests per target (expected: 0 when nothing changed)
 
 ### 4. Cache Hit Rates (`BenchmarkCacheHitRates`)
 
@@ -55,19 +53,7 @@ Tests caching performance with different access patterns:
 - `cache-size`: Number of cached entries
 - `memory-usage-bytes`: Memory consumed by cache
 
-### 5. Concurrent API Requests (`BenchmarkConcurrentAPIRequests`)
-
-Tests API performance under concurrent load:
-- LowConcurrency: 5 workers, 10 requests each
-- MediumConcurrency: 10 workers, 20 requests each
-- HighConcurrency: 20 workers, 50 requests each
-- ExtremeConcurrency: 50 workers, 100 requests each
-
-**Key Metrics**:
-- `total-requests`: Total API requests made
-- `worker-count`: Number of concurrent workers
-
-### 6. Memory Allocation Patterns (`BenchmarkMemoryAllocationPatterns`)
+### 5. Memory Allocation Patterns (`BenchmarkMemoryAllocationPatterns`)
 
 Tests memory usage across different directory structures:
 - Flat vs Deep directory structures
@@ -78,7 +64,7 @@ Tests memory usage across different directory structures:
 - `bytes-alloc-per-op`: Memory allocated per operation
 - `mallocs-per-op`: Number of allocations per operation
 
-### 7. Concurrent Directory Processing (`BenchmarkConcurrentDirectoryProcessing`)
+### 6. Concurrent Directory Processing (`BenchmarkConcurrentDirectoryProcessing`)
 
 Tests memory usage during concurrent directory processing:
 - Multiple directories processed simultaneously
@@ -89,7 +75,7 @@ Tests memory usage during concurrent directory processing:
 - `peak-memory-bytes`: Peak memory usage
 - `worker-count`: Number of concurrent workers
 
-### 8. Exclusion Pattern Memory (`BenchmarkExclusionPatternMemory`)
+### 7. Exclusion Pattern Memory (`BenchmarkExclusionPatternMemory`)
 
 Tests memory efficiency of exclusion pattern matching:
 - 10-100 patterns with 100-1000 test paths
@@ -100,7 +86,7 @@ Tests memory efficiency of exclusion pattern matching:
 - `pattern-count`: Number of exclusion patterns
 - `test-path-count`: Number of paths tested
 
-### 9. Real-World Scenarios (`BenchmarkRealWorldScenarios`)
+### 8. Real-World Scenarios (`BenchmarkRealWorldScenarios`)
 
 Uses actual test fixtures to simulate realistic usage:
 - **GitHubWorkflows**: `.github` directory structure
@@ -111,7 +97,7 @@ Uses actual test fixtures to simulate realistic usage:
 **Key Metrics**:
 - `files-discovered`: Number of files found and processed
 
-### 10. Performance Regression (`BenchmarkPerformanceRegression`)
+### 9. Performance Regression (`BenchmarkPerformanceRegression`)
 
 Establishes baseline metrics for performance regression detection:
 
@@ -126,13 +112,6 @@ Establishes baseline metrics for performance regression detection:
 - `baseline-worker-count`: Worker configuration
 - `baseline-processing-efficiency-%`: Processing success rate
 
-#### BaselineAPICallReduction
-Measures API call efficiency improvements:
-
-**Key Metrics**:
-- `api-call-reduction-%`: Percentage reduction in API calls
-- `time-reduction-%`: Time savings from tree API
-
 #### BaselineCacheEffectiveness
 Tests cache performance with realistic access patterns:
 
@@ -146,13 +125,13 @@ Tests cache performance with realistic access patterns:
 ### Quick Start
 ```bash
 # Run all benchmarks
-go test -bench=. ./internal/sync
+go test -tags bench_heavy -run '^$' -bench=. ./internal/sync
 
 # Run specific benchmark
-go test -bench=BenchmarkAPIEfficiency ./internal/sync
+go test -tags bench_heavy -run '^$' -bench=BenchmarkTargetTreeChangeDetection ./internal/sync
 
 # Run with memory profiling
-go test -bench=. -benchmem ./internal/sync
+go test -tags bench_heavy -run '^$' -bench=. -benchmem ./internal/sync
 ```
 
 ### Comprehensive Benchmark Suite
@@ -168,7 +147,7 @@ go build ./cmd/run-benchmarks
 ### Memory and CPU Profiling
 ```bash
 # Generate profiles
-go test -bench=. -benchmem \
+go test -tags bench_heavy -run '^$' -bench=. -benchmem \
   -memprofile=mem.prof \
   -cpuprofile=cpu.prof \
   ./internal/sync
@@ -182,14 +161,14 @@ go tool pprof cpu.prof
 
 ### Sample Output
 ```
-BenchmarkAPIEfficiency/TreeAPI_SmallRepo_10files-8         	    1000	   1234567 ns/op	   tree-api-calls:1	   content-api-calls:0	   total-api-calls:1
-BenchmarkAPIEfficiency/IndividualAPI_SmallRepo_10files-8   	     100	  12345678 ns/op	   tree-api-calls:0	   content-api-calls:10	   total-api-calls:10
+BenchmarkTargetTreeChangeDetection/Files_100-12     200    27469 ns/op    0 file-requests/op    1.000 tree-requests/op    38926 B/op    515 allocs/op
+BenchmarkTargetTreeChangeDetection/Files_1000-12    200   275682 ns/op    0 file-requests/op    1.000 tree-requests/op   470758 B/op   5018 allocs/op
 ```
 
 ### Key Metrics Explained
 - **ns/op**: Nanoseconds per operation (lower is better)
-- **tree-api-calls**: GitHub Tree API calls made
-- **content-api-calls**: Individual file API calls made
+- **tree-requests/op**: Git Trees API requests per target
+- **file-requests/op**: Contents API requests per target
 - **cache-hit-rate-%**: Percentage of successful cache lookups
 - **bytes-alloc-per-op**: Memory allocated per benchmark operation
 - **mallocs-per-op**: Number of memory allocations per operation
@@ -197,7 +176,7 @@ BenchmarkAPIEfficiency/IndividualAPI_SmallRepo_10files-8   	     100	  12345678 
 ### Performance Targets
 Based on the Phase 5 success criteria:
 
-- **API Call Reduction**: Target 80%+ reduction using Tree API
+- **Change Detection**: One tree request and no file requests for an unchanged target
 - **Cache Hit Rate**: Target 60%+ for realistic access patterns
 - **Memory Efficiency**: Linear scaling with directory size
 - **Concurrent Performance**: No significant degradation up to 20 workers
@@ -255,14 +234,11 @@ The benchmarks use test fixtures from `test/fixtures/directories/`:
 
 1. **High Memory Usage**
    ```bash
-   go test -bench=BenchmarkMemory -memprofile=mem.prof ./internal/sync
+   go test -tags bench_heavy -run '^$' -bench=BenchmarkMemory -memprofile=mem.prof ./internal/sync
    go tool pprof -top mem.prof
    ```
 
-2. **Slow API Calls**
-   Check the mock API delay settings in `mockTreeAPIClient`
-
-3. **Cache Misses**
+2. **Cache Misses**
    Verify cache size configuration and access patterns
 
 ## Contributing
@@ -274,4 +250,4 @@ When adding new benchmarks:
 3. Test with various input sizes
 4. Add documentation to this file
 5. Consider real-world usage patterns
-6. Ensure benchmarks are deterministic and repeatablerepeatable
+6. Ensure benchmarks are deterministic and repeatable

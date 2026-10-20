@@ -65,6 +65,7 @@ func TestEndToEndSync(t *testing.T) {
 		// Setup mocks
 		mockGH := &gh.MockClient{}
 		expectRateLimitProbe(mockGH)
+		expectTargetTreeUnavailable(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -121,6 +122,7 @@ func TestEndToEndSync(t *testing.T) {
 		// Setup mocks
 		mockGH := &gh.MockClient{}
 		expectRateLimitProbe(mockGH)
+		expectTargetTreeUnavailable(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -177,6 +179,7 @@ func TestEndToEndSync(t *testing.T) {
 		// Setup mocks
 		mockGH := &gh.MockClient{}
 		expectRateLimitProbe(mockGH)
+		expectTargetTreeUnavailable(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -231,6 +234,7 @@ func TestEndToEndSync(t *testing.T) {
 		// Setup mocks
 		mockGH := &gh.MockClient{}
 		expectRateLimitProbe(mockGH)
+		expectTargetTreeUnavailable(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -261,6 +265,7 @@ func TestEndToEndSync(t *testing.T) {
 		// Setup mocks
 		mockGH := &gh.MockClient{}
 		expectRateLimitProbe(mockGH)
+		expectTargetTreeUnavailable(mockGH)
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()

@@ -110,27 +110,9 @@ with change detection to minimize database writes.`,
 			// Create analytics pipeline
 			pipeline := analytics.NewPipeline(ghClient, analyticsRepo, repoRepo, orgRepo, logger, throttle)
 
-			// Pre-flight rate limit check
-			if showProgress := progress; showProgress {
-				rateLimitInfo, rateLimitErr := analytics.CheckRateLimit(ctx, ghClient)
-				if rateLimitErr != nil {
-					output.Warn(fmt.Sprintf("Could not check rate limit: %v", rateLimitErr))
-				} else {
-					analytics.DisplayRateLimitInfo(rateLimitInfo)
-
-					// Estimate cost and warn if budget is low
-					repoCount := 0
-					if repo != "" {
-						repoCount = 1
-					}
-					// For org/full sync, we'll warn with a conservative estimate
-					if repoCount == 0 {
-						repoCount = 50 // Conservative default estimate
-					}
-					estimate := analytics.EstimateSyncCost(repoCount)
-					analytics.WarnIfBudgetLow(rateLimitInfo, estimate)
-				}
-
+			// Snapshot the rate limit before any GitHub request (and run the pre-flight check)
+			usageMeter := startRunUsageMeter(ctx, ghClient, logger, progress, repo != "")
+			if progress {
 				output.Info(fmt.Sprintf("Throttle: %.1f req/s, burst %d, %dms inter-repo delay",
 					throttleCfg.RequestsPerSecond, throttleCfg.BurstSize,
 					throttleCfg.InterRepoDelay.Milliseconds()))
@@ -170,17 +152,18 @@ with change detection to minimize database writes.`,
 				status = "failed"
 			}
 
+			// Record the run's API usage before completing it, so it is persisted with the run
+			apiUsage := measureRunAPIUsage(ctx, usageMeter, logger)
+			applyAPIUsage(syncRun, apiUsage)
+
 			// Complete sync run
 			if completeErr := pipeline.CompleteSyncRun(ctx, syncRun, status); completeErr != nil {
 				output.Warn(fmt.Sprintf("Failed to update sync run: %v", completeErr))
 			}
 
-			// Update API call count from throttle stats
-			throttleStats := throttle.Stats()
-			syncRun.APICallsMade = int(throttleStats.TotalCalls)
-
 			// Display summary
-			displaySyncSummary(syncRun, status, &throttleStats)
+			throttleStats := throttle.Stats()
+			displaySyncSummary(syncRun, status, &throttleStats, apiUsage)
 
 			// Return original sync error if any
 			return syncErr
@@ -191,7 +174,7 @@ with change detection to minimize database writes.`,
 	cmd.Flags().BoolVar(&allOrgs, "all-orgs", false, "Sync all repositories in all organizations (org-wide discovery, not just managed repos)")
 	cmd.Flags().StringVar(&repo, "repo", "", "Sync specific repository only (owner/name)")
 	cmd.Flags().BoolVar(&securityOnly, "security-only", false, "Sync security alerts only")
-	cmd.Flags().BoolVar(&full, "full", false, "Force full sync (ignore change detection)")
+	cmd.Flags().BoolVar(&full, "full", false, "Force full sync (ignore change detection and re-download unchanged CI artifacts)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be synced without writing to DB")
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress output")
 	cmd.Flags().Float64Var(&rateLimit, "rate-limit", 1.0, "Max GitHub API requests per second")
@@ -323,12 +306,9 @@ func syncSingleRepository(
 	}
 
 	// Collect and create CI metrics snapshot
-	if err := collectCIMetrics(ctx, pipeline, analyticsRepo, repo.ID, fullName); err != nil {
-		output.Warn(fmt.Sprintf("Failed to collect CI metrics for %s: %v", fullName, err))
-	}
+	recordCIMetrics(ctx, pipeline, analyticsRepo, syncRun, repo.ID, fullName, showProgress, forceFull)
 
 	syncRun.ReposProcessed++
-	// API call count is tracked by the shared throttle
 
 	// Update repo's last analytics sync timestamp
 	if tsErr := analyticsRepo.UpdateRepoSyncTimestamp(ctx, repo.ID, time.Now(), syncRun.ID); tsErr != nil {
@@ -348,6 +328,33 @@ func syncSingleRepository(
 	}
 
 	return nil
+}
+
+// recordCIMetrics collects the repository's CI metrics snapshot and counts it on
+// the sync run when it reused an unchanged workflow run's metrics. Failures are
+// reported as warnings and never fail the repository sync.
+func recordCIMetrics(
+	ctx context.Context,
+	pipeline *analytics.Pipeline,
+	analyticsRepo db.AnalyticsRepo,
+	syncRun *db.SyncRun,
+	repoID uint,
+	fullName string,
+	showProgress, forceFull bool,
+) {
+	reused, err := collectCIMetrics(ctx, pipeline, analyticsRepo, repoID, fullName, forceFull)
+	if err != nil {
+		output.Warn(fmt.Sprintf("Failed to collect CI metrics for %s: %v", fullName, err))
+		return
+	}
+	if !reused {
+		return
+	}
+
+	syncRun.CISnapshotsReused++
+	if showProgress {
+		output.Info(fmt.Sprintf("  %s: CI workflow run unchanged, CI metrics reused", fullName))
+	}
 }
 
 // buildRepo constructs a Repo from metadata
@@ -587,14 +594,17 @@ func convertSecurityAlert(alert analytics.SecurityAlert, repoID uint) *db.Securi
 	}
 }
 
-// collectCIMetrics collects and creates CI metrics snapshot for a repository
+// collectCIMetrics collects and creates CI metrics snapshot for a repository.
+// Unless forceFull is set, an unchanged newest workflow run is recorded from the
+// latest snapshot instead of downloading its artifacts again; reused reports that.
 func collectCIMetrics(
 	ctx context.Context,
 	pipeline *analytics.Pipeline,
 	analyticsRepo db.AnalyticsRepo,
 	repoID uint,
 	fullName string,
-) error {
+	forceFull bool,
+) (reused bool, err error) {
 	// Use CICollector to fetch metrics
 	ciCollector := analytics.NewCICollector(pipeline.GetGHClient(), pipeline.GetLogger(), pipeline.GetThrottle())
 
@@ -607,33 +617,71 @@ func collectCIMetrics(
 		Name: parts[1],
 	}
 
-	metricsMap, err := ciCollector.CollectCIMetrics(ctx, []gh.RepoInfo{repoInfo})
+	// Offer the latest snapshot as a baseline, so an unchanged newest workflow run is
+	// recorded without downloading its artifacts again. --full always re-downloads.
+	var baselines map[string]*analytics.CIMetrics
+	if !forceFull {
+		latest, snapErr := analyticsRepo.GetLatestCISnapshot(ctx, repoID)
+		switch {
+		case snapErr == nil:
+			baselines = map[string]*analytics.CIMetrics{fullName: ciMetricsFromSnapshot(latest)}
+		case !errors.Is(snapErr, gorm.ErrRecordNotFound):
+			output.Warn(fmt.Sprintf("Failed to get latest CI snapshot for %s: %v", fullName, snapErr))
+		}
+	}
+
+	metricsMap, err := ciCollector.CollectCIMetricsWithBaselines(ctx, []gh.RepoInfo{repoInfo}, baselines)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	metrics, ok := metricsMap[fullName]
 	if !ok || metrics == nil {
-		return nil // No CI metrics available
+		return false, nil // No CI metrics available
 	}
 
 	// Create CI snapshot
 	snapshot := &db.CIMetricsSnapshot{
-		RepositoryID:    repoID,
-		SnapshotAt:      time.Now(),
-		WorkflowRunID:   metrics.WorkflowRunID,
-		Branch:          metrics.Branch,
-		CommitSHA:       metrics.CommitSHA,
-		GoFilesLOC:      metrics.GoFilesLOC,
-		TestFilesLOC:    metrics.TestFilesLOC,
-		GoFilesCount:    metrics.GoFilesCount,
-		TestFilesCount:  metrics.TestFilesCount,
-		TestCount:       metrics.TestCount,
-		BenchmarkCount:  metrics.BenchmarkCount,
-		CoveragePercent: metrics.Coverage,
+		RepositoryID:       repoID,
+		SnapshotAt:         time.Now(),
+		WorkflowRunID:      metrics.WorkflowRunID,
+		WorkflowRunAttempt: metrics.WorkflowRunAttempt,
+		Branch:             metrics.Branch,
+		CommitSHA:          metrics.CommitSHA,
+		ArtifactsComplete:  metrics.ArtifactsComplete,
+		Reused:             metrics.Reused,
+		GoFilesLOC:         metrics.GoFilesLOC,
+		TestFilesLOC:       metrics.TestFilesLOC,
+		GoFilesCount:       metrics.GoFilesCount,
+		TestFilesCount:     metrics.TestFilesCount,
+		TestCount:          metrics.TestCount,
+		BenchmarkCount:     metrics.BenchmarkCount,
+		CoveragePercent:    metrics.Coverage,
 	}
 
-	return analyticsRepo.CreateCISnapshot(ctx, snapshot)
+	if createErr := analyticsRepo.CreateCISnapshot(ctx, snapshot); createErr != nil {
+		return false, createErr
+	}
+	return metrics.Reused, nil
+}
+
+// ciMetricsFromSnapshot converts a stored CI snapshot back into collector metrics,
+// for use as the baseline of the next collection.
+func ciMetricsFromSnapshot(snapshot *db.CIMetricsSnapshot) *analytics.CIMetrics {
+	return &analytics.CIMetrics{
+		WorkflowRunID:      snapshot.WorkflowRunID,
+		WorkflowRunAttempt: snapshot.WorkflowRunAttempt,
+		Branch:             snapshot.Branch,
+		CommitSHA:          snapshot.CommitSHA,
+		GoFilesLOC:         snapshot.GoFilesLOC,
+		TestFilesLOC:       snapshot.TestFilesLOC,
+		GoFilesCount:       snapshot.GoFilesCount,
+		TestFilesCount:     snapshot.TestFilesCount,
+		TestCount:          snapshot.TestCount,
+		BenchmarkCount:     snapshot.BenchmarkCount,
+		Coverage:           snapshot.CoveragePercent,
+		ArtifactsComplete:  snapshot.ArtifactsComplete,
+	}
 }
 
 // parseTime parses ISO 8601 timestamp string to *time.Time
@@ -945,12 +993,9 @@ func syncRepositoryMetadata(
 	}
 
 	// Collect and create CI metrics snapshot
-	if err := collectCIMetrics(ctx, pipeline, analyticsRepo, repo.ID, fullName); err != nil {
-		output.Warn(fmt.Sprintf("Failed to collect CI metrics for %s: %v", fullName, err))
-	}
+	recordCIMetrics(ctx, pipeline, analyticsRepo, syncRun, repo.ID, fullName, showProgress, forceFull)
 
 	syncRun.ReposProcessed++
-	// API call count is tracked by the shared throttle
 
 	// Update repo's last analytics sync timestamp
 	if tsErr := analyticsRepo.UpdateRepoSyncTimestamp(ctx, repo.ID, time.Now(), syncRun.ID); tsErr != nil {
@@ -972,8 +1017,70 @@ func syncRepositoryMetadata(
 	return nil
 }
 
-// displaySyncSummary displays a user-friendly summary of the sync operation
-func displaySyncSummary(syncRun *db.SyncRun, status string, throttleStats *analytics.ThrottleStats) {
+// startRunUsageMeter snapshots the GitHub rate limit before the run makes any request,
+// so the run's API usage can be measured and recorded; reading the rate limit is free.
+// With progress output it also shows the REST budget and warns when the run may not
+// fit in it. It returns nil when the rate limit cannot be read, and the run proceeds
+// unmeasured.
+func startRunUsageMeter(ctx context.Context, ghClient gh.Client, logger *logrus.Logger, showProgress, singleRepo bool) *gh.UsageMeter {
+	usageMeter, err := gh.StartUsageMeter(ctx, ghClient)
+	if err != nil && logger != nil {
+		logger.WithError(err).Debug("GitHub API usage will not be measured")
+	}
+	if !showProgress {
+		return usageMeter
+	}
+
+	if usageMeter == nil {
+		output.Warn(fmt.Sprintf("Could not check rate limit: %v", err))
+		return nil
+	}
+
+	rateLimitInfo := analytics.NewRateLimitInfo(usageMeter.Baseline())
+	analytics.DisplayRateLimitInfo(rateLimitInfo)
+
+	// Estimate cost and warn if budget is low; org and full syncs use a conservative estimate
+	repoCount := 50
+	if singleRepo {
+		repoCount = 1
+	}
+	analytics.WarnIfBudgetLow(rateLimitInfo, analytics.EstimateSyncCost(repoCount))
+
+	return usageMeter
+}
+
+// measureRunAPIUsage returns the GitHub API usage since meter started, or nil when
+// it cannot be measured (no meter, or the rate limit could not be read). It
+// measures even after ctx is canceled, so an interrupted run is still recorded.
+func measureRunAPIUsage(ctx context.Context, meter *gh.UsageMeter, logger *logrus.Logger) *gh.APIUsage {
+	if meter == nil {
+		return nil
+	}
+
+	usage, err := meter.MeasureDetached(ctx)
+	if err != nil {
+		if logger != nil {
+			logger.WithError(err).Debug("GitHub API usage could not be measured")
+		}
+		return nil
+	}
+	return &usage
+}
+
+// applyAPIUsage copies measured API usage onto the sync run record. Unmeasured
+// usage (nil) leaves the run's counts at zero.
+func applyAPIUsage(syncRun *db.SyncRun, usage *gh.APIUsage) {
+	if usage == nil {
+		return
+	}
+	syncRun.APICallsMade = usage.CoreRequests
+	syncRun.GraphQLPointsUsed = usage.GraphQLPoints
+	syncRun.APIUsageLowerBound = usage.CoreLowerBound || usage.GraphQLLowerBound
+}
+
+// displaySyncSummary displays a user-friendly summary of the sync operation.
+// apiUsage is the run's measured GitHub API usage, or nil when it was not measured.
+func displaySyncSummary(syncRun *db.SyncRun, status string, throttleStats *analytics.ThrottleStats, apiUsage *gh.APIUsage) {
 	// Don't show summary for dry-run (already shown inline)
 	if syncRun.SyncType == "full" && syncRun.ReposProcessed > 0 && syncRun.SnapshotsCreated == 0 && syncRun.AlertsUpserted == 0 && syncRun.DurationMs < 10 {
 		// This looks like a dry-run, skip summary
@@ -1003,6 +1110,9 @@ func displaySyncSummary(syncRun *db.SyncRun, status string, throttleStats *analy
 		output.Warn(fmt.Sprintf("Repositories Failed: %d", syncRun.ReposFailed))
 	}
 	output.Info(fmt.Sprintf("Snapshots Created: %d", syncRun.SnapshotsCreated))
+	if syncRun.CISnapshotsReused > 0 {
+		output.Info(fmt.Sprintf("CI Snapshots Reused: %d (newest workflow run unchanged)", syncRun.CISnapshotsReused))
+	}
 	output.Info(fmt.Sprintf("Security Alerts Upserted: %d", syncRun.AlertsUpserted))
 
 	// Duration
@@ -1011,9 +1121,17 @@ func displaySyncSummary(syncRun *db.SyncRun, status string, throttleStats *analy
 		output.Info(fmt.Sprintf("Duration: %s", duration.Round(time.Millisecond)))
 	}
 
-	// API calls and throttle stats
-	if syncRun.APICallsMade > 0 {
-		output.Info(fmt.Sprintf("GitHub API Calls: %d", syncRun.APICallsMade))
+	// GitHub API usage and throttle stats
+	switch {
+	case apiUsage != nil:
+		output.Info(fmt.Sprintf("GitHub API Usage: %s", apiUsage))
+		output.Info(fmt.Sprintf("REST Budget Remaining: %d/%d (resets at %s)",
+			apiUsage.CoreRemaining, apiUsage.CoreLimit, apiUsage.CoreResetAt.Format("15:04:05")))
+	case throttleStats != nil && throttleStats.TotalCalls > 0:
+		// Without a rate-limit reading, report the operations the throttle admitted.
+		// One operation can make several requests (pagination, artifact downloads).
+		output.Info(fmt.Sprintf("GitHub API Calls: %d throttled operations (rate limit unavailable, usage not measured)",
+			throttleStats.TotalCalls))
 	}
 	if throttleStats != nil {
 		if throttleStats.TotalRetries > 0 {

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -562,17 +563,17 @@ func (m *MockTransformChain) Transform(_ context.Context, content []byte, _ any)
 	return content, nil
 }
 
-// TestDirectoryProcessor_GetExistingFileContentUsesTargetBranch is a REGRESSION TEST.
-// This test ensures that GetFile is called with the branch parameter that is passed
-// to getExistingFileContent, NOT an empty string.
+// TestDirectoryProcessorDeletionUsesTargetBranch is a REGRESSION TEST.
+// This test ensures directory deletion lists and reads files on the configured target
+// branch, NOT the default branch.
 //
-// Bug fixed: Previously the call site at line 766 passed "" to getExistingFileContent,
-// which caused the GitHub API to fetch from the default branch (e.g., master) instead
-// of the configured target branch (e.g., development). This resulted in incorrect diffs
-// for repositories where target branch != default branch.
+// Bug fixed: Previously existing content was fetched with an empty branch, which made
+// the GitHub API read from the default branch (e.g., master) instead of the configured
+// target branch (e.g., development). This resulted in incorrect diffs for repositories
+// where target branch != default branch.
 //
 // This test uses gh.MockClient (testify mock) to verify the branch parameter.
-func TestDirectoryProcessor_GetExistingFileContentUsesTargetBranch(t *testing.T) {
+func TestDirectoryProcessorDeletionUsesTargetBranch(t *testing.T) {
 	ctx := context.Background()
 	logger := logrus.NewEntry(logrus.New())
 
@@ -587,21 +588,25 @@ func TestDirectoryProcessor_GetExistingFileContentUsesTargetBranch(t *testing.T)
 	// Create processor
 	processor := NewDirectoryProcessor(logger, 1, nil)
 
-	// REGRESSION TEST: Mock expects "feature/branch" as the branch parameter (4th arg)
-	// If the code passes "" instead, this mock won't match and test will fail with:
-	//   mock: Unexpected Method Call
-	//   GetFile(context.Background, "test/target-repo", "file.txt", "")
-	//   The expected call is:
-	//   GetFile(context.Background, "test/target-repo", "file.txt", "feature/branch")
-	ghClient.On("GetFile", mock.Anything, "test/target-repo", "file.txt", "feature/branch").
+	target := config.TargetConfig{Repo: "test/target-repo", Branch: "feature/branch"}
+	dirMapping := config.DirectoryMapping{Dest: "docs", Delete: true}
+
+	// REGRESSION TEST: Directory deletion must list and read files on the configured
+	// target branch. If the code used the default branch instead, these mocks would
+	// not match and the test would fail with "mock: Unexpected Method Call".
+	ghClient.On("GetGitTree", mock.Anything, "test/target-repo", "feature/branch", true).
+		Return(&gh.GitTree{Tree: []gh.GitTreeNode{blobNode("docs/file.txt", []byte("existing content"))}}, nil).Once()
+	ghClient.On("GetFile", mock.Anything, "test/target-repo", "docs/file.txt", "feature/branch").
 		Return(&gh.FileContent{Content: []byte("existing content")}, nil).Once()
 
-	// Call getExistingFileContent with explicit branch parameter
-	content, err := processor.getExistingFileContent(ctx, engine, "test/target-repo", "file.txt", "feature/branch")
+	changes, err := processor.processDirectoryDeletion(ctx, dirMapping, target, engine, logger)
 
 	require.NoError(t, err)
-	require.Equal(t, []byte("existing content"), content)
+	require.Len(t, changes, 1)
+	assert.Equal(t, "docs/file.txt", changes[0].Path)
+	assert.True(t, changes[0].IsDeleted)
+	assert.Equal(t, []byte("existing content"), changes[0].OriginalContent)
 
-	// Verify the mock expectation was met - this is the key assertion
+	// Verify the mock expectations were met - this is the key assertion
 	ghClient.AssertExpectations(t)
 }

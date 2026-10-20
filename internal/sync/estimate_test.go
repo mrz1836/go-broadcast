@@ -165,23 +165,23 @@ func TestEstimateRunCountsFileAndDirectoryReads(t *testing.T) {
 			expectedReads: baseReadsPerTarget,
 		},
 		{
-			name:          "files add one read each",
+			name:          "files add a tree fetch plus one worst-case read each",
 			target:        config.TargetConfig{Repo: "org/repo", Files: files(30)},
-			expectedReads: baseReadsPerTarget + 30,
+			expectedReads: baseReadsPerTarget + treeReadsPerTarget + 30,
 		},
 		{
 			name:          "directories add a tree fetch plus a per-directory file estimate",
 			target:        config.TargetConfig{Repo: "org/repo", Directories: dirs(2)},
-			expectedReads: baseReadsPerTarget + treeReadsPerTargetWithDirectories + 2*estimatedFilesPerDirectory,
+			expectedReads: baseReadsPerTarget + treeReadsPerTarget + 2*estimatedFilesPerDirectory,
 		},
 		{
-			name: "files and directories combine",
+			name: "files and directories share one tree fetch",
 			target: config.TargetConfig{
 				Repo:        "org/repo",
 				Files:       files(10),
 				Directories: dirs(3),
 			},
-			expectedReads: baseReadsPerTarget + 10 + treeReadsPerTargetWithDirectories + 3*estimatedFilesPerDirectory,
+			expectedReads: baseReadsPerTarget + treeReadsPerTarget + 10 + 3*estimatedFilesPerDirectory,
 		},
 	}
 

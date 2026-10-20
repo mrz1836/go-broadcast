@@ -60,6 +60,10 @@ type RepositorySync struct {
 	lastPRNumber *int
 	// lastPRURL stores the PR URL after creation/update for metrics recording
 	lastPRURL string
+	// targetTree settles unchanged and missing target files from one Git tree
+	// request instead of a Contents API request per file. It is created per sync
+	// by Execute; when nil, every file is fetched individually.
+	targetTree *targetTree
 }
 
 // PerformanceMetrics tracks performance metrics for the entire sync operation
@@ -202,7 +206,11 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 	}
 	cloneTimer.Stop()
 
-	// 4. Process and transform files
+	// 4. Process and transform files. One snapshot of the target branch's tree,
+	// fetched on first use, settles every unchanged or missing file for both file
+	// and directory mappings.
+	rs.targetTree = newTargetTree(rs.engine.gh, rs.target.Repo, rs.target.Branch, rs.logger)
+
 	processTimer := metrics.StartTimer(ctx, rs.logger, "file_processing").
 		AddField("file_count", len(rs.target.Files))
 
@@ -242,6 +250,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		finalErr = err
 		return fmt.Errorf("failed to process directories: %w", err)
 	}
+	rs.recordTargetTreeStats()
 
 	// Store directory metrics for PR metadata
 	if rs.syncMetrics != nil {
@@ -702,7 +711,7 @@ func (rs *RepositorySync) processFile(ctx context.Context, sourcePath string, fi
 	}
 
 	// Check if content actually changed (for existing files)
-	existingContent, err := rs.getExistingFileContent(ctx, fileMapping.Dest)
+	existingContent, err := rs.getExistingFileContent(ctx, fileMapping.Dest, transformedContent)
 	if err == nil {
 		// Enhanced logging for content comparison
 		existingStr := string(existingContent)
@@ -739,8 +748,16 @@ func (rs *RepositorySync) processFile(ctx context.Context, sourcePath string, fi
 	}, nil
 }
 
-// getExistingFileContent retrieves the current content of a file from the target repo
-func (rs *RepositorySync) getExistingFileContent(ctx context.Context, filePath string) ([]byte, error) {
+// getExistingFileContent retrieves the current content of a file from the target repo.
+// candidate is the content the sync intends to write (nil when there is none, as for
+// deletions); when the target tree proves the file already holds exactly that content,
+// candidate is returned without a request.
+func (rs *RepositorySync) getExistingFileContent(ctx context.Context, filePath string, candidate []byte) ([]byte, error) {
+	if rs.targetTree != nil {
+		// Requests made through the tree are tallied by recordTargetTreeStats.
+		return rs.targetTree.existingContent(ctx, filePath, candidate)
+	}
+
 	// Track API request
 	rs.TrackAPIRequest()
 
@@ -757,7 +774,7 @@ func (rs *RepositorySync) processFileDeletion(ctx context.Context, fileMapping c
 	rs.logger.WithField("file", fileMapping.Dest).Info("Processing file deletion")
 
 	// Check if file exists in target repository
-	existingContent, err := rs.getExistingFileContent(ctx, fileMapping.Dest)
+	existingContent, err := rs.getExistingFileContent(ctx, fileMapping.Dest, nil)
 	if err != nil {
 		rs.logger.WithError(err).WithField("file", fileMapping.Dest).Debug("File does not exist in target repository, skipping deletion")
 		return nil, internalerrors.ErrFileNotFound
@@ -2006,6 +2023,7 @@ func (rs *RepositorySync) processDirectoriesWithMetrics(ctx context.Context) ([]
 			GitClient:     rs.engine.GitClient(),
 			SourceRepoURL: sourceRepoURL,
 			TempDir:       rs.tempDir,
+			targetTree:    rs.targetTree,
 		}
 	}
 
@@ -2123,6 +2141,32 @@ func (rs *RepositorySync) TrackAPIRequest() {
 	if rs.syncMetrics != nil {
 		rs.syncMetrics.TotalAPIRequests++
 	}
+}
+
+// recordTargetTreeStats folds the target tree's request accounting into the sync
+// metrics and logs how the target file checks were answered. APICallsSaved is the
+// net saving: checks answered from the tree minus the tree request itself.
+func (rs *RepositorySync) recordTargetTreeStats() {
+	if rs.targetTree == nil {
+		return
+	}
+
+	stats := rs.targetTree.stats()
+	if stats.TreeRequests == 0 && stats.ContentRequests == 0 {
+		return // No target files were checked
+	}
+
+	if rs.syncMetrics != nil {
+		rs.syncMetrics.TotalAPIRequests += stats.TreeRequests + stats.ContentRequests
+		rs.syncMetrics.APICallsSaved += max(stats.RequestsAvoided-stats.TreeRequests, 0)
+	}
+
+	rs.logger.WithFields(logrus.Fields{
+		"file_checks":     stats.RequestsAvoided + stats.ContentRequests,
+		"settled_by_tree": stats.RequestsAvoided,
+		"files_fetched":   stats.ContentRequests,
+		"tree_requests":   stats.TreeRequests,
+	}).Info("Compared target files against the target branch tree")
 }
 
 // DryRunOutput handles clean console output for dry-run mode

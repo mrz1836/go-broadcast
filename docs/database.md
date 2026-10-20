@@ -806,8 +806,11 @@ SELECT name, clone_url, ssh_url FROM repos;
 | `repository_id` | uint | Foreign key to `repos` |
 | `snapshot_at` | datetime | Timestamp of snapshot |
 | `workflow_run_id` | int64 | GitHub Actions workflow run ID |
+| `workflow_run_attempt` | int | Attempt of the workflow run (re-running a run keeps its ID and increments this) |
 | `branch` | text | Branch the workflow ran on |
 | `commit_sha` | text | Commit SHA of the workflow run |
+| `artifacts_complete` | bool | Every artifact the collector tried to read was downloaded |
+| `reused` | bool | Metrics were carried forward from the previous snapshot because the newest successful run was unchanged |
 | `go_files_loc` | int | Lines of code in Go files |
 | `test_files_loc` | int | Lines of code in test files |
 | `go_files_count` | int | Number of Go source files |
@@ -836,6 +839,12 @@ SELECT name, clone_url, ssh_url FROM repos;
   - **Benchmarks**: `bench-stats-*` (JSON)
 - Tracks code size, test coverage, and test/benchmark counts over time
 - Test count uses `unique_total` from ci-results for accurate unique test function count
+- A new snapshot is written on every analytics sync. When the newest successful run
+  (same ID and attempt) is the run behind the previous snapshot, that snapshot had
+  coverage, and all of its artifacts were downloaded, the metrics are carried forward
+  (`reused = true`) instead of downloading the same artifacts again. A completed run's
+  artifacts never change, so the values are identical. `analytics sync --full` always
+  downloads.
 
 </details>
 
@@ -855,8 +864,11 @@ SELECT name, clone_url, ssh_url FROM repos;
 | `repos_skipped` | int | Skipped via change detection |
 | `repos_failed` | int | Failed to process |
 | `snapshots_created` | int | New snapshots written |
+| `ci_snapshots_reused` | int | CI snapshots carried forward from an unchanged workflow run |
 | `alerts_upserted` | int | Alerts created/updated |
-| `api_calls_made` | int | Total GitHub API calls |
+| `api_calls_made` | int | REST requests charged to the GitHub primary rate limit during the run (0 when unmeasured) |
+| `graphql_points_used` | int | Points charged to the GitHub GraphQL rate limit during the run |
+| `api_usage_lower_bound` | bool | A rate-limit window reset mid-run, so the API counts are minimums |
 | `duration_ms` | int | Total execution time in milliseconds |
 | `errors` | text | JSON array of error details |
 | `last_processed_repo` | text | For future resume support |
@@ -875,6 +887,10 @@ SELECT name, clone_url, ssh_url FROM repos;
 - Tracks each analytics sync execution for observability
 - Provides detailed metrics about API usage, processing time, and errors
 - Supports incremental sync via `last_processed_repo`
+
+API usage is measured by reading the free `GET /rate_limit` endpoint before and after
+the run. It is GitHub's own accounting for the token, so requests that other tools
+make with the same token while the run is in progress are included.
 
 </details>
 
@@ -904,6 +920,8 @@ Tracks each `go-broadcast sync` invocation with timing, scope, and aggregate sta
 | `total_files_changed` | int | Aggregated file change count across all targets |
 | `total_lines_added` | int | Aggregated lines added across all targets |
 | `total_lines_removed` | int | Aggregated lines removed across all targets |
+| `api_calls_made` | int | REST requests charged to the GitHub primary rate limit during the group sync, including state discovery (0 when unmeasured) |
+| `api_usage_lower_bound` | bool | A rate-limit window reset mid-run, so `api_calls_made` is a minimum |
 | `error_summary` | text | Human-readable error summary (nullable) |
 | `created_at` | datetime | Creation timestamp |
 | `updated_at` | datetime | Last update timestamp |
@@ -1784,7 +1802,7 @@ go-broadcast analytics sync --repo owner/my-project
 # Security alerts only (skip metadata)
 go-broadcast analytics sync --security-only
 
-# Force full sync (ignore change detection)
+# Force full sync (ignore change detection and re-download unchanged CI artifacts)
 go-broadcast analytics sync --full
 
 # Preview what would be synced
@@ -1798,7 +1816,8 @@ go-broadcast analytics sync --dry-run
 - Fetches security alerts (Dependabot, code scanning, secret scanning) concurrently
 - Collects CI metrics from GoFortress workflow artifacts (test counts, LOC, coverage, benchmarks)
 - Creates point-in-time snapshots and upserts security alerts
-- Tracks sync progress in `sync_runs` table
+- Tracks sync progress in `sync_runs` table, including the GitHub API requests the run used
+  (also printed in the summary with the REST budget remaining)
 
 **Important:** The `--org` flag filters by configured repos in that organization, it does not discover all repos owned by that GitHub org/user. You must first import your configuration (`go-broadcast db import sync.yaml`) before running analytics sync.
 
@@ -1809,6 +1828,9 @@ go-broadcast analytics sync --dry-run
 - Benchmark Count: Number of benchmark functions
 - Coverage Percentage: Code coverage from GoFortress runs
 - Sources artifact data from the latest successful GoFortress workflow run
+- When that run (same ID and attempt) already produced the previous snapshot with coverage
+  and every artifact downloaded, its metrics are reused instead of downloaded again; see
+  `ci_metrics_snapshots`
 
 </details>
 

@@ -123,6 +123,7 @@ func TestOrchestrator_MultiGroupSync(t *testing.T) {
 	// Mock the rate-limit preflight probe (DefaultOptions enables the gate) with a
 	// generous budget so the whole-run sync proceeds.
 	ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
+	expectTargetTreeUnavailable(ghClient)
 
 	// Mock GetFile for checking existing content (files don't exist initially, so they'll be synced)
 	ghClient.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, gh.ErrFileNotFound)
@@ -282,6 +283,7 @@ func TestOrchestratorIntegration_ExistingBranchRecovery(t *testing.T) {
 	t.Run("force push recovery after failed sync", func(t *testing.T) {
 		// Setup mock clients
 		ghClient := &gh.MockClient{}
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 		gitClient := &git.MockClient{}
 		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
@@ -310,6 +312,7 @@ func TestOrchestratorIntegration_ExistingBranchRecovery(t *testing.T) {
 
 		// Mock GitHub operations
 		ghClient.On("ListBranches", mock.Anything, "test/target-repo").Return([]gh.Branch{{Name: "master"}}, nil)
+		expectTargetTreeUnavailable(ghClient)
 		ghClient.On("GetFile", mock.Anything, "test/target-repo", mock.AnythingOfType("string"), "").Return(nil, gh.ErrFileNotFound)
 		ghClient.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser"}, nil)
 		ghClient.On("CreatePR", mock.Anything, "test/target-repo", mock.AnythingOfType("gh.PRRequest")).Return(&gh.PR{Number: 42, Title: "Recovery PR"}, nil)
@@ -405,6 +408,7 @@ func TestOrchestratorIntegration_ExistingBranchRecovery(t *testing.T) {
 	t.Run("branch exists locally - checkout existing and continue", func(t *testing.T) {
 		// Setup mock clients
 		ghClient := &gh.MockClient{}
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 		gitClient := &git.MockClient{}
 		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
@@ -431,6 +435,7 @@ func TestOrchestratorIntegration_ExistingBranchRecovery(t *testing.T) {
 
 		// Mock GitHub operations
 		ghClient.On("ListBranches", mock.Anything, "test/target-repo2").Return([]gh.Branch{{Name: "master"}}, nil)
+		expectTargetTreeUnavailable(ghClient)
 		ghClient.On("GetFile", mock.Anything, "test/target-repo2", mock.AnythingOfType("string"), "").Return(nil, gh.ErrFileNotFound)
 		ghClient.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser"}, nil)
 		ghClient.On("CreatePR", mock.Anything, "test/target-repo2", mock.AnythingOfType("gh.PRRequest")).Return(&gh.PR{Number: 43, Title: "Local Recovery PR"}, nil)

@@ -1,13 +1,19 @@
 package cli
 
 import (
+	"context"
 	"testing"
+	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/mrz1836/go-broadcast/internal/analytics"
 	"github.com/mrz1836/go-broadcast/internal/db"
+	"github.com/mrz1836/go-broadcast/internal/gh"
+	"github.com/mrz1836/go-broadcast/internal/output"
 )
 
 func TestParseRepoName(t *testing.T) {
@@ -401,7 +407,7 @@ func TestDisplaySyncSummary(t *testing.T) {
 
 		// Should not panic
 		assert.NotPanics(t, func() {
-			displaySyncSummary(syncRun, "completed", stats)
+			displaySyncSummary(syncRun, "completed", stats, nil)
 		})
 	})
 
@@ -420,7 +426,7 @@ func TestDisplaySyncSummary(t *testing.T) {
 		}
 
 		assert.NotPanics(t, func() {
-			displaySyncSummary(syncRun, "partial", stats)
+			displaySyncSummary(syncRun, "partial", stats, nil)
 		})
 	})
 
@@ -435,7 +441,7 @@ func TestDisplaySyncSummary(t *testing.T) {
 		}
 
 		assert.NotPanics(t, func() {
-			displaySyncSummary(syncRun, "failed", nil)
+			displaySyncSummary(syncRun, "failed", nil, nil)
 		})
 	})
 
@@ -452,7 +458,7 @@ func TestDisplaySyncSummary(t *testing.T) {
 
 		// Should detect dry-run heuristic and skip
 		assert.NotPanics(t, func() {
-			displaySyncSummary(syncRun, "completed", nil)
+			displaySyncSummary(syncRun, "completed", nil, nil)
 		})
 	})
 
@@ -467,7 +473,7 @@ func TestDisplaySyncSummary(t *testing.T) {
 		}
 
 		assert.NotPanics(t, func() {
-			displaySyncSummary(syncRun, "completed", nil)
+			displaySyncSummary(syncRun, "completed", nil, nil)
 		})
 	})
 
@@ -482,7 +488,7 @@ func TestDisplaySyncSummary(t *testing.T) {
 		}
 
 		assert.NotPanics(t, func() {
-			displaySyncSummary(syncRun, "completed", nil)
+			displaySyncSummary(syncRun, "completed", nil, nil)
 		})
 	})
 
@@ -503,7 +509,157 @@ func TestDisplaySyncSummary(t *testing.T) {
 		}
 
 		assert.NotPanics(t, func() {
-			displaySyncSummary(syncRun, "completed", stats)
+			displaySyncSummary(syncRun, "completed", stats, nil)
 		})
+	})
+}
+
+// TestDisplaySyncSummaryAPIUsage verifies the summary reports measured API usage, the
+// remaining REST budget, and CI snapshots reused from unchanged workflow runs.
+// It captures global output, so it must not run in parallel.
+func TestDisplaySyncSummaryAPIUsage(t *testing.T) {
+	scope := output.CaptureOutput()
+	defer scope.Restore()
+
+	syncRun := &db.SyncRun{
+		SyncType:          "full",
+		ReposProcessed:    81,
+		SnapshotsCreated:  81,
+		CISnapshotsReused: 42,
+		DurationMs:        1_379_000,
+	}
+	usage := &gh.APIUsage{
+		CoreRequests:  812,
+		GraphQLPoints: 75,
+		CoreRemaining: 4188,
+		CoreLimit:     5000,
+		CoreResetAt:   time.Date(2026, 1, 2, 10, 25, 0, 0, time.UTC),
+	}
+
+	displaySyncSummary(syncRun, "completed", nil, usage)
+
+	out := scope.Stdout.String()
+	assert.Contains(t, out, "CI Snapshots Reused: 42 (newest workflow run unchanged)")
+	assert.Contains(t, out, "GitHub API Usage: 812 REST requests, 75 GraphQL points")
+	assert.Contains(t, out, "REST Budget Remaining: 4188/5000 (resets at 10:25:00)")
+}
+
+// TestDisplaySyncSummaryUnmeasuredUsage verifies the summary falls back to the
+// throttle's operation count when the rate limit could not be read. It captures
+// global output, so it must not run in parallel.
+func TestDisplaySyncSummaryUnmeasuredUsage(t *testing.T) {
+	scope := output.CaptureOutput()
+	defer scope.Restore()
+
+	syncRun := &db.SyncRun{SyncType: "full", ReposProcessed: 3, SnapshotsCreated: 3, DurationMs: 9000}
+	stats := &analytics.ThrottleStats{TotalCalls: 57}
+
+	displaySyncSummary(syncRun, "completed", stats, nil)
+
+	out := scope.Stdout.String()
+	assert.Contains(t, out, "GitHub API Calls: 57 throttled operations (rate limit unavailable, usage not measured)")
+	assert.NotContains(t, out, "GitHub API Usage:")
+}
+
+// TestStartRunUsageMeter verifies the run's rate-limit baseline and pre-flight check.
+// It captures global output, so it must not run in parallel.
+func TestStartRunUsageMeter(t *testing.T) {
+	ctx := context.Background()
+	snapshot := func(remaining int) *gh.RateLimitResponse {
+		resp := &gh.RateLimitResponse{}
+		resp.Resources.Core = gh.RateLimitResource{Limit: 5000, Remaining: remaining, Used: 5000 - remaining, Reset: 1_900_000_000}
+		return resp
+	}
+
+	t.Run("progress off measures silently", func(t *testing.T) {
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		ghMock := gh.NewMockClient()
+		ghMock.On("GetRateLimit", mock.Anything).Return(snapshot(4000), nil).Once()
+
+		meter := startRunUsageMeter(ctx, ghMock, logrus.New(), false, false)
+
+		require.NotNil(t, meter)
+		assert.Empty(t, scope.Stdout.String())
+		assert.Empty(t, scope.Stderr.String())
+	})
+
+	t.Run("progress shows the REST budget", func(t *testing.T) {
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		ghMock := gh.NewMockClient()
+		ghMock.On("GetRateLimit", mock.Anything).Return(snapshot(4000), nil).Once()
+
+		meter := startRunUsageMeter(ctx, ghMock, logrus.New(), true, false)
+
+		require.NotNil(t, meter)
+		assert.Contains(t, scope.Stdout.String(), "GitHub API Rate Limit: 4000/5000 remaining")
+		assert.Empty(t, scope.Stderr.String())
+	})
+
+	t.Run("progress warns when the budget is too low", func(t *testing.T) {
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		ghMock := gh.NewMockClient()
+		ghMock.On("GetRateLimit", mock.Anything).Return(snapshot(2), nil).Once()
+
+		meter := startRunUsageMeter(ctx, ghMock, logrus.New(), true, true)
+
+		require.NotNil(t, meter)
+		assert.Contains(t, scope.Stderr.String(), "Rate limit budget low")
+	})
+
+	t.Run("unreadable rate limit warns and is not measured", func(t *testing.T) {
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		ghMock := gh.NewMockClient()
+		ghMock.On("GetRateLimit", mock.Anything).Return(nil, errMockGH).Once()
+
+		meter := startRunUsageMeter(ctx, ghMock, logrus.New(), true, false)
+
+		assert.Nil(t, meter)
+		assert.Contains(t, scope.Stderr.String(), "Could not check rate limit")
+	})
+}
+
+// TestRecordCIMetricsReportsReuseAndFailures verifies the progress line for reused CI
+// metrics and that a failed collection is a warning, not a reuse. It captures global
+// output, so it must not run in parallel.
+func TestRecordCIMetricsReportsReuseAndFailures(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("reuse is counted and reported", func(t *testing.T) {
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		mockRepo := new(mockAnalyticsRepo)
+		mockRepo.On("GetLatestCISnapshot", ctx, uint(1)).Return(previousCISnapshot(), nil).Once()
+		mockRepo.On("CreateCISnapshot", ctx, mock.Anything).Return(nil).Once()
+
+		run := &db.SyncRun{}
+		recordCIMetrics(ctx, newTestPipeline(newestRunMock(t, 1), mockRepo), mockRepo, run, 1, "org/repo", true, false)
+
+		assert.Equal(t, 1, run.CISnapshotsReused)
+		assert.Contains(t, scope.Stdout.String(), "org/repo: CI workflow run unchanged, CI metrics reused")
+	})
+
+	t.Run("failed collection is a warning and not counted", func(t *testing.T) {
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		mockRepo := new(mockAnalyticsRepo)
+		mockRepo.On("GetLatestCISnapshot", ctx, uint(1)).Return(previousCISnapshot(), nil).Once()
+		mockRepo.On("CreateCISnapshot", ctx, mock.Anything).Return(errMockGH).Once()
+
+		run := &db.SyncRun{}
+		recordCIMetrics(ctx, newTestPipeline(newestRunMock(t, 1), mockRepo), mockRepo, run, 1, "org/repo", true, false)
+
+		assert.Zero(t, run.CISnapshotsReused)
+		assert.Contains(t, scope.Stderr.String(), "Failed to collect CI metrics for org/repo")
+		assert.NotContains(t, scope.Stdout.String(), "CI metrics reused")
 	})
 }

@@ -71,6 +71,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 
 		// Setup mocks
 		ghClient := &gh.MockClient{}
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 		gitClient := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -83,6 +84,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 
 		// Mock GetFile calls to return existing content so changes are detected
+		expectTargetTreeUnavailable(ghClient)
 		ghClient.On("GetFile", mock.Anything, "org/target-success", "success.txt", "").Return(&gh.FileContent{
 			Content: []byte("old success content"),
 		}, nil)
@@ -313,6 +315,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 
 		// Setup mocks
 		ghClient := &gh.MockClient{}
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 		gitClient := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -325,6 +328,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 
 		// Mock GetFile calls to return different content so changes are detected
+		expectTargetTreeUnavailable(ghClient)
 		ghClient.On("GetFile", mock.Anything, "org/target-new-pr", "new.txt", "").Return(&gh.FileContent{
 			Content: []byte("old new content"),
 		}, nil)
@@ -566,6 +570,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 
 		// Setup mocks
 		ghClient := &gh.MockClient{}
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 		gitClient := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()

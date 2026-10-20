@@ -1,7 +1,6 @@
 package analytics
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -24,11 +23,11 @@ type SyncEstimate struct {
 	GraphQLBatches int // Number of GraphQL batches for metadata
 }
 
-// CheckRateLimit queries the GitHub API rate limit and returns structured info
-func CheckRateLimit(ctx context.Context, ghClient gh.Client) (*RateLimitInfo, error) {
-	resp, err := ghClient.GetRateLimit(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check rate limit: %w", err)
+// NewRateLimitInfo extracts the REST (core) rate limit status from a GET /rate_limit
+// response. It returns nil for a nil response.
+func NewRateLimitInfo(resp *gh.RateLimitResponse) *RateLimitInfo {
+	if resp == nil {
+		return nil
 	}
 
 	return &RateLimitInfo{
@@ -36,7 +35,7 @@ func CheckRateLimit(ctx context.Context, ghClient gh.Client) (*RateLimitInfo, er
 		Remaining: resp.Resources.Core.Remaining,
 		ResetAt:   time.Unix(resp.Resources.Core.Reset, 0),
 		Used:      resp.Resources.Core.Used,
-	}, nil
+	}
 }
 
 // EstimateSyncCost estimates the number of API calls needed for a sync operation

@@ -443,6 +443,9 @@ func TestAnalyticsRepo_SyncRuns(t *testing.T) {
 		run.ReposProcessed = 75
 		run.SnapshotsCreated = 60
 		run.DurationMs = 25000
+		run.APICallsMade = 812
+		run.GraphQLPointsUsed = 75
+		run.APIUsageLowerBound = true
 
 		err := repo.UpdateSyncRun(ctx, run)
 		require.NoError(t, err)
@@ -452,6 +455,14 @@ func TestAnalyticsRepo_SyncRuns(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "completed", latest.Status)
 		assert.Equal(t, 75, latest.ReposProcessed)
+		assert.Equal(t, 812, latest.APICallsMade)
+		assert.Equal(t, 75, latest.GraphQLPointsUsed)
+		assert.True(t, latest.APIUsageLowerBound)
+
+		// The GraphQL column keeps a readable name rather than GORM's "graph_ql" split
+		var graphQLPoints int
+		require.NoError(t, db.Raw("SELECT graphql_points_used FROM sync_runs WHERE id = ?", run.ID).Scan(&graphQLPoints).Error)
+		assert.Equal(t, 75, graphQLPoints)
 	})
 
 	t.Run("GetLatestSyncRun", func(t *testing.T) {
@@ -730,6 +741,35 @@ func TestAnalyticsRepo_CISnapshots(t *testing.T) {
 		err := repo.CreateCISnapshot(ctx, snap)
 		require.NoError(t, err)
 		assert.NotZero(t, snap.ID)
+	})
+
+	t.Run("CreateCISnapshot_Provenance", func(t *testing.T) {
+		// A dedicated repository keeps this snapshot out of the other subtests' "latest"
+		provenanceRepo := &Repo{
+			OrganizationID: org.ID,
+			Name:           "provenance-repo",
+			FullNameStr:    "test-org/provenance-repo",
+		}
+		require.NoError(t, repo.UpsertRepository(ctx, provenanceRepo))
+
+		coverage := 91.2
+		snap := &CIMetricsSnapshot{
+			RepositoryID:       provenanceRepo.ID,
+			SnapshotAt:         time.Now(),
+			WorkflowRunID:      67890,
+			WorkflowRunAttempt: 2,
+			ArtifactsComplete:  true,
+			Reused:             true,
+			CoveragePercent:    &coverage,
+		}
+		require.NoError(t, repo.CreateCISnapshot(ctx, snap))
+
+		latest, err := repo.GetLatestCISnapshot(ctx, provenanceRepo.ID)
+		require.NoError(t, err)
+		assert.Equal(t, int64(67890), latest.WorkflowRunID)
+		assert.Equal(t, 2, latest.WorkflowRunAttempt)
+		assert.True(t, latest.ArtifactsComplete)
+		assert.True(t, latest.Reused)
 	})
 
 	t.Run("GetLatestCISnapshot", func(t *testing.T) {

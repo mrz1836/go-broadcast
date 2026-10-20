@@ -4,7 +4,6 @@ package sync
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,10 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/mrz1836/go-broadcast/internal/config"
+	"github.com/mrz1836/go-broadcast/internal/gh"
 )
-
-// ErrSimulatedAPIFailure is used for testing API failure scenarios
-var ErrSimulatedAPIFailure = errors.New("simulated API failure")
 
 // BenchmarkDirectoryWalk benchmarks directory walking performance
 func BenchmarkDirectoryWalk(b *testing.B) {
@@ -105,189 +102,52 @@ func BenchmarkExclusionEngine(b *testing.B) {
 	}
 }
 
-// mockTreeAPIClient provides a mock implementation for testing API efficiency
-type mockTreeAPIClient struct {
-	getTreeCalls    int64
-	getContentCalls int64
-	callDelay       time.Duration
-	failureRate     float64 // 0.0 to 1.0
+// treeOnlyClient serves one fixed tree and counts tree requests. The embedded mock
+// satisfies gh.Client; the benchmark must not make any other request.
+type treeOnlyClient struct {
+	*gh.MockClient
+
+	tree      *gh.GitTree
+	treeCalls atomic.Int64
 }
 
-func (m *mockTreeAPIClient) GetTree(_ context.Context, _, _ string) (*TreeMap, error) {
-	atomic.AddInt64(&m.getTreeCalls, 1)
-
-	if m.callDelay > 0 {
-		time.Sleep(m.callDelay)
-	}
-
-	// Simulate failures based on failure rate
-	if m.failureRate > 0 && float64(atomic.LoadInt64(&m.getTreeCalls))/float64(atomic.LoadInt64(&m.getTreeCalls)+atomic.LoadInt64(&m.getContentCalls)) < m.failureRate {
-		return nil, ErrSimulatedAPIFailure
-	}
-
-	// Return a mock TreeMap with various file types
-	size1024 := 1024
-	size2048 := 2048
-	size4096 := 4096
-	size512 := 512
-	size256 := 256
-
-	files := map[string]*GitTreeNode{
-		"README.md":         {Path: "README.md", Type: "blob", Size: &size1024, SHA: "readme-sha"},
-		"src/main.go":       {Path: "src/main.go", Type: "blob", Size: &size2048, SHA: "main-sha"},
-		"docs/api.md":       {Path: "docs/api.md", Type: "blob", Size: &size4096, SHA: "api-sha"},
-		"config/app.yaml":   {Path: "config/app.yaml", Type: "blob", Size: &size512, SHA: "config-sha"},
-		"scripts/deploy.sh": {Path: "scripts/deploy.sh", Type: "blob", Size: &size256, SHA: "script-sha"},
-	}
-
-	directories := map[string]bool{
-		"src":     true,
-		"docs":    true,
-		"config":  true,
-		"scripts": true,
-	}
-
-	return &TreeMap{
-		files:       files,
-		directories: directories,
-		sha:         "mock-tree-sha",
-		fetchedAt:   time.Now(),
-	}, nil
+func (c *treeOnlyClient) GetGitTree(_ context.Context, _, _ string, _ bool) (*gh.GitTree, error) {
+	c.treeCalls.Add(1)
+	return c.tree, nil
 }
 
-func (m *mockTreeAPIClient) BatchCheckFiles(_ context.Context, _, _ string, filePaths []string) (map[string]bool, error) {
-	atomic.AddInt64(&m.getContentCalls, int64(len(filePaths)))
-
-	if m.callDelay > 0 {
-		time.Sleep(m.callDelay)
-	}
-
-	result := make(map[string]bool)
-	for _, path := range filePaths {
-		result[path] = true // Mock all files as existing
-	}
-	return result, nil
-}
-
-func (m *mockTreeAPIClient) BatchCheckDirectories(_ context.Context, _, _ string, dirPaths []string) (map[string]bool, error) {
-	atomic.AddInt64(&m.getContentCalls, int64(len(dirPaths)))
-
-	if m.callDelay > 0 {
-		time.Sleep(m.callDelay)
-	}
-
-	result := make(map[string]bool)
-	for _, path := range dirPaths {
-		result[path] = true // Mock all directories as existing
-	}
-	return result, nil
-}
-
-func (m *mockTreeAPIClient) GetFilesInDirectory(_ context.Context, _, _, dirPath string) ([]*GitTreeNode, error) {
-	atomic.AddInt64(&m.getContentCalls, 1)
-
-	if m.callDelay > 0 {
-		time.Sleep(m.callDelay)
-	}
-
-	size1024 := 1024
-	return []*GitTreeNode{
-		{Path: fmt.Sprintf("%s/file1.go", dirPath), Type: "blob", Size: &size1024, SHA: "file1-sha"},
-		{Path: fmt.Sprintf("%s/file2.go", dirPath), Type: "blob", Size: &size1024, SHA: "file2-sha"},
-	}, nil
-}
-
-func (m *mockTreeAPIClient) InvalidateCache(_, _ string) {
-	// No-op for mock
-}
-
-func (m *mockTreeAPIClient) GetCacheStats() (hits, misses int64, size int, hitRate float64) {
-	h := atomic.LoadInt64(&m.getTreeCalls)
-	mi := atomic.LoadInt64(&m.getContentCalls)
-	total := h + mi
-	if total > 0 {
-		hitRate = float64(h) / float64(total)
-	}
-	return h, mi, 0, hitRate
-}
-
-func (m *mockTreeAPIClient) GetAPIStats() (treeFetches, cacheHits, cacheMisses, retries, rateLimits, avgTreeSize int64) {
-	return atomic.LoadInt64(&m.getTreeCalls), 0, 0, 0, 0, 5 // Mock 5 files per tree
-}
-
-func (m *mockTreeAPIClient) Close() {
-	// No-op for mock
-}
-
-func (m *mockTreeAPIClient) ResetCounters() {
-	atomic.StoreInt64(&m.getTreeCalls, 0)
-	atomic.StoreInt64(&m.getContentCalls, 0)
-}
-
-func (m *mockTreeAPIClient) GetTreeCalls() int64 {
-	return atomic.LoadInt64(&m.getTreeCalls)
-}
-
-func (m *mockTreeAPIClient) GetContentCalls() int64 {
-	return atomic.LoadInt64(&m.getContentCalls)
-}
-
-// BenchmarkAPIEfficiency benchmarks GitHub API efficiency comparing tree API vs individual calls
-func BenchmarkAPIEfficiency(b *testing.B) {
-	testCases := []struct {
-		name        string
-		fileCount   int
-		useTreeAPI  bool
-		callDelay   time.Duration
-		failureRate float64
-	}{
-		{"TreeAPI_SmallRepo_10files", 10, true, 10 * time.Millisecond, 0.0},
-		{"IndividualAPI_SmallRepo_10files", 10, false, 10 * time.Millisecond, 0.0},
-		{"TreeAPI_MediumRepo_50files", 50, true, 20 * time.Millisecond, 0.0},
-		{"IndividualAPI_MediumRepo_50files", 50, false, 20 * time.Millisecond, 0.0},
-		{"TreeAPI_LargeRepo_100files", 100, true, 30 * time.Millisecond, 0.0},
-		{"IndividualAPI_LargeRepo_100files", 100, false, 30 * time.Millisecond, 0.0},
-		{"TreeAPI_WithFailures_50files", 50, true, 15 * time.Millisecond, 0.05},
-		{"IndividualAPI_WithFailures_50files", 50, false, 15 * time.Millisecond, 0.05},
-	}
-
-	for _, tc := range testCases {
-		b.Run(tc.name, func(b *testing.B) {
-			mockClient := &mockTreeAPIClient{
-				callDelay:   tc.callDelay,
-				failureRate: tc.failureRate,
+// BenchmarkTargetTreeChangeDetection measures settling a target whose mapped files are
+// all unchanged: one tree request, then a blob-ID comparison per file and no file requests.
+func BenchmarkTargetTreeChangeDetection(b *testing.B) {
+	for _, fileCount := range []int{10, 100, 1000} {
+		b.Run(fmt.Sprintf("Files_%d", fileCount), func(b *testing.B) {
+			paths := make([]string, fileCount)
+			contents := make([][]byte, fileCount)
+			nodes := make([]gh.GitTreeNode, fileCount)
+			for i := range fileCount {
+				paths[i] = fmt.Sprintf("dir_%d/file_%d.go", i%20, i)
+				contents[i] = fmt.Appendf(nil, "package dir%d\n\n// File %d holds benchmark content.\n", i%20, i)
+				id, _ := gitBlobID(contents[i], 40)
+				nodes[i] = gh.GitTreeNode{Path: paths[i], Mode: gitModeFile, Type: gitEntryTypeBlob, SHA: id}
 			}
+			client := &treeOnlyClient{MockClient: &gh.MockClient{}, tree: &gh.GitTree{Tree: nodes}}
+			ctx := context.Background()
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				mockClient.ResetCounters()
-				ctx := context.Background()
-
-				if tc.useTreeAPI {
-					// Benchmark tree API approach
-					_, err := mockClient.GetTree(ctx, "owner/repo", "master")
-					if err != nil && tc.failureRate == 0.0 {
-						b.Fatalf("Tree API call failed: %v", err)
-					}
-				} else {
-					// Benchmark individual API calls
-					filePaths := make([]string, tc.fileCount)
-					for j := 0; j < tc.fileCount; j++ {
-						filePaths[j] = fmt.Sprintf("file_%d.txt", j)
-					}
-					_, err := mockClient.BatchCheckFiles(ctx, "owner/repo", "master", filePaths)
-					if err != nil && tc.failureRate == 0.0 {
-						b.Fatalf("Individual API call failed: %v", err)
+			var iterations, fileRequests int
+			b.ReportAllocs()
+			for b.Loop() {
+				tree := newTargetTree(client, "owner/repo", "main", nil)
+				for i := range fileCount {
+					if _, err := tree.existingContent(ctx, paths[i], contents[i]); err != nil {
+						b.Fatal(err)
 					}
 				}
+				fileRequests += tree.stats().ContentRequests
+				iterations++
 			}
 
-			// Report API call statistics
-			treeAPICalls := mockClient.GetTreeCalls()
-			contentAPICalls := mockClient.GetContentCalls()
-			b.ReportMetric(float64(treeAPICalls), "tree-api-calls")
-			b.ReportMetric(float64(contentAPICalls), "content-api-calls")
-			b.ReportMetric(float64(treeAPICalls+contentAPICalls), "total-api-calls")
+			b.ReportMetric(float64(client.treeCalls.Load())/float64(iterations), "tree-requests/op")
+			b.ReportMetric(float64(fileRequests)/float64(iterations), "file-requests/op")
 		})
 	}
 }
@@ -365,58 +225,6 @@ func BenchmarkCacheHitRates(b *testing.B) {
 			b.ReportMetric(hitRate, "cache-hit-rate-%")
 			b.ReportMetric(float64(stats.Size), "cache-size")
 			b.ReportMetric(float64(stats.MemoryUsage), "memory-usage-bytes")
-		})
-	}
-}
-
-// BenchmarkConcurrentAPIRequests benchmarks concurrent API request handling
-func BenchmarkConcurrentAPIRequests(b *testing.B) {
-	testCases := []struct {
-		name              string
-		workerCount       int
-		requestsPerWorker int
-		callDelay         time.Duration
-	}{
-		{"LowConcurrency_5workers_10req", 5, 10, 5 * time.Millisecond},
-		{"MediumConcurrency_10workers_20req", 10, 20, 10 * time.Millisecond},
-		{"HighConcurrency_20workers_50req", 20, 50, 15 * time.Millisecond},
-		{"ExtremeeConcurrency_50workers_100req", 50, 100, 20 * time.Millisecond},
-	}
-
-	for _, tc := range testCases {
-		b.Run(tc.name, func(b *testing.B) {
-			mockClient := &mockTreeAPIClient{
-				callDelay: tc.callDelay,
-			}
-
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				mockClient.ResetCounters()
-
-				var wg sync.WaitGroup
-				ctx := context.Background()
-
-				for worker := 0; worker < tc.workerCount; worker++ {
-					wg.Add(1)
-					go func(_ int) {
-						defer wg.Done()
-
-						for req := 0; req < tc.requestsPerWorker; req++ {
-							_, err := mockClient.GetTree(ctx, "owner/repo", "master")
-							if err != nil {
-								// Log error but don't fail benchmark
-								b.Logf("API request failed: %v", err)
-							}
-						}
-					}(worker)
-				}
-
-				wg.Wait()
-			}
-
-			totalRequests := tc.workerCount * tc.requestsPerWorker
-			b.ReportMetric(float64(totalRequests), "total-requests")
-			b.ReportMetric(float64(tc.workerCount), "worker-count")
 		})
 	}
 }
@@ -853,45 +661,6 @@ func main() {
 		// Calculate processing efficiency
 		efficiency := float64(totalFiles) / float64(baselineScenario.fileCount) * 100
 		b.ReportMetric(efficiency, "baseline-processing-efficiency-%")
-	})
-
-	b.Run("BaselineAPICallReduction", func(b *testing.B) {
-		mockClient := &mockTreeAPIClient{
-			callDelay: 10 * time.Millisecond,
-		}
-
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			mockClient.ResetCounters()
-			ctx := context.Background()
-
-			// Simulate using tree API vs individual calls
-			treeAPIStart := time.Now()
-			_, err := mockClient.GetTree(ctx, "owner/repo", "master")
-			treeAPIDuration := time.Since(treeAPIStart)
-			require.NoError(b, err)
-
-			treeAPICalls := mockClient.GetTreeCalls()
-
-			// Reset and simulate individual calls
-			mockClient.ResetCounters()
-			individualStart := time.Now()
-			filePaths := make([]string, 50)
-			for j := 0; j < 50; j++ {
-				filePaths[j] = fmt.Sprintf("file_%d.txt", j)
-			}
-			_, err = mockClient.BatchCheckFiles(ctx, "owner/repo", "master", filePaths)
-			require.NoError(b, err)
-			individualDuration := time.Since(individualStart)
-			individualCalls := mockClient.GetContentCalls()
-
-			// Calculate API call reduction
-			callReduction := (float64(individualCalls) - float64(treeAPICalls)) / float64(individualCalls) * 100
-			timeReduction := (individualDuration - treeAPIDuration).Seconds() / individualDuration.Seconds() * 100
-
-			b.ReportMetric(callReduction, "api-call-reduction-%")
-			b.ReportMetric(timeReduction, "time-reduction-%")
-		}
 	})
 
 	b.Run("BaselineCacheEffectiveness", func(b *testing.B) {

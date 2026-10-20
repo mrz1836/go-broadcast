@@ -83,6 +83,7 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+		expectTargetTreeUnavailable(ghClient)
 		ghClient.On("GetFile", mock.Anything, "org/target", "file1.txt", "").Return(&gh.FileContent{
 			Content: []byte("old content"),
 		}, nil)
@@ -202,6 +203,7 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 
 		// Setup default expectations
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+		expectTargetTreeUnavailable(ghClient)
 		ghClient.On("GetFile", mock.Anything, "org/target", "file1.txt", "").Return(&gh.FileContent{
 			Content: []byte("old content"),
 		}, nil)
@@ -313,6 +315,7 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 
 		// Setup default expectations
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+		expectTargetTreeUnavailable(ghClient)
 		ghClient.On("GetFile", mock.Anything, "org/target", "file1.txt", "").Return(&gh.FileContent{
 			Content: []byte("old content"),
 		}, nil)
@@ -425,6 +428,7 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 
 		// Setup default expectations
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+		expectTargetTreeUnavailable(ghClient)
 		ghClient.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 
 		// Mock git operations
