@@ -199,7 +199,7 @@ with change detection to minimize database writes.`,
 	cmd.Flags().BoolVar(&allOrgs, "all-orgs", false, "Sync all repositories in all organizations (org-wide discovery, not just managed repos)")
 	cmd.Flags().StringVar(&repo, "repo", "", "Sync specific repository only (owner/name)")
 	cmd.Flags().BoolVar(&securityOnly, "security-only", false, "Sync security alerts only")
-	cmd.Flags().BoolVar(&full, "full", false, "Force full sync (ignore change detection)")
+	cmd.Flags().BoolVar(&full, "full", false, "Force full sync (ignore change detection and re-download unchanged CI artifacts)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be synced without writing to DB")
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress output")
 	cmd.Flags().Float64Var(&rateLimit, "rate-limit", 1.0, "Max GitHub API requests per second")
@@ -331,9 +331,7 @@ func syncSingleRepository(
 	}
 
 	// Collect and create CI metrics snapshot
-	if err := collectCIMetrics(ctx, pipeline, analyticsRepo, repo.ID, fullName); err != nil {
-		output.Warn(fmt.Sprintf("Failed to collect CI metrics for %s: %v", fullName, err))
-	}
+	recordCIMetrics(ctx, pipeline, analyticsRepo, syncRun, repo.ID, fullName, showProgress, forceFull)
 
 	syncRun.ReposProcessed++
 
@@ -355,6 +353,33 @@ func syncSingleRepository(
 	}
 
 	return nil
+}
+
+// recordCIMetrics collects the repository's CI metrics snapshot and counts it on
+// the sync run when it reused an unchanged workflow run's metrics. Failures are
+// reported as warnings and never fail the repository sync.
+func recordCIMetrics(
+	ctx context.Context,
+	pipeline *analytics.Pipeline,
+	analyticsRepo db.AnalyticsRepo,
+	syncRun *db.SyncRun,
+	repoID uint,
+	fullName string,
+	showProgress, forceFull bool,
+) {
+	reused, err := collectCIMetrics(ctx, pipeline, analyticsRepo, repoID, fullName, forceFull)
+	if err != nil {
+		output.Warn(fmt.Sprintf("Failed to collect CI metrics for %s: %v", fullName, err))
+		return
+	}
+	if !reused {
+		return
+	}
+
+	syncRun.CISnapshotsReused++
+	if showProgress {
+		output.Info(fmt.Sprintf("  %s: CI workflow run unchanged, CI metrics reused", fullName))
+	}
 }
 
 // buildRepo constructs a Repo from metadata
@@ -594,14 +619,17 @@ func convertSecurityAlert(alert analytics.SecurityAlert, repoID uint) *db.Securi
 	}
 }
 
-// collectCIMetrics collects and creates CI metrics snapshot for a repository
+// collectCIMetrics collects and creates CI metrics snapshot for a repository.
+// Unless forceFull is set, an unchanged newest workflow run is recorded from the
+// latest snapshot instead of downloading its artifacts again; reused reports that.
 func collectCIMetrics(
 	ctx context.Context,
 	pipeline *analytics.Pipeline,
 	analyticsRepo db.AnalyticsRepo,
 	repoID uint,
 	fullName string,
-) error {
+	forceFull bool,
+) (reused bool, err error) {
 	// Use CICollector to fetch metrics
 	ciCollector := analytics.NewCICollector(pipeline.GetGHClient(), pipeline.GetLogger(), pipeline.GetThrottle())
 
@@ -614,33 +642,71 @@ func collectCIMetrics(
 		Name: parts[1],
 	}
 
-	metricsMap, err := ciCollector.CollectCIMetrics(ctx, []gh.RepoInfo{repoInfo})
+	// Offer the latest snapshot as a baseline, so an unchanged newest workflow run is
+	// recorded without downloading its artifacts again. --full always re-downloads.
+	var baselines map[string]*analytics.CIMetrics
+	if !forceFull {
+		latest, snapErr := analyticsRepo.GetLatestCISnapshot(ctx, repoID)
+		switch {
+		case snapErr == nil:
+			baselines = map[string]*analytics.CIMetrics{fullName: ciMetricsFromSnapshot(latest)}
+		case !errors.Is(snapErr, gorm.ErrRecordNotFound):
+			output.Warn(fmt.Sprintf("Failed to get latest CI snapshot for %s: %v", fullName, snapErr))
+		}
+	}
+
+	metricsMap, err := ciCollector.CollectCIMetricsWithBaselines(ctx, []gh.RepoInfo{repoInfo}, baselines)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	metrics, ok := metricsMap[fullName]
 	if !ok || metrics == nil {
-		return nil // No CI metrics available
+		return false, nil // No CI metrics available
 	}
 
 	// Create CI snapshot
 	snapshot := &db.CIMetricsSnapshot{
-		RepositoryID:    repoID,
-		SnapshotAt:      time.Now(),
-		WorkflowRunID:   metrics.WorkflowRunID,
-		Branch:          metrics.Branch,
-		CommitSHA:       metrics.CommitSHA,
-		GoFilesLOC:      metrics.GoFilesLOC,
-		TestFilesLOC:    metrics.TestFilesLOC,
-		GoFilesCount:    metrics.GoFilesCount,
-		TestFilesCount:  metrics.TestFilesCount,
-		TestCount:       metrics.TestCount,
-		BenchmarkCount:  metrics.BenchmarkCount,
-		CoveragePercent: metrics.Coverage,
+		RepositoryID:       repoID,
+		SnapshotAt:         time.Now(),
+		WorkflowRunID:      metrics.WorkflowRunID,
+		WorkflowRunAttempt: metrics.WorkflowRunAttempt,
+		Branch:             metrics.Branch,
+		CommitSHA:          metrics.CommitSHA,
+		ArtifactsComplete:  metrics.ArtifactsComplete,
+		Reused:             metrics.Reused,
+		GoFilesLOC:         metrics.GoFilesLOC,
+		TestFilesLOC:       metrics.TestFilesLOC,
+		GoFilesCount:       metrics.GoFilesCount,
+		TestFilesCount:     metrics.TestFilesCount,
+		TestCount:          metrics.TestCount,
+		BenchmarkCount:     metrics.BenchmarkCount,
+		CoveragePercent:    metrics.Coverage,
 	}
 
-	return analyticsRepo.CreateCISnapshot(ctx, snapshot)
+	if createErr := analyticsRepo.CreateCISnapshot(ctx, snapshot); createErr != nil {
+		return false, createErr
+	}
+	return metrics.Reused, nil
+}
+
+// ciMetricsFromSnapshot converts a stored CI snapshot back into collector metrics,
+// for use as the baseline of the next collection.
+func ciMetricsFromSnapshot(snapshot *db.CIMetricsSnapshot) *analytics.CIMetrics {
+	return &analytics.CIMetrics{
+		WorkflowRunID:      snapshot.WorkflowRunID,
+		WorkflowRunAttempt: snapshot.WorkflowRunAttempt,
+		Branch:             snapshot.Branch,
+		CommitSHA:          snapshot.CommitSHA,
+		GoFilesLOC:         snapshot.GoFilesLOC,
+		TestFilesLOC:       snapshot.TestFilesLOC,
+		GoFilesCount:       snapshot.GoFilesCount,
+		TestFilesCount:     snapshot.TestFilesCount,
+		TestCount:          snapshot.TestCount,
+		BenchmarkCount:     snapshot.BenchmarkCount,
+		Coverage:           snapshot.CoveragePercent,
+		ArtifactsComplete:  snapshot.ArtifactsComplete,
+	}
 }
 
 // parseTime parses ISO 8601 timestamp string to *time.Time
@@ -952,9 +1018,7 @@ func syncRepositoryMetadata(
 	}
 
 	// Collect and create CI metrics snapshot
-	if err := collectCIMetrics(ctx, pipeline, analyticsRepo, repo.ID, fullName); err != nil {
-		output.Warn(fmt.Sprintf("Failed to collect CI metrics for %s: %v", fullName, err))
-	}
+	recordCIMetrics(ctx, pipeline, analyticsRepo, syncRun, repo.ID, fullName, showProgress, forceFull)
 
 	syncRun.ReposProcessed++
 
@@ -1039,6 +1103,9 @@ func displaySyncSummary(syncRun *db.SyncRun, status string, throttleStats *analy
 		output.Warn(fmt.Sprintf("Repositories Failed: %d", syncRun.ReposFailed))
 	}
 	output.Info(fmt.Sprintf("Snapshots Created: %d", syncRun.SnapshotsCreated))
+	if syncRun.CISnapshotsReused > 0 {
+		output.Info(fmt.Sprintf("CI Snapshots Reused: %d (newest workflow run unchanged)", syncRun.CISnapshotsReused))
+	}
 	output.Info(fmt.Sprintf("Security Alerts Upserted: %d", syncRun.AlertsUpserted))
 
 	// Duration

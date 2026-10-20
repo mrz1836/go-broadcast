@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -48,16 +50,25 @@ const (
 
 // CIMetrics holds parsed CI metrics for a single repository
 type CIMetrics struct {
-	WorkflowRunID  int64
-	Branch         string
-	CommitSHA      string
-	GoFilesLOC     int
-	TestFilesLOC   int
-	GoFilesCount   int
-	TestFilesCount int
-	TestCount      int
-	BenchmarkCount int
-	Coverage       *float64
+	WorkflowRunID      int64
+	WorkflowRunAttempt int // Attempt of the run the metrics came from; re-running a run keeps its ID
+	Branch             string
+	CommitSHA          string
+	GoFilesLOC         int
+	TestFilesLOC       int
+	GoFilesCount       int
+	TestFilesCount     int
+	TestCount          int
+	BenchmarkCount     int
+	Coverage           *float64
+
+	// ArtifactsComplete reports that every artifact the collector tried to read
+	// was downloaded, so no metric was left unset by a transient download failure.
+	ArtifactsComplete bool
+
+	// Reused reports that the metrics were carried forward from the previous
+	// snapshot because the newest successful run had not changed since it.
+	Reused bool
 }
 
 // CICollector handles concurrent CI metrics collection from GoFortress artifacts
@@ -80,6 +91,31 @@ func NewCICollector(ghClient gh.Client, logger *logrus.Logger, throttle *Throttl
 // CollectCIMetrics fetches CI metrics for multiple repositories concurrently.
 // Returns a map of repo full name to CIMetrics. Repos without GoFortress are gracefully skipped.
 func (c *CICollector) CollectCIMetrics(ctx context.Context, repos []gh.RepoInfo) (map[string]*CIMetrics, error) {
+	return c.CollectCIMetricsWithBaselines(ctx, repos, nil)
+}
+
+// CollectCIMetricsWithBaselines fetches CI metrics like CollectCIMetrics, but
+// reuses a repository's baseline (its previous metrics) instead of downloading
+// artifacts again when the baseline came from the newest successful run.
+//
+// Parameters:
+// - ctx: Context for cancellation of the API calls
+// - repos: Repositories to collect metrics for
+// - baselines: Previous metrics keyed by repository full name; missing or nil
+// entries are collected in full
+//
+// Returns:
+// - A map of repo full name to CIMetrics; reused entries have Reused set
+// - An error only if the collection itself fails (per-repo failures are skipped)
+//
+// Notes:
+// - A baseline is reused only when it is certain to equal a fresh collection;
+// see reusableCIMetrics
+func (c *CICollector) CollectCIMetricsWithBaselines(
+	ctx context.Context,
+	repos []gh.RepoInfo,
+	baselines map[string]*CIMetrics,
+) (map[string]*CIMetrics, error) {
 	if len(repos) == 0 {
 		return make(map[string]*CIMetrics), nil
 	}
@@ -96,7 +132,7 @@ func (c *CICollector) CollectCIMetrics(ctx context.Context, repos []gh.RepoInfo)
 
 	for _, repo := range repos {
 		g.Go(func() error {
-			metrics, err := c.collectRepoCI(ctx, repo.FullName)
+			metrics, err := c.collectRepoCI(ctx, repo.FullName, baselines[repo.FullName])
 			if err != nil {
 				if c.logger != nil {
 					c.logger.WithError(err).WithField("repo", repo.FullName).Warn("Failed to collect CI metrics")
@@ -136,8 +172,9 @@ func (c *CICollector) CollectCIMetrics(ctx context.Context, repos []gh.RepoInfo)
 
 // collectRepoCI fetches CI metrics for a single repository.
 // Returns nil if the repo doesn't have a GoFortress workflow.
-// Tries multiple recent successful runs to handle expired artifacts.
-func (c *CICollector) collectRepoCI(ctx context.Context, repo string) (*CIMetrics, error) {
+// Tries multiple recent successful runs to handle expired artifacts, unless
+// baseline already holds the metrics of the newest successful run.
+func (c *CICollector) collectRepoCI(ctx context.Context, repo string, baseline *CIMetrics) (*CIMetrics, error) {
 	// Step 1: Find GoFortress workflow
 	var workflows []gh.Workflow
 	err := c.doAPI(ctx, "list-workflows:"+repo, func() error {
@@ -174,7 +211,19 @@ func (c *CICollector) collectRepoCI(ctx context.Context, repo string) (*CIMetric
 		return nil, nil //nolint:nilnil // nil signals no successful runs — caller checks for nil
 	}
 
-	// Step 3: Try runs in order until we find one with valid coverage artifacts.
+	// Step 3: Reuse the previous metrics when they came from the newest successful run.
+	if reused := reusableCIMetrics(baseline, runs[0]); reused != nil {
+		if c.logger != nil {
+			c.logger.WithFields(logrus.Fields{
+				"repo":        repo,
+				"run_id":      reused.WorkflowRunID,
+				"run_attempt": reused.WorkflowRunAttempt,
+			}).Debug("Newest successful GoFortress run is unchanged; reusing its CI metrics")
+		}
+		return reused, nil
+	}
+
+	// Step 4: Try runs in order until we find one with valid coverage artifacts.
 	// Keep the first result as fallback in case no run has valid coverage.
 	var fallbackMetrics *CIMetrics
 
@@ -203,6 +252,37 @@ func (c *CICollector) collectRepoCI(ctx context.Context, repo string) (*CIMetric
 
 	// No run had valid coverage; return the best we have (latest run's metrics without coverage)
 	return fallbackMetrics, nil
+}
+
+// reusableCIMetrics returns a copy of baseline marked as reused when collecting
+// newest again would certainly reproduce it, or nil when it must be collected.
+//
+// The baseline is reused only when all of these hold:
+// - It came from newest itself: same run ID and same run attempt. Re-running a
+// run keeps its ID but increments the attempt and uploads new artifacts.
+// - It has coverage, so the collector would stop at newest rather than search
+// older runs, whose availability can change.
+// - Every artifact it tried to read was downloaded, so no metric is missing
+// because of a transient failure that a new download might not repeat.
+//
+// A completed attempt's artifacts never change, so under these conditions a new
+// download yields the same metrics. Reuse also keeps the metrics of an unchanged
+// newest run available after GitHub expires its artifacts.
+func reusableCIMetrics(baseline *CIMetrics, newest gh.WorkflowRun) *CIMetrics {
+	if baseline == nil || baseline.Coverage == nil || !baseline.ArtifactsComplete {
+		return nil
+	}
+	if baseline.WorkflowRunAttempt < 1 ||
+		baseline.WorkflowRunID != newest.ID ||
+		baseline.WorkflowRunAttempt != newest.RunAttempt {
+		return nil
+	}
+
+	reused := *baseline
+	coverage := *baseline.Coverage
+	reused.Coverage = &coverage
+	reused.Reused = true
+	return &reused
 }
 
 // tryRunArtifacts fetches and parses artifacts for a single workflow run.
@@ -256,9 +336,10 @@ func (c *CICollector) tryRunArtifacts(ctx context.Context, repo string, run gh.W
 	}
 
 	metrics := &CIMetrics{
-		WorkflowRunID: run.ID,
-		Branch:        run.HeadBranch,
-		CommitSHA:     run.HeadSHA,
+		WorkflowRunID:      run.ID,
+		WorkflowRunAttempt: run.RunAttempt,
+		Branch:             run.HeadBranch,
+		CommitSHA:          run.HeadSHA,
 	}
 
 	// Download and parse artifacts
@@ -271,11 +352,23 @@ func (c *CICollector) tryRunArtifacts(ctx context.Context, repo string, run gh.W
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
+	// Track whether every attempted artifact was downloaded and read. Parse failures
+	// are not tracked: they repeat identically for the same artifact, whereas a
+	// download failure may be transient and leave a metric unset only this time.
+	metrics.ArtifactsComplete = true
+	track := func(read bool) {
+		metrics.ArtifactsComplete = metrics.ArtifactsComplete && read
+	}
+
+	// Visit artifact names in sorted order so a run always yields the same metrics,
+	// even when it has several ci-results artifacts (map iteration order is random).
+	sortedNames := slices.Sorted(maps.Keys(artifactNames))
+
 	// LOC: prefer JSON, fall back to markdown
 	if artifactNames[artifactLOCStats] {
-		c.parseLOCArtifact(ctx, repo, run.ID, artifactLOCStats, tmpDir, metrics)
+		track(c.parseLOCArtifact(ctx, repo, run.ID, artifactLOCStats, tmpDir, metrics))
 	} else if artifactNames[artifactStatistics] {
-		c.parseLOCFromMarkdownArtifact(ctx, repo, run.ID, tmpDir, metrics)
+		track(c.parseLOCFromMarkdownArtifact(ctx, repo, run.ID, tmpDir, metrics))
 	}
 
 	// Coverage: prefer internal provider artifact; fall back to codecov provider artifact.
@@ -283,28 +376,28 @@ func (c *CICollector) tryRunArtifacts(ctx context.Context, repo string, run gh.W
 	// depends on GO_COVERAGE_PROVIDER in the repo's GoFortress config.
 	switch {
 	case artifactNames[artifactCoverageInternal]:
-		c.parseCoverageArtifact(ctx, repo, run.ID, artifactCoverageInternal, tmpDir, metrics)
+		track(c.parseCoverageArtifact(ctx, repo, run.ID, artifactCoverageInternal, tmpDir, metrics))
 	case artifactNames[artifactCoverageCodecov]:
-		c.parseCoverageArtifact(ctx, repo, run.ID, artifactCoverageCodecov, tmpDir, metrics)
+		track(c.parseCoverageArtifact(ctx, repo, run.ID, artifactCoverageCodecov, tmpDir, metrics))
 	}
 
 	// Tests: prefer ci-results JSON, fall back to tests-section markdown
 	ciResultsFound := false
-	for name := range artifactNames {
+	for _, name := range sortedNames {
 		if strings.HasPrefix(name, artifactCIResultsPrefix) {
-			c.parseCIResultsArtifact(ctx, repo, run.ID, name, tmpDir, metrics)
+			track(c.parseCIResultsArtifact(ctx, repo, run.ID, name, tmpDir, metrics))
 			ciResultsFound = true
 			break
 		}
 	}
 	if !ciResultsFound && artifactNames[artifactTestsSection] {
-		c.parseTestsArtifact(ctx, repo, run.ID, tmpDir, metrics)
+		track(c.parseTestsArtifact(ctx, repo, run.ID, tmpDir, metrics))
 	}
 
 	// Benchmarks: from bench-stats-* JSON files
-	for name := range artifactNames {
+	for _, name := range sortedNames {
 		if strings.HasPrefix(name, artifactBenchPrefix) {
-			c.parseBenchArtifact(ctx, repo, run.ID, name, tmpDir, metrics)
+			track(c.parseBenchArtifact(ctx, repo, run.ID, name, tmpDir, metrics))
 		}
 	}
 
@@ -335,14 +428,15 @@ func (c *CICollector) doAPI(ctx context.Context, operation string, fn func() err
 	return fn()
 }
 
-// parseLOCArtifact downloads and parses the loc-stats JSON artifact
-func (c *CICollector) parseLOCArtifact(ctx context.Context, repo string, runID int64, name, tmpDir string, metrics *CIMetrics) {
+// parseLOCArtifact downloads and parses the loc-stats JSON artifact.
+// It reports whether the artifact was downloaded and read.
+func (c *CICollector) parseLOCArtifact(ctx context.Context, repo string, runID int64, name, tmpDir string, metrics *CIMetrics) bool {
 	artDir := filepath.Join(tmpDir, name)
 	if err := c.ghClient.DownloadRunArtifact(ctx, repo, runID, name, artDir); err != nil {
 		if c.logger != nil {
 			c.logger.WithError(err).WithField("artifact", name).Debug("Failed to download LOC artifact")
 		}
-		return
+		return false
 	}
 
 	data, err := findAndReadJSON(artDir)
@@ -350,7 +444,7 @@ func (c *CICollector) parseLOCArtifact(ctx context.Context, repo string, runID i
 		if c.logger != nil {
 			c.logger.WithError(err).WithField("artifact", name).Debug("Failed to read LOC JSON")
 		}
-		return
+		return false
 	}
 
 	loc := parseLOCJSON(data)
@@ -360,16 +454,19 @@ func (c *CICollector) parseLOCArtifact(ctx context.Context, repo string, runID i
 		metrics.GoFilesCount = loc.GoFilesCount
 		metrics.TestFilesCount = loc.TestFilesCount
 	}
+
+	return true
 }
 
-// parseLOCFromMarkdownArtifact downloads statistics-section and parses LOC from markdown
-func (c *CICollector) parseLOCFromMarkdownArtifact(ctx context.Context, repo string, runID int64, tmpDir string, metrics *CIMetrics) {
+// parseLOCFromMarkdownArtifact downloads statistics-section and parses LOC from markdown.
+// It reports whether the artifact was downloaded and read.
+func (c *CICollector) parseLOCFromMarkdownArtifact(ctx context.Context, repo string, runID int64, tmpDir string, metrics *CIMetrics) bool {
 	artDir := filepath.Join(tmpDir, artifactStatistics)
 	if err := c.ghClient.DownloadRunArtifact(ctx, repo, runID, artifactStatistics, artDir); err != nil {
 		if c.logger != nil {
 			c.logger.WithError(err).Debug("Failed to download statistics-section artifact")
 		}
-		return
+		return false
 	}
 
 	data, err := findAndReadMarkdown(artDir)
@@ -377,7 +474,7 @@ func (c *CICollector) parseLOCFromMarkdownArtifact(ctx context.Context, repo str
 		if c.logger != nil {
 			c.logger.WithError(err).Debug("Failed to read statistics-section markdown")
 		}
-		return
+		return false
 	}
 
 	goLOC, testLOC, goFiles, testFiles := parseLOCFromMarkdown(data)
@@ -385,17 +482,20 @@ func (c *CICollector) parseLOCFromMarkdownArtifact(ctx context.Context, repo str
 	metrics.TestFilesLOC = testLOC
 	metrics.GoFilesCount = goFiles
 	metrics.TestFilesCount = testFiles
+
+	return true
 }
 
 // parseCoverageArtifact downloads and parses a coverage JSON artifact by name.
 // Both "coverage-stats-internal" and "coverage-stats-codecov" share the same JSON schema.
-func (c *CICollector) parseCoverageArtifact(ctx context.Context, repo string, runID int64, name, tmpDir string, metrics *CIMetrics) {
+// It reports whether the artifact was downloaded and read.
+func (c *CICollector) parseCoverageArtifact(ctx context.Context, repo string, runID int64, name, tmpDir string, metrics *CIMetrics) bool {
 	artDir := filepath.Join(tmpDir, name)
 	if err := c.ghClient.DownloadRunArtifact(ctx, repo, runID, name, artDir); err != nil {
 		if c.logger != nil {
 			c.logger.WithError(err).WithField("artifact", name).Debug("Failed to download coverage artifact")
 		}
-		return
+		return false
 	}
 
 	data, err := findAndReadJSON(artDir)
@@ -403,23 +503,26 @@ func (c *CICollector) parseCoverageArtifact(ctx context.Context, repo string, ru
 		if c.logger != nil {
 			c.logger.WithError(err).Debug("Failed to read coverage JSON")
 		}
-		return
+		return false
 	}
 
 	cov := parseCoverageJSON(data)
 	if cov != nil {
 		metrics.Coverage = cov
 	}
+
+	return true
 }
 
-// parseTestsArtifact downloads and parses the tests-section markdown artifact
-func (c *CICollector) parseTestsArtifact(ctx context.Context, repo string, runID int64, tmpDir string, metrics *CIMetrics) {
+// parseTestsArtifact downloads and parses the tests-section markdown artifact.
+// It reports whether the artifact was downloaded and read.
+func (c *CICollector) parseTestsArtifact(ctx context.Context, repo string, runID int64, tmpDir string, metrics *CIMetrics) bool {
 	artDir := filepath.Join(tmpDir, artifactTestsSection)
 	if err := c.ghClient.DownloadRunArtifact(ctx, repo, runID, artifactTestsSection, artDir); err != nil {
 		if c.logger != nil {
 			c.logger.WithError(err).Debug("Failed to download tests-section artifact")
 		}
-		return
+		return false
 	}
 
 	data, err := findAndReadMarkdown(artDir)
@@ -427,20 +530,23 @@ func (c *CICollector) parseTestsArtifact(ctx context.Context, repo string, runID
 		if c.logger != nil {
 			c.logger.WithError(err).Debug("Failed to read tests-section markdown")
 		}
-		return
+		return false
 	}
 
 	metrics.TestCount = parseTestCountFromMarkdown(data)
+
+	return true
 }
 
-// parseCIResultsArtifact downloads and parses the ci-results artifact with JSONL test data
-func (c *CICollector) parseCIResultsArtifact(ctx context.Context, repo string, runID int64, name, tmpDir string, metrics *CIMetrics) {
+// parseCIResultsArtifact downloads and parses the ci-results artifact with JSONL test data.
+// It reports whether the artifact was downloaded and read.
+func (c *CICollector) parseCIResultsArtifact(ctx context.Context, repo string, runID int64, name, tmpDir string, metrics *CIMetrics) bool {
 	artDir := filepath.Join(tmpDir, name)
 	if err := c.ghClient.DownloadRunArtifact(ctx, repo, runID, name, artDir); err != nil {
 		if c.logger != nil {
 			c.logger.WithError(err).WithField("artifact", name).Debug("Failed to download ci-results artifact")
 		}
-		return
+		return false
 	}
 
 	// Look for .mage-x/ci-results.jsonl
@@ -450,23 +556,26 @@ func (c *CICollector) parseCIResultsArtifact(ctx context.Context, repo string, r
 		if c.logger != nil {
 			c.logger.WithError(err).WithField("artifact", name).Debug("Failed to read ci-results.jsonl")
 		}
-		return
+		return false
 	}
 
 	testCount := parseCIResultsJSONL(data)
 	if testCount > 0 {
 		metrics.TestCount = testCount
 	}
+
+	return true
 }
 
-// parseBenchArtifact downloads and parses a bench-stats JSON artifact
-func (c *CICollector) parseBenchArtifact(ctx context.Context, repo string, runID int64, name, tmpDir string, metrics *CIMetrics) {
+// parseBenchArtifact downloads and parses a bench-stats JSON artifact.
+// It reports whether the artifact was downloaded and read.
+func (c *CICollector) parseBenchArtifact(ctx context.Context, repo string, runID int64, name, tmpDir string, metrics *CIMetrics) bool {
 	artDir := filepath.Join(tmpDir, name)
 	if err := c.ghClient.DownloadRunArtifact(ctx, repo, runID, name, artDir); err != nil {
 		if c.logger != nil {
 			c.logger.WithError(err).WithField("artifact", name).Debug("Failed to download bench artifact")
 		}
-		return
+		return false
 	}
 
 	data, err := findAndReadJSON(artDir)
@@ -474,10 +583,12 @@ func (c *CICollector) parseBenchArtifact(ctx context.Context, repo string, runID
 		if c.logger != nil {
 			c.logger.WithError(err).WithField("artifact", name).Debug("Failed to read bench JSON")
 		}
-		return
+		return false
 	}
 
 	metrics.BenchmarkCount += parseBenchStatsJSON(data)
+
+	return true
 }
 
 // ============================================================

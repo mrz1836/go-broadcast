@@ -77,12 +77,13 @@ type SyncRun struct {
 	RepoFilter  string     `gorm:"type:text" json:"repo_filter,omitempty"` // empty = all repos
 
 	// Processing counters
-	ReposProcessed   int   `json:"repos_processed"`   // Total repos processed
-	ReposSkipped     int   `json:"repos_skipped"`     // Skipped via change detection
-	ReposFailed      int   `json:"repos_failed"`      // Failed to process
-	SnapshotsCreated int   `json:"snapshots_created"` // New snapshots written
-	AlertsUpserted   int   `json:"alerts_upserted"`   // Alerts created/updated
-	DurationMs       int64 `json:"duration_ms"`       // Total execution time
+	ReposProcessed    int   `json:"repos_processed"`                      // Total repos processed
+	ReposSkipped      int   `json:"repos_skipped"`                        // Skipped via change detection
+	ReposFailed       int   `json:"repos_failed"`                         // Failed to process
+	SnapshotsCreated  int   `json:"snapshots_created"`                    // New snapshots written
+	CISnapshotsReused int   `gorm:"default:0" json:"ci_snapshots_reused"` // CI snapshots carried forward from an unchanged workflow run
+	AlertsUpserted    int   `json:"alerts_upserted"`                      // Alerts created/updated
+	DurationMs        int64 `json:"duration_ms"`                          // Total execution time
 
 	// GitHub API usage, measured from the rate-limit status before and after the run.
 	// It is GitHub's accounting for the token, so requests other tools made with the
@@ -102,11 +103,18 @@ type SyncRun struct {
 type CIMetricsSnapshot struct {
 	BaseModel
 
-	RepositoryID  uint      `gorm:"index;not null" json:"repository_id"`
-	SnapshotAt    time.Time `gorm:"index;not null" json:"snapshot_at"`
-	WorkflowRunID int64     `gorm:"index" json:"workflow_run_id"`
-	Branch        string    `gorm:"type:text" json:"branch"`
-	CommitSHA     string    `gorm:"type:text" json:"commit_sha"`
+	RepositoryID       uint      `gorm:"index;not null" json:"repository_id"`
+	SnapshotAt         time.Time `gorm:"index;not null" json:"snapshot_at"`
+	WorkflowRunID      int64     `gorm:"index" json:"workflow_run_id"`
+	WorkflowRunAttempt int       `gorm:"default:0" json:"workflow_run_attempt"` // Re-running a run keeps its ID and increments the attempt
+	Branch             string    `gorm:"type:text" json:"branch"`
+	CommitSHA          string    `gorm:"type:text" json:"commit_sha"`
+
+	// Provenance: ArtifactsComplete reports that every artifact the collector tried
+	// to read was downloaded. Reused reports that the metrics were carried forward
+	// from the previous snapshot because the newest successful run was unchanged.
+	ArtifactsComplete bool `gorm:"default:false" json:"artifacts_complete"`
+	Reused            bool `gorm:"default:false" json:"reused"`
 
 	// LOC (from loc-stats JSON or statistics-section markdown fallback)
 	GoFilesLOC     int `json:"go_files_loc"`

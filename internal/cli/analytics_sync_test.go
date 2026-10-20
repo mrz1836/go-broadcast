@@ -511,18 +511,19 @@ func TestDisplaySyncSummary(t *testing.T) {
 	})
 }
 
-// TestDisplaySyncSummaryAPIUsage verifies the summary reports measured API usage and
-// the remaining REST budget.
+// TestDisplaySyncSummaryAPIUsage verifies the summary reports measured API usage, the
+// remaining REST budget, and CI snapshots reused from unchanged workflow runs.
 // It captures global output, so it must not run in parallel.
 func TestDisplaySyncSummaryAPIUsage(t *testing.T) {
 	scope := output.CaptureOutput()
 	defer scope.Restore()
 
 	syncRun := &db.SyncRun{
-		SyncType:         "full",
-		ReposProcessed:   81,
-		SnapshotsCreated: 81,
-		DurationMs:       1_379_000,
+		SyncType:          "full",
+		ReposProcessed:    81,
+		SnapshotsCreated:  81,
+		CISnapshotsReused: 42,
+		DurationMs:        1_379_000,
 	}
 	usage := &gh.APIUsage{
 		CoreRequests:  812,
@@ -535,6 +536,7 @@ func TestDisplaySyncSummaryAPIUsage(t *testing.T) {
 	displaySyncSummary(syncRun, "completed", nil, usage)
 
 	out := scope.Stdout.String()
+	assert.Contains(t, out, "CI Snapshots Reused: 42 (newest workflow run unchanged)")
 	assert.Contains(t, out, "GitHub API Usage: 812 REST requests, 75 GraphQL points")
 	assert.Contains(t, out, "REST Budget Remaining: 4188/5000 (resets at 10:25:00)")
 }

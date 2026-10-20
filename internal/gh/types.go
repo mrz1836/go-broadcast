@@ -422,6 +422,7 @@ type WorkflowRun struct {
 	HeadBranch string `json:"head_branch"`
 	HeadSHA    string `json:"head_sha"`
 	RunNumber  int    `json:"run_number"`
+	RunAttempt int    `json:"run_attempt"` // starts at 1; re-running a run keeps its ID and increments this
 	CreatedAt  string `json:"created_at"`
 	UpdatedAt  string `json:"updated_at"`
 }

@@ -806,8 +806,11 @@ SELECT name, clone_url, ssh_url FROM repos;
 | `repository_id` | uint | Foreign key to `repos` |
 | `snapshot_at` | datetime | Timestamp of snapshot |
 | `workflow_run_id` | int64 | GitHub Actions workflow run ID |
+| `workflow_run_attempt` | int | Attempt of the workflow run (re-running a run keeps its ID and increments this) |
 | `branch` | text | Branch the workflow ran on |
 | `commit_sha` | text | Commit SHA of the workflow run |
+| `artifacts_complete` | bool | Every artifact the collector tried to read was downloaded |
+| `reused` | bool | Metrics were carried forward from the previous snapshot because the newest successful run was unchanged |
 | `go_files_loc` | int | Lines of code in Go files |
 | `test_files_loc` | int | Lines of code in test files |
 | `go_files_count` | int | Number of Go source files |
@@ -836,6 +839,12 @@ SELECT name, clone_url, ssh_url FROM repos;
   - **Benchmarks**: `bench-stats-*` (JSON)
 - Tracks code size, test coverage, and test/benchmark counts over time
 - Test count uses `unique_total` from ci-results for accurate unique test function count
+- A new snapshot is written on every analytics sync. When the newest successful run
+  (same ID and attempt) is the run behind the previous snapshot, that snapshot had
+  coverage, and all of its artifacts were downloaded, the metrics are carried forward
+  (`reused = true`) instead of downloading the same artifacts again. A completed run's
+  artifacts never change, so the values are identical. `analytics sync --full` always
+  downloads.
 
 </details>
 
@@ -855,6 +864,7 @@ SELECT name, clone_url, ssh_url FROM repos;
 | `repos_skipped` | int | Skipped via change detection |
 | `repos_failed` | int | Failed to process |
 | `snapshots_created` | int | New snapshots written |
+| `ci_snapshots_reused` | int | CI snapshots carried forward from an unchanged workflow run |
 | `alerts_upserted` | int | Alerts created/updated |
 | `api_calls_made` | int | REST requests charged to the GitHub primary rate limit during the run (0 when unmeasured) |
 | `graphql_points_used` | int | Points charged to the GitHub GraphQL rate limit during the run |
@@ -1792,7 +1802,7 @@ go-broadcast analytics sync --repo owner/my-project
 # Security alerts only (skip metadata)
 go-broadcast analytics sync --security-only
 
-# Force full sync (ignore change detection)
+# Force full sync (ignore change detection and re-download unchanged CI artifacts)
 go-broadcast analytics sync --full
 
 # Preview what would be synced
@@ -1818,6 +1828,9 @@ go-broadcast analytics sync --dry-run
 - Benchmark Count: Number of benchmark functions
 - Coverage Percentage: Code coverage from GoFortress runs
 - Sources artifact data from the latest successful GoFortress workflow run
+- When that run (same ID and attempt) already produced the previous snapshot with coverage
+  and every artifact downloaded, its metrics are reused instead of downloaded again; see
+  `ci_metrics_snapshots`
 
 </details>
 

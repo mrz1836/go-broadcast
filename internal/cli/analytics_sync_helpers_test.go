@@ -6,11 +6,13 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 
 	"github.com/mrz1836/go-broadcast/internal/analytics"
 	"github.com/mrz1836/go-broadcast/internal/db"
@@ -245,7 +247,7 @@ func TestCollectCIMetrics(t *testing.T) {
 
 		mockRepo := new(mockAnalyticsRepo)
 		pipe := newTestPipeline(ghMock, mockRepo)
-		err := collectCIMetrics(ctx, pipe, mockRepo, 1, "org/repo")
+		_, err := collectCIMetrics(ctx, pipe, mockRepo, 1, "org/repo", true)
 		require.NoError(t, err)
 		// CreateCISnapshot must not be called when there is no workflow.
 		mockRepo.AssertNotCalled(t, "CreateCISnapshot", mock.Anything, mock.Anything)
@@ -259,7 +261,7 @@ func TestCollectCIMetrics(t *testing.T) {
 		mockRepo := new(mockAnalyticsRepo)
 		pipe := newTestPipeline(ghMock, mockRepo)
 		// Collector logs the error as a warning and returns nil metrics; no DB write.
-		err := collectCIMetrics(ctx, pipe, mockRepo, 1, "org/repo")
+		_, err := collectCIMetrics(ctx, pipe, mockRepo, 1, "org/repo", true)
 		require.NoError(t, err)
 		mockRepo.AssertNotCalled(t, "CreateCISnapshot", mock.Anything, mock.Anything)
 	})
@@ -285,7 +287,7 @@ func TestCollectCIMetrics(t *testing.T) {
 		mockRepo := new(mockAnalyticsRepo)
 		mockRepo.On("CreateCISnapshot", ctx, mock.Anything).Return(nil)
 		pipe := newTestPipeline(ghMock, mockRepo)
-		err := collectCIMetrics(ctx, pipe, mockRepo, 1, "org/repo")
+		_, err := collectCIMetrics(ctx, pipe, mockRepo, 1, "org/repo", true)
 		require.NoError(t, err)
 		mockRepo.AssertExpectations(t)
 	})
@@ -303,10 +305,263 @@ func TestCollectCIMetrics(t *testing.T) {
 
 		mockRepo := new(mockAnalyticsRepo)
 		pipe := newTestPipeline(ghMock, mockRepo)
-		err := collectCIMetrics(ctx, pipe, mockRepo, 1, "org/repo")
+		_, err := collectCIMetrics(ctx, pipe, mockRepo, 1, "org/repo", true)
 		require.NoError(t, err)
 		mockRepo.AssertNotCalled(t, "CreateCISnapshot", mock.Anything, mock.Anything)
 	})
+}
+
+// previousCISnapshot returns a stored CI snapshot built from run 1234 (attempt 1)
+// with coverage and complete artifacts, i.e. one that is eligible for reuse.
+func previousCISnapshot() *db.CIMetricsSnapshot {
+	coverage := 87.5
+	return &db.CIMetricsSnapshot{
+		RepositoryID:       1,
+		SnapshotAt:         time.Date(2026, 1, 1, 9, 25, 0, 0, time.UTC),
+		WorkflowRunID:      1234,
+		WorkflowRunAttempt: 1,
+		Branch:             "master",
+		CommitSHA:          "abc",
+		ArtifactsComplete:  true,
+		GoFilesLOC:         1500,
+		TestFilesLOC:       5500,
+		GoFilesCount:       20,
+		TestFilesCount:     50,
+		TestCount:          321,
+		BenchmarkCount:     12,
+		CoveragePercent:    &coverage,
+	}
+}
+
+// newestRunMock returns a GitHub mock whose newest successful GoFortress run is
+// run 1234 at the given attempt. Unexpected calls fail the test.
+func newestRunMock(t *testing.T, attempt int) *gh.MockClient {
+	t.Helper()
+	ghMock := gh.NewMockClient()
+	ghMock.Test(t)
+	ghMock.On("ListWorkflows", mock.Anything, "org/repo").
+		Return([]gh.Workflow{{ID: 99, Name: "GoFortress"}}, nil).Once()
+	ghMock.On("GetWorkflowRuns", mock.Anything, "org/repo", int64(99), mock.Anything).
+		Return([]gh.WorkflowRun{{ID: 1234, RunAttempt: attempt, HeadBranch: "master", HeadSHA: "abc"}}, nil).Once()
+	return ghMock
+}
+
+func TestCollectCIMetricsReusesUnchangedWorkflowRun(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	previous := previousCISnapshot()
+
+	ghMock := newestRunMock(t, 1) // No artifact listing or download is expected
+
+	mockRepo := new(mockAnalyticsRepo)
+	mockRepo.Test(t)
+	mockRepo.On("GetLatestCISnapshot", ctx, uint(1)).Return(previous, nil).Once()
+	mockRepo.On("CreateCISnapshot", ctx, mock.MatchedBy(func(snap *db.CIMetricsSnapshot) bool {
+		return snap.Reused &&
+			snap.ArtifactsComplete &&
+			snap.SnapshotAt.After(previous.SnapshotAt) &&
+			snap.WorkflowRunID == 1234 && snap.WorkflowRunAttempt == 1 &&
+			snap.Branch == "master" && snap.CommitSHA == "abc" &&
+			snap.GoFilesLOC == 1500 && snap.TestFilesLOC == 5500 &&
+			snap.GoFilesCount == 20 && snap.TestFilesCount == 50 &&
+			snap.TestCount == 321 && snap.BenchmarkCount == 12 &&
+			snap.CoveragePercent != nil && *snap.CoveragePercent == 87.5
+	})).Return(nil).Once()
+
+	reused, err := collectCIMetrics(ctx, newTestPipeline(ghMock, mockRepo), mockRepo, 1, "org/repo", false)
+
+	require.NoError(t, err)
+	assert.True(t, reused)
+	ghMock.AssertExpectations(t)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestCollectCIMetricsReturnsSnapshotWriteError(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	ghMock := newestRunMock(t, 1)
+
+	mockRepo := new(mockAnalyticsRepo)
+	mockRepo.Test(t)
+	mockRepo.On("GetLatestCISnapshot", ctx, uint(1)).Return(previousCISnapshot(), nil).Once()
+	mockRepo.On("CreateCISnapshot", ctx, mock.Anything).Return(errMockGH).Once()
+
+	reused, err := collectCIMetrics(ctx, newTestPipeline(ghMock, mockRepo), mockRepo, 1, "org/repo", false)
+
+	require.ErrorIs(t, err, errMockGH)
+	assert.False(t, reused)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestCollectCIMetricsCollectsWhenBaselineCannotBeReused(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	tests := []struct {
+		name          string
+		newestAttempt int
+		previous      func() *db.CIMetricsSnapshot
+		lookupErr     error
+		forceFull     bool
+	}{
+		{
+			name:          "newest run was re-run",
+			newestAttempt: 2,
+			previous:      previousCISnapshot,
+		},
+		{
+			name:          "newer successful run",
+			newestAttempt: 1,
+			previous: func() *db.CIMetricsSnapshot {
+				snap := previousCISnapshot()
+				snap.WorkflowRunID = 1000
+				return snap
+			},
+		},
+		{
+			name:          "previous snapshot has no coverage",
+			newestAttempt: 1,
+			previous: func() *db.CIMetricsSnapshot {
+				snap := previousCISnapshot()
+				snap.CoveragePercent = nil
+				return snap
+			},
+		},
+		{
+			name:          "previous snapshot missed an artifact",
+			newestAttempt: 1,
+			previous: func() *db.CIMetricsSnapshot {
+				snap := previousCISnapshot()
+				snap.ArtifactsComplete = false
+				return snap
+			},
+		},
+		{
+			name:          "snapshot predates attempt tracking",
+			newestAttempt: 1,
+			previous: func() *db.CIMetricsSnapshot {
+				snap := previousCISnapshot()
+				snap.WorkflowRunAttempt = 0
+				return snap
+			},
+		},
+		{
+			name:          "no previous snapshot",
+			newestAttempt: 1,
+			lookupErr:     gorm.ErrRecordNotFound,
+		},
+		{
+			name:          "previous snapshot lookup fails",
+			newestAttempt: 1,
+			lookupErr:     errMockGH,
+		},
+		{
+			name:          "full sync never reuses",
+			newestAttempt: 1,
+			previous:      previousCISnapshot,
+			forceFull:     true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ghMock := newestRunMock(t, tc.newestAttempt)
+			// Collecting again lists the run's artifacts; none are usable, so no snapshot is written.
+			ghMock.On("GetRunArtifacts", mock.Anything, "org/repo", int64(1234)).Return([]gh.Artifact{}, nil).Once()
+
+			mockRepo := new(mockAnalyticsRepo)
+			mockRepo.Test(t)
+			if !tc.forceFull {
+				var previous *db.CIMetricsSnapshot
+				if tc.previous != nil {
+					previous = tc.previous()
+				}
+				mockRepo.On("GetLatestCISnapshot", ctx, uint(1)).Return(previous, tc.lookupErr).Once()
+			}
+
+			reused, err := collectCIMetrics(ctx, newTestPipeline(ghMock, mockRepo), mockRepo, 1, "org/repo", tc.forceFull)
+
+			require.NoError(t, err)
+			assert.False(t, reused)
+			ghMock.AssertExpectations(t)
+			mockRepo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestCollectCIMetricsRecordsProvenance(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	ghMock := newestRunMock(t, 3)
+	ghMock.On("GetRunArtifacts", mock.Anything, "org/repo", int64(1234)).
+		Return([]gh.Artifact{{ID: 1, Name: "loc-stats"}}, nil).Once()
+	ghMock.On("DownloadRunArtifact", mock.Anything, "org/repo", int64(1234), "loc-stats", mock.AnythingOfType("string")).
+		Run(func(args mock.Arguments) {
+			destDir := args.String(4)
+			_ = os.MkdirAll(destDir, 0o750)
+			locJSON := `{"go_files_loc": 1500, "test_files_loc": 5500, "go_files_count": 20, "test_files_count": 50}`
+			_ = os.WriteFile(filepath.Join(destDir, "loc-stats.json"), []byte(locJSON), 0o600)
+		}).Return(nil).Once()
+
+	mockRepo := new(mockAnalyticsRepo)
+	mockRepo.Test(t)
+	mockRepo.On("GetLatestCISnapshot", ctx, uint(1)).Return(nil, gorm.ErrRecordNotFound).Once()
+	mockRepo.On("CreateCISnapshot", ctx, mock.MatchedBy(func(snap *db.CIMetricsSnapshot) bool {
+		return !snap.Reused && snap.ArtifactsComplete && snap.WorkflowRunAttempt == 3 && snap.GoFilesLOC == 1500
+	})).Return(nil).Once()
+
+	reused, err := collectCIMetrics(ctx, newTestPipeline(ghMock, mockRepo), mockRepo, 1, "org/repo", false)
+
+	require.NoError(t, err)
+	assert.False(t, reused)
+	ghMock.AssertExpectations(t)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestCIMetricsFromSnapshot(t *testing.T) {
+	t.Parallel()
+
+	previous := previousCISnapshot()
+	metrics := ciMetricsFromSnapshot(previous)
+
+	assert.Equal(t, &analytics.CIMetrics{
+		WorkflowRunID:      1234,
+		WorkflowRunAttempt: 1,
+		Branch:             "master",
+		CommitSHA:          "abc",
+		GoFilesLOC:         1500,
+		TestFilesLOC:       5500,
+		GoFilesCount:       20,
+		TestFilesCount:     50,
+		TestCount:          321,
+		BenchmarkCount:     12,
+		Coverage:           previous.CoveragePercent,
+		ArtifactsComplete:  true,
+	}, metrics)
+}
+
+func TestRecordCIMetricsCountsReuse(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	ghMock := newestRunMock(t, 1)
+
+	mockRepo := new(mockAnalyticsRepo)
+	mockRepo.Test(t)
+	mockRepo.On("GetLatestCISnapshot", ctx, uint(1)).Return(previousCISnapshot(), nil).Once()
+	mockRepo.On("CreateCISnapshot", ctx, mock.Anything).Return(nil).Once()
+
+	run := &db.SyncRun{}
+	recordCIMetrics(ctx, newTestPipeline(ghMock, mockRepo), mockRepo, run, 1, "org/repo", false, false)
+
+	assert.Equal(t, 1, run.CISnapshotsReused)
+	mockRepo.AssertExpectations(t)
 }
 
 func TestApplyAPIUsage(t *testing.T) {
@@ -490,6 +745,7 @@ func TestSyncRepositoryMetadata(t *testing.T) {
 		mockRepo.On("UpsertOrganization", ctx, mock.Anything).Return(nil)
 		mockRepo.On("UpsertRepository", ctx, mock.Anything).Return(nil)
 		mockRepo.On("GetLatestSnapshot", ctx, mock.Anything).Return(prev, nil)
+		mockRepo.On("GetLatestCISnapshot", ctx, mock.Anything).Return(nil, gorm.ErrRecordNotFound)
 		mockRepo.On("GetAlertCountsByType", ctx, mock.Anything).Return(map[string]int{}, nil)
 		mockRepo.On("UpdateRepoSyncTimestamp", ctx, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 

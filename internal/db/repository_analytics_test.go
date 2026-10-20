@@ -743,6 +743,35 @@ func TestAnalyticsRepo_CISnapshots(t *testing.T) {
 		assert.NotZero(t, snap.ID)
 	})
 
+	t.Run("CreateCISnapshot_Provenance", func(t *testing.T) {
+		// A dedicated repository keeps this snapshot out of the other subtests' "latest"
+		provenanceRepo := &Repo{
+			OrganizationID: org.ID,
+			Name:           "provenance-repo",
+			FullNameStr:    "test-org/provenance-repo",
+		}
+		require.NoError(t, repo.UpsertRepository(ctx, provenanceRepo))
+
+		coverage := 91.2
+		snap := &CIMetricsSnapshot{
+			RepositoryID:       provenanceRepo.ID,
+			SnapshotAt:         time.Now(),
+			WorkflowRunID:      67890,
+			WorkflowRunAttempt: 2,
+			ArtifactsComplete:  true,
+			Reused:             true,
+			CoveragePercent:    &coverage,
+		}
+		require.NoError(t, repo.CreateCISnapshot(ctx, snap))
+
+		latest, err := repo.GetLatestCISnapshot(ctx, provenanceRepo.ID)
+		require.NoError(t, err)
+		assert.Equal(t, int64(67890), latest.WorkflowRunID)
+		assert.Equal(t, 2, latest.WorkflowRunAttempt)
+		assert.True(t, latest.ArtifactsComplete)
+		assert.True(t, latest.Reused)
+	})
+
 	t.Run("GetLatestCISnapshot", func(t *testing.T) {
 		// Create multiple CI snapshots
 		now := time.Now()
