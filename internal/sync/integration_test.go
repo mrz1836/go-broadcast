@@ -71,6 +71,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 
 		// Setup mocks
 		ghClient := &gh.MockClient{}
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 		gitClient := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -314,6 +315,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 
 		// Setup mocks
 		ghClient := &gh.MockClient{}
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 		gitClient := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -568,6 +570,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 
 		// Setup mocks
 		ghClient := &gh.MockClient{}
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 		gitClient := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()

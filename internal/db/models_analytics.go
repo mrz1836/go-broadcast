@@ -82,8 +82,14 @@ type SyncRun struct {
 	ReposFailed      int   `json:"repos_failed"`      // Failed to process
 	SnapshotsCreated int   `json:"snapshots_created"` // New snapshots written
 	AlertsUpserted   int   `json:"alerts_upserted"`   // Alerts created/updated
-	APICallsMade     int   `json:"api_calls_made"`    // Total GitHub API calls
 	DurationMs       int64 `json:"duration_ms"`       // Total execution time
+
+	// GitHub API usage, measured from the rate-limit status before and after the run.
+	// It is GitHub's accounting for the token, so requests other tools made with the
+	// same token while the run was in progress are included. Zero when unmeasured.
+	APICallsMade       int  `json:"api_calls_made"`                                                  // REST requests charged to the primary rate limit
+	GraphQLPointsUsed  int  `gorm:"column:graphql_points_used;default:0" json:"graphql_points_used"` // Points charged to the GraphQL rate limit
+	APIUsageLowerBound bool `gorm:"default:false" json:"api_usage_lower_bound"`                      // A rate-limit window reset mid-run; counts are minimums
 
 	// Error tracking (JSON array of error details)
 	Errors Metadata `gorm:"type:text" json:"errors,omitempty"`

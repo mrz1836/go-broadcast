@@ -99,6 +99,25 @@ func TestBroadcastSyncRepo_UpdateSyncRun(t *testing.T) {
 		assert.NotNil(t, retrieved.EndedAt)
 	})
 
+	t.Run("persists measured API usage", func(t *testing.T) {
+		run := &BroadcastSyncRun{
+			ExternalID: "SR-20260215-usage",
+			StartedAt:  time.Now(),
+			Status:     BroadcastSyncRunStatusRunning,
+		}
+		require.NoError(t, repo.CreateSyncRun(ctx, run))
+
+		run.Status = BroadcastSyncRunStatusSuccess
+		run.APICallsMade = 87
+		run.APIUsageLowerBound = true
+		require.NoError(t, repo.UpdateSyncRun(ctx, run))
+
+		retrieved, err := repo.GetSyncRunByID(ctx, run.ID)
+		require.NoError(t, err)
+		assert.Equal(t, 87, retrieved.APICallsMade)
+		assert.True(t, retrieved.APIUsageLowerBound)
+	})
+
 	t.Run("update without ID", func(t *testing.T) {
 		run := &BroadcastSyncRun{
 			ExternalID: "SR-20260215-noid",

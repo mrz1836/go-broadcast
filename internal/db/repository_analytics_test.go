@@ -443,6 +443,9 @@ func TestAnalyticsRepo_SyncRuns(t *testing.T) {
 		run.ReposProcessed = 75
 		run.SnapshotsCreated = 60
 		run.DurationMs = 25000
+		run.APICallsMade = 812
+		run.GraphQLPointsUsed = 75
+		run.APIUsageLowerBound = true
 
 		err := repo.UpdateSyncRun(ctx, run)
 		require.NoError(t, err)
@@ -452,6 +455,14 @@ func TestAnalyticsRepo_SyncRuns(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "completed", latest.Status)
 		assert.Equal(t, 75, latest.ReposProcessed)
+		assert.Equal(t, 812, latest.APICallsMade)
+		assert.Equal(t, 75, latest.GraphQLPointsUsed)
+		assert.True(t, latest.APIUsageLowerBound)
+
+		// The GraphQL column keeps a readable name rather than GORM's "graph_ql" split
+		var graphQLPoints int
+		require.NoError(t, db.Raw("SELECT graphql_points_used FROM sync_runs WHERE id = ?", run.ID).Scan(&graphQLPoints).Error)
+		assert.Equal(t, 75, graphQLPoints)
 	})
 
 	t.Run("GetLatestSyncRun", func(t *testing.T) {

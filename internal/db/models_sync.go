@@ -45,6 +45,12 @@ type BroadcastSyncRun struct {
 	TotalLinesAdded   int `gorm:"default:0" json:"total_lines_added"`
 	TotalLinesRemoved int `gorm:"default:0" json:"total_lines_removed"`
 
+	// GitHub API usage, measured from the rate-limit status before and after the run.
+	// It is GitHub's accounting for the token, so requests other tools made with the
+	// same token while the run was in progress are included. Zero when unmeasured.
+	APICallsMade       int  `gorm:"default:0" json:"api_calls_made"`            // REST requests charged to the primary rate limit
+	APIUsageLowerBound bool `gorm:"default:false" json:"api_usage_lower_bound"` // A rate-limit window reset mid-run; APICallsMade is a minimum
+
 	// Error summary (if failed)
 	ErrorSummary string `gorm:"type:text" json:"error_summary,omitempty"`
 

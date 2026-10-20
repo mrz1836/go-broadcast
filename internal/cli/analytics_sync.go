@@ -110,12 +110,19 @@ with change detection to minimize database writes.`,
 			// Create analytics pipeline
 			pipeline := analytics.NewPipeline(ghClient, analyticsRepo, repoRepo, orgRepo, logger, throttle)
 
+			// Snapshot the rate limit before any GitHub request, so the run's API usage
+			// can be measured and recorded. Reading the rate limit is free.
+			usageMeter, usageErr := gh.StartUsageMeter(ctx, ghClient)
+			if usageErr != nil {
+				logger.WithError(usageErr).Debug("GitHub API usage will not be measured")
+			}
+
 			// Pre-flight rate limit check
 			if showProgress := progress; showProgress {
-				rateLimitInfo, rateLimitErr := analytics.CheckRateLimit(ctx, ghClient)
-				if rateLimitErr != nil {
-					output.Warn(fmt.Sprintf("Could not check rate limit: %v", rateLimitErr))
+				if usageMeter == nil {
+					output.Warn(fmt.Sprintf("Could not check rate limit: %v", usageErr))
 				} else {
+					rateLimitInfo := analytics.NewRateLimitInfo(usageMeter.Baseline())
 					analytics.DisplayRateLimitInfo(rateLimitInfo)
 
 					// Estimate cost and warn if budget is low
@@ -170,17 +177,18 @@ with change detection to minimize database writes.`,
 				status = "failed"
 			}
 
+			// Record the run's API usage before completing it, so it is persisted with the run
+			apiUsage := measureRunAPIUsage(ctx, usageMeter, logger)
+			applyAPIUsage(syncRun, apiUsage)
+
 			// Complete sync run
 			if completeErr := pipeline.CompleteSyncRun(ctx, syncRun, status); completeErr != nil {
 				output.Warn(fmt.Sprintf("Failed to update sync run: %v", completeErr))
 			}
 
-			// Update API call count from throttle stats
-			throttleStats := throttle.Stats()
-			syncRun.APICallsMade = int(throttleStats.TotalCalls)
-
 			// Display summary
-			displaySyncSummary(syncRun, status, &throttleStats)
+			throttleStats := throttle.Stats()
+			displaySyncSummary(syncRun, status, &throttleStats, apiUsage)
 
 			// Return original sync error if any
 			return syncErr
@@ -328,7 +336,6 @@ func syncSingleRepository(
 	}
 
 	syncRun.ReposProcessed++
-	// API call count is tracked by the shared throttle
 
 	// Update repo's last analytics sync timestamp
 	if tsErr := analyticsRepo.UpdateRepoSyncTimestamp(ctx, repo.ID, time.Now(), syncRun.ID); tsErr != nil {
@@ -950,7 +957,6 @@ func syncRepositoryMetadata(
 	}
 
 	syncRun.ReposProcessed++
-	// API call count is tracked by the shared throttle
 
 	// Update repo's last analytics sync timestamp
 	if tsErr := analyticsRepo.UpdateRepoSyncTimestamp(ctx, repo.ID, time.Now(), syncRun.ID); tsErr != nil {
@@ -972,8 +978,38 @@ func syncRepositoryMetadata(
 	return nil
 }
 
-// displaySyncSummary displays a user-friendly summary of the sync operation
-func displaySyncSummary(syncRun *db.SyncRun, status string, throttleStats *analytics.ThrottleStats) {
+// measureRunAPIUsage returns the GitHub API usage since meter started, or nil when
+// it cannot be measured (no meter, or the rate limit could not be read). It
+// measures even after ctx is canceled, so an interrupted run is still recorded.
+func measureRunAPIUsage(ctx context.Context, meter *gh.UsageMeter, logger *logrus.Logger) *gh.APIUsage {
+	if meter == nil {
+		return nil
+	}
+
+	usage, err := meter.MeasureDetached(ctx)
+	if err != nil {
+		if logger != nil {
+			logger.WithError(err).Debug("GitHub API usage could not be measured")
+		}
+		return nil
+	}
+	return &usage
+}
+
+// applyAPIUsage copies measured API usage onto the sync run record. Unmeasured
+// usage (nil) leaves the run's counts at zero.
+func applyAPIUsage(syncRun *db.SyncRun, usage *gh.APIUsage) {
+	if usage == nil {
+		return
+	}
+	syncRun.APICallsMade = usage.CoreRequests
+	syncRun.GraphQLPointsUsed = usage.GraphQLPoints
+	syncRun.APIUsageLowerBound = usage.CoreLowerBound || usage.GraphQLLowerBound
+}
+
+// displaySyncSummary displays a user-friendly summary of the sync operation.
+// apiUsage is the run's measured GitHub API usage, or nil when it was not measured.
+func displaySyncSummary(syncRun *db.SyncRun, status string, throttleStats *analytics.ThrottleStats, apiUsage *gh.APIUsage) {
 	// Don't show summary for dry-run (already shown inline)
 	if syncRun.SyncType == "full" && syncRun.ReposProcessed > 0 && syncRun.SnapshotsCreated == 0 && syncRun.AlertsUpserted == 0 && syncRun.DurationMs < 10 {
 		// This looks like a dry-run, skip summary
@@ -1011,9 +1047,17 @@ func displaySyncSummary(syncRun *db.SyncRun, status string, throttleStats *analy
 		output.Info(fmt.Sprintf("Duration: %s", duration.Round(time.Millisecond)))
 	}
 
-	// API calls and throttle stats
-	if syncRun.APICallsMade > 0 {
-		output.Info(fmt.Sprintf("GitHub API Calls: %d", syncRun.APICallsMade))
+	// GitHub API usage and throttle stats
+	switch {
+	case apiUsage != nil:
+		output.Info(fmt.Sprintf("GitHub API Usage: %s", apiUsage))
+		output.Info(fmt.Sprintf("REST Budget Remaining: %d/%d (resets at %s)",
+			apiUsage.CoreRemaining, apiUsage.CoreLimit, apiUsage.CoreResetAt.Format("15:04:05")))
+	case throttleStats != nil && throttleStats.TotalCalls > 0:
+		// Without a rate-limit reading, report the operations the throttle admitted.
+		// One operation can make several requests (pagination, artifact downloads).
+		output.Info(fmt.Sprintf("GitHub API Calls: %d throttled operations (rate limit unavailable, usage not measured)",
+			throttleStats.TotalCalls))
 	}
 	if throttleStats != nil {
 		if throttleStats.TotalRetries > 0 {

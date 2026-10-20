@@ -444,6 +444,10 @@ func (e *Engine) runRateLimitPreflight(ctx context.Context) error {
 func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, targetFilter []string) error {
 	log := e.logger.WithField("component", "sync_engine")
 
+	// Snapshot the rate limit before any GitHub request so the group's API usage,
+	// including state discovery, can be measured. Reading it is free.
+	usageMeter := e.startUsageMeter(ctx)
+
 	// 1. Discover current state from GitHub
 	log.Info("Discovering current state from GitHub")
 	currentState, err := e.state.DiscoverState(ctx, e.config)
@@ -471,9 +475,12 @@ func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, tar
 
 	if len(syncTargets) == 0 {
 		log.Info("No targets require synchronization")
+		usage := e.measureAPIUsage(ctx, usageMeter)
+		e.recordRunAPIUsage(usage)
 		if finalizeErr := e.finalizeSyncRun(ctx, &Results{}, nil); finalizeErr != nil {
 			log.WithError(finalizeErr).Warn("Failed to finalize sync run metrics")
 		}
+		printAPIUsage(group.Name, usage)
 		return nil
 	}
 
@@ -549,7 +556,9 @@ func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, tar
 		"errors":     len(collectedErrors),
 	}).Info("Sync operation completed")
 
-	// 9. Finalize sync run record (if metrics recording enabled)
+	// 9. Measure the group's API usage and finalize the sync run record (if metrics recording enabled)
+	usage := e.measureAPIUsage(ctx, usageMeter)
+	e.recordRunAPIUsage(usage)
 	if err := e.finalizeSyncRun(ctx, results, collectedErrors); err != nil {
 		log.WithError(err).Warn("Failed to finalize sync run metrics")
 	}
@@ -562,6 +571,7 @@ func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, tar
 	if !e.options.DryRun {
 		printSyncSummary(group.Name, currentState.Source.LatestCommit, progress.Outcomes())
 	}
+	printAPIUsage(group.Name, usage)
 
 	if results.Failed > 0 {
 		// If context was canceled/timeout, include context information in the error

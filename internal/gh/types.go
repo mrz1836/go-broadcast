@@ -449,15 +449,19 @@ type ArtifactsResponse struct {
 	Artifacts  []Artifact `json:"artifacts"`
 }
 
+// RateLimitResource is the accounting for one GitHub rate-limit bucket.
+type RateLimitResource struct {
+	Limit     int   `json:"limit"`
+	Remaining int   `json:"remaining"`
+	Reset     int64 `json:"reset"` // Unix time at which the current window resets
+	Used      int   `json:"used"`
+}
+
 // RateLimitResponse represents the GitHub API rate limit status
 type RateLimitResponse struct {
 	Resources struct {
-		Core struct {
-			Limit     int   `json:"limit"`
-			Remaining int   `json:"remaining"`
-			Reset     int64 `json:"reset"`
-			Used      int   `json:"used"`
-		} `json:"core"`
+		Core    RateLimitResource `json:"core"`    // REST API primary rate limit
+		GraphQL RateLimitResource `json:"graphql"` // GraphQL API rate limit (points)
 	} `json:"resources"`
 }
 

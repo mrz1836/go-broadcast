@@ -221,7 +221,8 @@ It checks two independent limits:
 The primary estimate is a worst case: it assumes every mapped file differs from the
 target and must be read for the diff. At run time, each target's files are compared
 against a single Git tree listing of the target branch, so unchanged and missing
-files cost no requests and actual usage is usually far lower.
+files cost no requests and actual usage is usually far lower. Each group sync prints
+the requests it actually used when it finishes.
 
 Configure it with the top-level `rate_limit_preflight` block:
 

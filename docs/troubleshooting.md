@@ -259,6 +259,16 @@ GitHub's secondary limit despite the conservative estimate.
    ```bash
    gh api rate_limit
    ```
+5. **See what each run costs**: every `go-broadcast sync` group and every
+   `analytics sync` prints the GitHub API requests it used and the REST budget
+   remaining, and records the count in `broadcast_sync_runs.api_calls_made` and
+   `sync_runs.api_calls_made`:
+   ```bash
+   sqlite3 ~/.config/go-broadcast/broadcast.db \
+     "SELECT started_at, total_targets, api_calls_made FROM broadcast_sync_runs ORDER BY id DESC LIMIT 10"
+   ```
+   The counts come from GitHub's rate-limit accounting for your token, so they also
+   include requests from other tools that share it (editors, scripts, other `gh` sessions).
 
 ### "Commit not found"
 

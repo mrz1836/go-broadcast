@@ -59,6 +59,12 @@ type BroadcastSyncRun struct {
 	TotalLinesAdded   int
 	TotalLinesRemoved int
 	ErrorSummary      string
+
+	// APICallsMade is the number of REST requests charged to the GitHub primary
+	// rate limit during the run (zero when unmeasured), and APIUsageLowerBound
+	// reports that a rate-limit window reset mid-run, making it a minimum.
+	APICallsMade       int
+	APIUsageLowerBound bool
 }
 
 // BroadcastSyncTargetResult is a minimal representation for the sync engine

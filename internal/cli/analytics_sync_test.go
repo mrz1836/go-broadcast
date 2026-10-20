@@ -2,12 +2,15 @@ package cli
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/mrz1836/go-broadcast/internal/analytics"
 	"github.com/mrz1836/go-broadcast/internal/db"
+	"github.com/mrz1836/go-broadcast/internal/gh"
+	"github.com/mrz1836/go-broadcast/internal/output"
 )
 
 func TestParseRepoName(t *testing.T) {
@@ -401,7 +404,7 @@ func TestDisplaySyncSummary(t *testing.T) {
 
 		// Should not panic
 		assert.NotPanics(t, func() {
-			displaySyncSummary(syncRun, "completed", stats)
+			displaySyncSummary(syncRun, "completed", stats, nil)
 		})
 	})
 
@@ -420,7 +423,7 @@ func TestDisplaySyncSummary(t *testing.T) {
 		}
 
 		assert.NotPanics(t, func() {
-			displaySyncSummary(syncRun, "partial", stats)
+			displaySyncSummary(syncRun, "partial", stats, nil)
 		})
 	})
 
@@ -435,7 +438,7 @@ func TestDisplaySyncSummary(t *testing.T) {
 		}
 
 		assert.NotPanics(t, func() {
-			displaySyncSummary(syncRun, "failed", nil)
+			displaySyncSummary(syncRun, "failed", nil, nil)
 		})
 	})
 
@@ -452,7 +455,7 @@ func TestDisplaySyncSummary(t *testing.T) {
 
 		// Should detect dry-run heuristic and skip
 		assert.NotPanics(t, func() {
-			displaySyncSummary(syncRun, "completed", nil)
+			displaySyncSummary(syncRun, "completed", nil, nil)
 		})
 	})
 
@@ -467,7 +470,7 @@ func TestDisplaySyncSummary(t *testing.T) {
 		}
 
 		assert.NotPanics(t, func() {
-			displaySyncSummary(syncRun, "completed", nil)
+			displaySyncSummary(syncRun, "completed", nil, nil)
 		})
 	})
 
@@ -482,7 +485,7 @@ func TestDisplaySyncSummary(t *testing.T) {
 		}
 
 		assert.NotPanics(t, func() {
-			displaySyncSummary(syncRun, "completed", nil)
+			displaySyncSummary(syncRun, "completed", nil, nil)
 		})
 	})
 
@@ -503,7 +506,52 @@ func TestDisplaySyncSummary(t *testing.T) {
 		}
 
 		assert.NotPanics(t, func() {
-			displaySyncSummary(syncRun, "completed", stats)
+			displaySyncSummary(syncRun, "completed", stats, nil)
 		})
 	})
+}
+
+// TestDisplaySyncSummaryAPIUsage verifies the summary reports measured API usage and
+// the remaining REST budget.
+// It captures global output, so it must not run in parallel.
+func TestDisplaySyncSummaryAPIUsage(t *testing.T) {
+	scope := output.CaptureOutput()
+	defer scope.Restore()
+
+	syncRun := &db.SyncRun{
+		SyncType:         "full",
+		ReposProcessed:   81,
+		SnapshotsCreated: 81,
+		DurationMs:       1_379_000,
+	}
+	usage := &gh.APIUsage{
+		CoreRequests:  812,
+		GraphQLPoints: 75,
+		CoreRemaining: 4188,
+		CoreLimit:     5000,
+		CoreResetAt:   time.Date(2026, 1, 2, 10, 25, 0, 0, time.UTC),
+	}
+
+	displaySyncSummary(syncRun, "completed", nil, usage)
+
+	out := scope.Stdout.String()
+	assert.Contains(t, out, "GitHub API Usage: 812 REST requests, 75 GraphQL points")
+	assert.Contains(t, out, "REST Budget Remaining: 4188/5000 (resets at 10:25:00)")
+}
+
+// TestDisplaySyncSummaryUnmeasuredUsage verifies the summary falls back to the
+// throttle's operation count when the rate limit could not be read. It captures
+// global output, so it must not run in parallel.
+func TestDisplaySyncSummaryUnmeasuredUsage(t *testing.T) {
+	scope := output.CaptureOutput()
+	defer scope.Restore()
+
+	syncRun := &db.SyncRun{SyncType: "full", ReposProcessed: 3, SnapshotsCreated: 3, DurationMs: 9000}
+	stats := &analytics.ThrottleStats{TotalCalls: 57}
+
+	displaySyncSummary(syncRun, "completed", stats, nil)
+
+	out := scope.Stdout.String()
+	assert.Contains(t, out, "GitHub API Calls: 57 throttled operations (rate limit unavailable, usage not measured)")
+	assert.NotContains(t, out, "GitHub API Usage:")
 }

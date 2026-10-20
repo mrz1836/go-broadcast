@@ -1,59 +1,38 @@
 package analytics
 
 import (
-	"context"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/output"
 )
 
-func TestCheckRateLimit(t *testing.T) {
+func TestNewRateLimitInfo(t *testing.T) {
 	t.Parallel()
 
-	t.Run("successful rate limit check", func(t *testing.T) {
+	t.Run("extracts the core bucket", func(t *testing.T) {
 		t.Parallel()
-
-		mockClient := gh.NewMockClient()
-		resetTime := time.Now().Add(1 * time.Hour).Unix()
 
 		resp := &gh.RateLimitResponse{}
-		resp.Resources.Core.Limit = 5000
-		resp.Resources.Core.Remaining = 4200
-		resp.Resources.Core.Reset = resetTime
-		resp.Resources.Core.Used = 800
+		resp.Resources.Core = gh.RateLimitResource{Limit: 5000, Remaining: 3173, Used: 1827, Reset: 1_792_534_769}
+		resp.Resources.GraphQL = gh.RateLimitResource{Limit: 5000, Remaining: 4998, Used: 2, Reset: 1_792_531_803}
 
-		mockClient.On("GetRateLimit", mock.Anything).Return(resp, nil)
-
-		info, err := CheckRateLimit(context.Background(), mockClient)
-		require.NoError(t, err)
+		info := NewRateLimitInfo(resp)
 		require.NotNil(t, info)
-
 		assert.Equal(t, 5000, info.Limit)
-		assert.Equal(t, 4200, info.Remaining)
-		assert.Equal(t, 800, info.Used)
-		assert.Equal(t, time.Unix(resetTime, 0), info.ResetAt)
-
-		mockClient.AssertExpectations(t)
+		assert.Equal(t, 3173, info.Remaining)
+		assert.Equal(t, 1827, info.Used)
+		assert.Equal(t, time.Unix(1_792_534_769, 0), info.ResetAt)
 	})
 
-	t.Run("API error returns error", func(t *testing.T) {
+	t.Run("nil response", func(t *testing.T) {
 		t.Parallel()
 
-		mockClient := gh.NewMockClient()
-		mockClient.On("GetRateLimit", mock.Anything).Return(nil, assert.AnError)
-
-		info, err := CheckRateLimit(context.Background(), mockClient)
-		require.Error(t, err)
-		assert.Nil(t, info)
-		assert.Contains(t, err.Error(), "failed to check rate limit")
-
-		mockClient.AssertExpectations(t)
+		assert.Nil(t, NewRateLimitInfo(nil))
 	})
 }
 

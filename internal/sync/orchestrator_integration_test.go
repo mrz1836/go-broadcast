@@ -283,6 +283,7 @@ func TestOrchestratorIntegration_ExistingBranchRecovery(t *testing.T) {
 	t.Run("force push recovery after failed sync", func(t *testing.T) {
 		// Setup mock clients
 		ghClient := &gh.MockClient{}
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 		gitClient := &git.MockClient{}
 		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
@@ -407,6 +408,7 @@ func TestOrchestratorIntegration_ExistingBranchRecovery(t *testing.T) {
 	t.Run("branch exists locally - checkout existing and continue", func(t *testing.T) {
 		// Setup mock clients
 		ghClient := &gh.MockClient{}
+		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
 		gitClient := &git.MockClient{}
 		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()

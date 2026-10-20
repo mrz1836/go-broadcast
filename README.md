@@ -334,7 +334,9 @@ exits non-zero. If the `GET /rate_limit` probe itself is unavailable, the gate
 
 The estimate is a worst case. At run time each target's files are compared against
 one Git tree listing of its target branch, so unchanged files cost no requests and
-only files whose content differs are downloaded.
+only files whose content differs are downloaded. When each group finishes,
+go-broadcast prints the GitHub API requests it actually used and records them in the
+sync history (`broadcast_sync_runs.api_calls_made`).
 
 ```bash
 # Default: preflight runs automatically

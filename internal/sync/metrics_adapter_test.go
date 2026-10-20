@@ -21,25 +21,27 @@ func TestConvertSyncRunToDB(t *testing.T) {
 	ended := now.Add(5 * time.Minute)
 
 	run := &BroadcastSyncRun{
-		ID:                1,
-		ExternalID:        "SR-20260219-abc123",
-		GroupID:           uintPtr(10),
-		SourceRepoID:      uintPtr(20),
-		SourceBranch:      "main",
-		SourceCommit:      "abc123def456",
-		StartedAt:         now,
-		EndedAt:           &ended,
-		DurationMs:        300000,
-		Status:            "completed",
-		Trigger:           "manual",
-		TotalTargets:      5,
-		SuccessfulTargets: 3,
-		FailedTargets:     1,
-		SkippedTargets:    1,
-		TotalFilesChanged: 10,
-		TotalLinesAdded:   100,
-		TotalLinesRemoved: 50,
-		ErrorSummary:      "1 target failed",
+		ID:                 1,
+		ExternalID:         "SR-20260219-abc123",
+		GroupID:            uintPtr(10),
+		SourceRepoID:       uintPtr(20),
+		SourceBranch:       "main",
+		SourceCommit:       "abc123def456",
+		StartedAt:          now,
+		EndedAt:            &ended,
+		DurationMs:         300000,
+		Status:             "completed",
+		Trigger:            "manual",
+		TotalTargets:       5,
+		SuccessfulTargets:  3,
+		FailedTargets:      1,
+		SkippedTargets:     1,
+		TotalFilesChanged:  10,
+		TotalLinesAdded:    100,
+		TotalLinesRemoved:  50,
+		APICallsMade:       87,
+		APIUsageLowerBound: true,
+		ErrorSummary:       "1 target failed",
 	}
 
 	dbRun := convertSyncRunToDB(run)
@@ -63,6 +65,8 @@ func TestConvertSyncRunToDB(t *testing.T) {
 	assert.Equal(t, 10, dbRun.TotalFilesChanged)
 	assert.Equal(t, 100, dbRun.TotalLinesAdded)
 	assert.Equal(t, 50, dbRun.TotalLinesRemoved)
+	assert.Equal(t, 87, dbRun.APICallsMade)
+	assert.True(t, dbRun.APIUsageLowerBound)
 	assert.Equal(t, "1 target failed", dbRun.ErrorSummary)
 }
 

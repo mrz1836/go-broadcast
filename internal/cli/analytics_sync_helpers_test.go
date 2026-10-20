@@ -309,6 +309,87 @@ func TestCollectCIMetrics(t *testing.T) {
 	})
 }
 
+func TestApplyAPIUsage(t *testing.T) {
+	t.Parallel()
+
+	t.Run("copies measured usage", func(t *testing.T) {
+		t.Parallel()
+		run := &db.SyncRun{}
+		applyAPIUsage(run, &gh.APIUsage{CoreRequests: 812, GraphQLPoints: 75})
+
+		assert.Equal(t, 812, run.APICallsMade)
+		assert.Equal(t, 75, run.GraphQLPointsUsed)
+		assert.False(t, run.APIUsageLowerBound)
+	})
+
+	t.Run("either bucket's window reset marks the counts as minimums", func(t *testing.T) {
+		t.Parallel()
+		for _, usage := range []*gh.APIUsage{
+			{CoreRequests: 812, CoreLowerBound: true},
+			{CoreRequests: 812, GraphQLPoints: 75, GraphQLLowerBound: true},
+		} {
+			run := &db.SyncRun{}
+			applyAPIUsage(run, usage)
+			assert.True(t, run.APIUsageLowerBound)
+		}
+	})
+
+	t.Run("unmeasured usage leaves zero counts", func(t *testing.T) {
+		t.Parallel()
+		run := &db.SyncRun{}
+		applyAPIUsage(run, nil)
+
+		assert.Zero(t, run.APICallsMade)
+		assert.Zero(t, run.GraphQLPointsUsed)
+		assert.False(t, run.APIUsageLowerBound)
+	})
+}
+
+func TestMeasureRunAPIUsage(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	snapshot := func(coreUsed, graphQLUsed int) *gh.RateLimitResponse {
+		resp := &gh.RateLimitResponse{}
+		resp.Resources.Core = gh.RateLimitResource{Limit: 5000, Remaining: 5000 - coreUsed, Used: coreUsed, Reset: 1_900_000_000}
+		resp.Resources.GraphQL = gh.RateLimitResource{Limit: 5000, Remaining: 5000 - graphQLUsed, Used: graphQLUsed, Reset: 1_900_000_000}
+		return resp
+	}
+
+	t.Run("nil meter is not measured", func(t *testing.T) {
+		t.Parallel()
+		assert.Nil(t, measureRunAPIUsage(ctx, nil, logrus.New()))
+	})
+
+	t.Run("measures REST and GraphQL usage", func(t *testing.T) {
+		t.Parallel()
+		ghMock := gh.NewMockClient()
+		ghMock.On("GetRateLimit", mock.Anything).Return(snapshot(100, 10), nil).Once()
+		ghMock.On("GetRateLimit", mock.Anything).Return(snapshot(912, 85), nil).Once()
+
+		meter, err := gh.StartUsageMeter(ctx, ghMock)
+		require.NoError(t, err)
+
+		usage := measureRunAPIUsage(ctx, meter, logrus.New())
+		require.NotNil(t, usage)
+		assert.Equal(t, 812, usage.CoreRequests)
+		assert.Equal(t, 75, usage.GraphQLPoints)
+		ghMock.AssertExpectations(t)
+	})
+
+	t.Run("unreadable closing snapshot is not measured", func(t *testing.T) {
+		t.Parallel()
+		ghMock := gh.NewMockClient()
+		ghMock.On("GetRateLimit", mock.Anything).Return(snapshot(100, 10), nil).Once()
+		ghMock.On("GetRateLimit", mock.Anything).Return(nil, errMockGH).Once()
+
+		meter, err := gh.StartUsageMeter(ctx, ghMock)
+		require.NoError(t, err)
+
+		assert.Nil(t, measureRunAPIUsage(ctx, meter, logrus.New()))
+	})
+}
+
 func TestCollectSecurityAlerts_WithAlerts(t *testing.T) {
 	t.Parallel()
 
