@@ -365,6 +365,48 @@ func TestGetSecretScanningAlerts(t *testing.T) {
 		mockRunner.AssertExpectations(t)
 	})
 
+	t.Run("malformed combined response falls back to one request per type", func(t *testing.T) {
+		mockRunner := new(MockCommandRunner)
+		mockRunner.Test(t)
+		client := NewClientWithRunner(mockRunner, logrus.New())
+
+		defaultJSON, err := json.Marshal([]SecretScanningAlert{{Number: 7, State: "open"}}) //nolint:gosec // G117: test struct has an empty Secret field
+		require.NoError(t, err)
+		apiKeyJSON, err := json.Marshal([]SecretScanningAlert{{Number: 9, State: "open", SecretType: "generic_api_key"}}) //nolint:gosec // G117: test struct has an empty Secret field
+		require.NoError(t, err)
+		emptyJSON := []byte("[]")
+
+		mockRunner.On("Run", ctx, "gh", []string{
+			"api",
+			"repos/test/repo/secret-scanning/alerts?per_page=100",
+			"--paginate",
+		}).Return(defaultJSON, nil).Once()
+		mockRunner.On("Run", ctx, "gh", []string{
+			"api",
+			genericSecretAlertsEndpoint,
+			"--paginate",
+		}).Return([]byte("not json"), nil).Once()
+		for secretType, output := range map[string][]byte{
+			"password":                    emptyJSON,
+			"generic_api_key":             apiKeyJSON,
+			"generic_high_entropy_secret": emptyJSON,
+		} {
+			mockRunner.On("Run", ctx, "gh", []string{
+				"api",
+				"repos/test/repo/secret-scanning/alerts?per_page=100&secret_type=" + secretType,
+				"--paginate",
+			}).Return(output, nil).Once()
+		}
+
+		result, err := client.GetSecretScanningAlerts(ctx, "test/repo")
+		require.NoError(t, err)
+		require.Len(t, result, 2)
+		assert.Equal(t, 7, result[0].Number)
+		assert.Equal(t, 9, result[1].Number)
+
+		mockRunner.AssertExpectations(t)
+	})
+
 	t.Run("unavailable generic alerts are not retried per type", func(t *testing.T) {
 		mockRunner := new(MockCommandRunner)
 		mockRunner.Test(t) // Any per-type request fails the test

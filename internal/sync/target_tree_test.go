@@ -608,3 +608,66 @@ func TestRepositorySyncProcessFileUsesTargetTree(t *testing.T) {
 	assert.Equal(t, 1, rs.syncMetrics.APICallsSaved, "two avoided file requests minus the tree request")
 	client.AssertExpectations(t)
 }
+
+// TestRepositorySyncProcessDirectoriesSharesTargetTree verifies the directory path
+// without metrics also settles files from the target sync's tree.
+func TestRepositorySyncProcessDirectoriesSharesTargetTree(t *testing.T) {
+	tempDir := t.TempDir()
+	docsDir := filepath.Join(tempDir, "source", "docs")
+	require.NoError(t, os.MkdirAll(docsDir, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(docsDir, "guide.md"), []byte("guide\n"), 0o600))
+
+	client := newTreeTestClient(t)
+	client.On("GetGitTree", mock.Anything, "owner/target", defaultBranchRef, true).
+		Return(&gh.GitTree{Tree: []gh.GitTreeNode{blobNode("docs/guide.md", []byte("guide\n"))}}, nil).Once()
+	// No GetFile expectation: the unchanged file is settled by the shared tree.
+
+	logger := logrus.NewEntry(logrus.New())
+	rs := &RepositorySync{
+		engine: &Engine{gh: client, git: &git.MockClient{}},
+		target: config.TargetConfig{
+			Repo:        "owner/target",
+			Directories: []config.DirectoryMapping{{Src: "docs", Dest: "docs"}},
+		},
+		sourceState: &state.SourceState{Repo: "owner/source"},
+		logger:      logger,
+		tempDir:     tempDir,
+	}
+	rs.targetTree = newTargetTree(client, rs.target.Repo, rs.target.Branch, logger)
+
+	changes, err := rs.processDirectories(context.Background())
+
+	require.NoError(t, err)
+	assert.Empty(t, changes)
+	assert.Equal(t, targetTreeStats{TreeRequests: 1, RequestsAvoided: 1}, rs.targetTree.stats())
+	client.AssertExpectations(t)
+}
+
+// TestRepositorySyncRecordTargetTreeStatsWithoutChecks verifies nothing is recorded
+// when there is no tree or the tree was never consulted.
+func TestRepositorySyncRecordTargetTreeStatsWithoutChecks(t *testing.T) {
+	logger := logrus.NewEntry(logrus.New())
+
+	tests := []struct {
+		name string
+		tree *targetTree
+	}{
+		{name: "no tree", tree: nil},
+		{name: "tree never consulted", tree: newTargetTree(nil, "owner/target", "", logger)},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			rs := &RepositorySync{
+				logger:      logger,
+				syncMetrics: &PerformanceMetrics{DirectoryMetrics: make(map[string]DirectoryMetrics)},
+				targetTree:  tc.tree,
+			}
+
+			rs.recordTargetTreeStats()
+
+			assert.Zero(t, rs.syncMetrics.TotalAPIRequests)
+			assert.Zero(t, rs.syncMetrics.APICallsSaved)
+		})
+	}
+}

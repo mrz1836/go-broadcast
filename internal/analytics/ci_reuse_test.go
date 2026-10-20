@@ -236,3 +236,91 @@ func TestCICollectorPicksCIResultsDeterministically(t *testing.T) {
 		mockClient.AssertExpectations(t)
 	}
 }
+
+// TestCICollectorMarksUnreadArtifactsIncomplete verifies that every way an attempted
+// artifact can go unread marks the metrics incomplete, so they are never reused.
+func TestCICollectorMarksUnreadArtifactsIncomplete(t *testing.T) {
+	ctx := context.Background()
+
+	// Each case pairs the artifact under test with a healthy one, so the run still
+	// yields usable metrics and the completeness flag can be observed.
+	healthyLOC := gh.Artifact{ID: 1, Name: artifactLOCStats}
+	healthyBench := gh.Artifact{ID: 2, Name: "bench-stats-healthy"}
+	writeHealthy := map[string]func(mock.Arguments){
+		artifactLOCStats:      writeArtifact("loc-stats.json", `{"go_files_loc": 100, "test_files_loc": 50, "go_files_count": 5, "test_files_count": 3}`),
+		"bench-stats-healthy": writeArtifact("bench.json", `{"benchmark_count": 3}`),
+	}
+
+	tests := []struct {
+		name     string
+		artifact string
+		healthy  gh.Artifact
+		download error // nil means the download succeeds but writes nothing readable
+	}{
+		{name: "loc-stats unreadable", artifact: artifactLOCStats, healthy: healthyBench},
+		{name: "statistics-section not downloaded", artifact: artifactStatistics, healthy: healthyBench, download: assert.AnError},
+		{name: "statistics-section unreadable", artifact: artifactStatistics, healthy: healthyBench},
+		{name: "coverage not downloaded", artifact: artifactCoverageInternal, healthy: healthyLOC, download: assert.AnError},
+		{name: "coverage unreadable", artifact: artifactCoverageInternal, healthy: healthyLOC},
+		{name: "tests-section not downloaded", artifact: artifactTestsSection, healthy: healthyLOC, download: assert.AnError},
+		{name: "tests-section unreadable", artifact: artifactTestsSection, healthy: healthyLOC},
+		{name: "ci-results not downloaded", artifact: "ci-results-ubuntu", healthy: healthyLOC, download: assert.AnError},
+		{name: "ci-results unreadable", artifact: "ci-results-ubuntu", healthy: healthyLOC},
+		{name: "bench-stats unreadable", artifact: "bench-stats-broken", healthy: healthyLOC},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mockClient := gh.NewMockClient()
+			mockClient.Test(t)
+			mockClient.On("ListWorkflows", mock.Anything, "owner/repo1").
+				Return([]gh.Workflow{{ID: 10, Name: GoFortressWorkflowName}}, nil).Once()
+			mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), maxWorkflowRunsToCheck).
+				Return([]gh.WorkflowRun{{ID: 100, RunAttempt: 1}}, nil).Once()
+			mockClient.On("GetRunArtifacts", mock.Anything, "owner/repo1", int64(100)).
+				Return([]gh.Artifact{{ID: 9, Name: tc.artifact}, tc.healthy}, nil).Once()
+			mockClient.On("DownloadRunArtifact", mock.Anything, "owner/repo1", int64(100), tc.healthy.Name, mock.AnythingOfType("string")).
+				Run(writeHealthy[tc.healthy.Name]).Return(nil).Once()
+
+			broken := mockClient.On("DownloadRunArtifact", mock.Anything, "owner/repo1", int64(100), tc.artifact, mock.AnythingOfType("string"))
+			if tc.download != nil {
+				broken.Return(tc.download).Once()
+			} else {
+				broken.Return(nil).Once() // Downloads, but leaves no file to read
+			}
+
+			result, err := NewCICollector(mockClient, logrus.New(), nil).CollectCIMetrics(ctx, []gh.RepoInfo{{FullName: "owner/repo1"}})
+
+			require.NoError(t, err)
+			metrics := result["owner/repo1"]
+			require.NotNil(t, metrics, "the healthy artifact should still produce metrics")
+			assert.False(t, metrics.ArtifactsComplete)
+			mockClient.AssertExpectations(t)
+		})
+	}
+}
+
+// TestCICollectorReadsTestsSection verifies the tests-section fallback is used when a run
+// has no ci-results artifact, and that reading it keeps the metrics complete.
+func TestCICollectorReadsTestsSection(t *testing.T) {
+	ctx := context.Background()
+	mockClient := gh.NewMockClient()
+	mockClient.Test(t)
+	mockClient.On("ListWorkflows", mock.Anything, "owner/repo1").
+		Return([]gh.Workflow{{ID: 10, Name: GoFortressWorkflowName}}, nil).Once()
+	mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), maxWorkflowRunsToCheck).
+		Return([]gh.WorkflowRun{{ID: 100, RunAttempt: 1}}, nil).Once()
+	mockClient.On("GetRunArtifacts", mock.Anything, "owner/repo1", int64(100)).
+		Return([]gh.Artifact{{ID: 1, Name: artifactTestsSection}}, nil).Once()
+	mockClient.On("DownloadRunArtifact", mock.Anything, "owner/repo1", int64(100), artifactTestsSection, mock.AnythingOfType("string")).
+		Run(writeArtifact("tests.md", "| Suite | Result |\n| unit | 42 tests |\n")).Return(nil).Once()
+
+	result, err := NewCICollector(mockClient, logrus.New(), nil).CollectCIMetrics(ctx, []gh.RepoInfo{{FullName: "owner/repo1"}})
+
+	require.NoError(t, err)
+	metrics := result["owner/repo1"]
+	require.NotNil(t, metrics)
+	assert.Equal(t, 42, metrics.TestCount)
+	assert.True(t, metrics.ArtifactsComplete)
+	mockClient.AssertExpectations(t)
+}

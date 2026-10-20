@@ -110,34 +110,9 @@ with change detection to minimize database writes.`,
 			// Create analytics pipeline
 			pipeline := analytics.NewPipeline(ghClient, analyticsRepo, repoRepo, orgRepo, logger, throttle)
 
-			// Snapshot the rate limit before any GitHub request, so the run's API usage
-			// can be measured and recorded. Reading the rate limit is free.
-			usageMeter, usageErr := gh.StartUsageMeter(ctx, ghClient)
-			if usageErr != nil {
-				logger.WithError(usageErr).Debug("GitHub API usage will not be measured")
-			}
-
-			// Pre-flight rate limit check
-			if showProgress := progress; showProgress {
-				if usageMeter == nil {
-					output.Warn(fmt.Sprintf("Could not check rate limit: %v", usageErr))
-				} else {
-					rateLimitInfo := analytics.NewRateLimitInfo(usageMeter.Baseline())
-					analytics.DisplayRateLimitInfo(rateLimitInfo)
-
-					// Estimate cost and warn if budget is low
-					repoCount := 0
-					if repo != "" {
-						repoCount = 1
-					}
-					// For org/full sync, we'll warn with a conservative estimate
-					if repoCount == 0 {
-						repoCount = 50 // Conservative default estimate
-					}
-					estimate := analytics.EstimateSyncCost(repoCount)
-					analytics.WarnIfBudgetLow(rateLimitInfo, estimate)
-				}
-
+			// Snapshot the rate limit before any GitHub request (and run the pre-flight check)
+			usageMeter := startRunUsageMeter(ctx, ghClient, logger, progress, repo != "")
+			if progress {
 				output.Info(fmt.Sprintf("Throttle: %.1f req/s, burst %d, %dms inter-repo delay",
 					throttleCfg.RequestsPerSecond, throttleCfg.BurstSize,
 					throttleCfg.InterRepoDelay.Milliseconds()))
@@ -1040,6 +1015,38 @@ func syncRepositoryMetadata(
 	}
 
 	return nil
+}
+
+// startRunUsageMeter snapshots the GitHub rate limit before the run makes any request,
+// so the run's API usage can be measured and recorded; reading the rate limit is free.
+// With progress output it also shows the REST budget and warns when the run may not
+// fit in it. It returns nil when the rate limit cannot be read, and the run proceeds
+// unmeasured.
+func startRunUsageMeter(ctx context.Context, ghClient gh.Client, logger *logrus.Logger, showProgress, singleRepo bool) *gh.UsageMeter {
+	usageMeter, err := gh.StartUsageMeter(ctx, ghClient)
+	if err != nil && logger != nil {
+		logger.WithError(err).Debug("GitHub API usage will not be measured")
+	}
+	if !showProgress {
+		return usageMeter
+	}
+
+	if usageMeter == nil {
+		output.Warn(fmt.Sprintf("Could not check rate limit: %v", err))
+		return nil
+	}
+
+	rateLimitInfo := analytics.NewRateLimitInfo(usageMeter.Baseline())
+	analytics.DisplayRateLimitInfo(rateLimitInfo)
+
+	// Estimate cost and warn if budget is low; org and full syncs use a conservative estimate
+	repoCount := 50
+	if singleRepo {
+		repoCount = 1
+	}
+	analytics.WarnIfBudgetLow(rateLimitInfo, analytics.EstimateSyncCost(repoCount))
+
+	return usageMeter
 }
 
 // measureRunAPIUsage returns the GitHub API usage since meter started, or nil when

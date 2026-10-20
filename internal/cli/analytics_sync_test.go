@@ -1,10 +1,13 @@
 package cli
 
 import (
+	"context"
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/mrz1836/go-broadcast/internal/analytics"
@@ -556,4 +559,107 @@ func TestDisplaySyncSummaryUnmeasuredUsage(t *testing.T) {
 	out := scope.Stdout.String()
 	assert.Contains(t, out, "GitHub API Calls: 57 throttled operations (rate limit unavailable, usage not measured)")
 	assert.NotContains(t, out, "GitHub API Usage:")
+}
+
+// TestStartRunUsageMeter verifies the run's rate-limit baseline and pre-flight check.
+// It captures global output, so it must not run in parallel.
+func TestStartRunUsageMeter(t *testing.T) {
+	ctx := context.Background()
+	snapshot := func(remaining int) *gh.RateLimitResponse {
+		resp := &gh.RateLimitResponse{}
+		resp.Resources.Core = gh.RateLimitResource{Limit: 5000, Remaining: remaining, Used: 5000 - remaining, Reset: 1_900_000_000}
+		return resp
+	}
+
+	t.Run("progress off measures silently", func(t *testing.T) {
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		ghMock := gh.NewMockClient()
+		ghMock.On("GetRateLimit", mock.Anything).Return(snapshot(4000), nil).Once()
+
+		meter := startRunUsageMeter(ctx, ghMock, logrus.New(), false, false)
+
+		require.NotNil(t, meter)
+		assert.Empty(t, scope.Stdout.String())
+		assert.Empty(t, scope.Stderr.String())
+	})
+
+	t.Run("progress shows the REST budget", func(t *testing.T) {
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		ghMock := gh.NewMockClient()
+		ghMock.On("GetRateLimit", mock.Anything).Return(snapshot(4000), nil).Once()
+
+		meter := startRunUsageMeter(ctx, ghMock, logrus.New(), true, false)
+
+		require.NotNil(t, meter)
+		assert.Contains(t, scope.Stdout.String(), "GitHub API Rate Limit: 4000/5000 remaining")
+		assert.Empty(t, scope.Stderr.String())
+	})
+
+	t.Run("progress warns when the budget is too low", func(t *testing.T) {
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		ghMock := gh.NewMockClient()
+		ghMock.On("GetRateLimit", mock.Anything).Return(snapshot(2), nil).Once()
+
+		meter := startRunUsageMeter(ctx, ghMock, logrus.New(), true, true)
+
+		require.NotNil(t, meter)
+		assert.Contains(t, scope.Stderr.String(), "Rate limit budget low")
+	})
+
+	t.Run("unreadable rate limit warns and is not measured", func(t *testing.T) {
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		ghMock := gh.NewMockClient()
+		ghMock.On("GetRateLimit", mock.Anything).Return(nil, errMockGH).Once()
+
+		meter := startRunUsageMeter(ctx, ghMock, logrus.New(), true, false)
+
+		assert.Nil(t, meter)
+		assert.Contains(t, scope.Stderr.String(), "Could not check rate limit")
+	})
+}
+
+// TestRecordCIMetricsReportsReuseAndFailures verifies the progress line for reused CI
+// metrics and that a failed collection is a warning, not a reuse. It captures global
+// output, so it must not run in parallel.
+func TestRecordCIMetricsReportsReuseAndFailures(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("reuse is counted and reported", func(t *testing.T) {
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		mockRepo := new(mockAnalyticsRepo)
+		mockRepo.On("GetLatestCISnapshot", ctx, uint(1)).Return(previousCISnapshot(), nil).Once()
+		mockRepo.On("CreateCISnapshot", ctx, mock.Anything).Return(nil).Once()
+
+		run := &db.SyncRun{}
+		recordCIMetrics(ctx, newTestPipeline(newestRunMock(t, 1), mockRepo), mockRepo, run, 1, "org/repo", true, false)
+
+		assert.Equal(t, 1, run.CISnapshotsReused)
+		assert.Contains(t, scope.Stdout.String(), "org/repo: CI workflow run unchanged, CI metrics reused")
+	})
+
+	t.Run("failed collection is a warning and not counted", func(t *testing.T) {
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		mockRepo := new(mockAnalyticsRepo)
+		mockRepo.On("GetLatestCISnapshot", ctx, uint(1)).Return(previousCISnapshot(), nil).Once()
+		mockRepo.On("CreateCISnapshot", ctx, mock.Anything).Return(errMockGH).Once()
+
+		run := &db.SyncRun{}
+		recordCIMetrics(ctx, newTestPipeline(newestRunMock(t, 1), mockRepo), mockRepo, run, 1, "org/repo", true, false)
+
+		assert.Zero(t, run.CISnapshotsReused)
+		assert.Contains(t, scope.Stderr.String(), "Failed to collect CI metrics for org/repo")
+		assert.NotContains(t, scope.Stdout.String(), "CI metrics reused")
+	})
 }
