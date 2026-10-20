@@ -45,6 +45,7 @@ type DirectoryProcessor struct {
 	tempDir              string
 	moduleUpdates        []ModuleUpdateInfo // Tracks module updates for go.mod
 	moduleUpdatesMu      sync.Mutex         // Protects moduleUpdates access
+	targetTree           *targetTree        // Shared per-target tree; used only for the target it serves
 }
 
 // ModuleSyncResult contains the result of module-aware sync preparation
@@ -87,6 +88,10 @@ type DirectoryProcessorOptions struct {
 
 	// ClearModuleCache clears the module version cache before processing
 	ClearModuleCache bool
+
+	// targetTree is the calling target sync's tree snapshot, shared so every
+	// directory mapping of one target is compared against a single tree request.
+	targetTree *targetTree
 }
 
 // NewDirectoryProcessor creates a new directory processor
@@ -121,6 +126,10 @@ func NewDirectoryProcessor(logger *logrus.Entry, workerCount int, opts *Director
 		dp.sourceRepoURL = opts.SourceRepoURL
 		dp.tempDir = opts.TempDir
 		dp.moduleSourceResolver = NewModuleSourceResolver(opts.GitClient, logger.Logger, moduleCache)
+	}
+
+	if opts != nil {
+		dp.targetTree = opts.targetTree
 	}
 
 	return dp
@@ -168,6 +177,7 @@ func (rs *RepositorySync) processDirectories(ctx context.Context) ([]FileChange,
 			SourceRepoURL:    sourceRepoURL,
 			TempDir:          rs.tempDir,
 			ClearModuleCache: clearCache,
+			targetTree:       rs.targetTree,
 		}
 	}
 
@@ -306,6 +316,9 @@ func (dp *DirectoryProcessor) ProcessDirectoryMapping(ctx context.Context, sourc
 
 	// Process files using batch processor
 	batchProcessor := NewBatchProcessor(engine, target, sourceState, logger, dp.workerCount)
+	if dp.targetTree.serves(target) {
+		batchProcessor.targetTree = dp.targetTree
+	}
 
 	// Use progress wrapper for batch processing
 	progressWrapper := NewBatchProgressWrapper(progressReporter)
@@ -723,6 +736,7 @@ func (rs *RepositorySync) ProcessDirectoriesWithOptions(ctx context.Context, opt
 			SourceRepoURL:    sourceRepoURL,
 			TempDir:          rs.tempDir,
 			ClearModuleCache: clearCache,
+			targetTree:       rs.targetTree,
 		}
 	}
 
@@ -768,42 +782,48 @@ func (rs *RepositorySync) ProcessDirectoriesWithOptions(ctx context.Context, opt
 	return allChanges, nil
 }
 
-// processDirectoryDeletion handles the deletion of an entire directory from the target repository
+// processDirectoryDeletion handles the deletion of an entire directory from the target repository.
+//
+// Files are enumerated from the target branch's tree (the branch the PR is based
+// on, or the default branch when none is configured), reusing the target sync's
+// tree when it has one. Each file's current content is fetched so the deletion is
+// reflected in the diff and line statistics.
 func (dp *DirectoryProcessor) processDirectoryDeletion(ctx context.Context, dirMapping config.DirectoryMapping, target config.TargetConfig, engine *Engine, logger *logrus.Entry) ([]FileChange, error) {
 	logger.WithField("directory", dirMapping.Dest).Info("Processing directory deletion")
 
-	// Get tree from GitHub API to find all files in the target directory
-	treeAPI := NewGitHubAPI(engine.gh, dp.logger.Logger)
-	treeMap, err := treeAPI.GetTree(ctx, target.Repo, "")
-	if err != nil {
-		logger.WithError(err).Error("Failed to fetch tree for directory deletion")
-		return nil, fmt.Errorf("failed to fetch tree for directory deletion: %w", err)
+	tree := dp.targetTree
+	if !tree.serves(target) {
+		tree = newTargetTree(engine.gh, target.Repo, target.Branch, logger)
 	}
 
-	// Get all files recursively in the directory to be deleted
-	allFiles := treeMap.GetAllFilesInDirectoryRecursively(dirMapping.Dest)
-	if len(allFiles) == 0 {
+	// Find every file below the directory to be deleted
+	filePaths, err := tree.filesUnder(ctx, dirMapping.Dest)
+	if err != nil {
+		logger.WithError(err).Error("Failed to list target files for directory deletion")
+		return nil, fmt.Errorf("failed to list target files for directory deletion: %w", err)
+	}
+	if len(filePaths) == 0 {
 		logger.WithField("directory", dirMapping.Dest).Info("Directory does not exist in target repository, skipping deletion")
 		return nil, internalerrors.ErrFileNotFound
 	}
 
 	logger.WithFields(logrus.Fields{
 		"directory":  dirMapping.Dest,
-		"file_count": len(allFiles),
+		"file_count": len(filePaths),
 	}).Info("Found files in directory to delete")
 
 	// Create FileChange entries for each file to be deleted
-	changes := make([]FileChange, 0, len(allFiles))
-	for _, fileNode := range allFiles {
+	changes := make([]FileChange, 0, len(filePaths))
+	for _, filePath := range filePaths {
 		// Get existing file content for proper tracking
-		existingContent, err := dp.getExistingFileContent(ctx, engine, target.Repo, fileNode.Path, target.Branch)
-		if err != nil {
-			logger.WithError(err).WithField("file", fileNode.Path).Debug("Could not get existing content for deletion, continuing")
+		existingContent, contentErr := tree.existingContent(ctx, filePath, nil)
+		if contentErr != nil {
+			logger.WithError(contentErr).WithField("file", filePath).Debug("Could not get existing content for deletion, continuing")
 			existingContent = nil // Continue with deletion even if we can't get content
 		}
 
 		change := FileChange{
-			Path:            fileNode.Path,
+			Path:            filePath,
 			Content:         nil, // No content for deletions
 			OriginalContent: existingContent,
 			IsNew:           false,
@@ -819,15 +839,6 @@ func (dp *DirectoryProcessor) processDirectoryDeletion(ctx context.Context, dirM
 	}).Info("Directory deletion processed successfully")
 
 	return changes, nil
-}
-
-// getExistingFileContent retrieves file content for deletion tracking
-func (dp *DirectoryProcessor) getExistingFileContent(ctx context.Context, engine *Engine, repo, filePath, branch string) ([]byte, error) {
-	fileContent, err := engine.gh.GetFile(ctx, repo, filePath, branch)
-	if err != nil {
-		return nil, err
-	}
-	return fileContent.Content, nil
 }
 
 // GetModuleUpdates returns the collected module update information

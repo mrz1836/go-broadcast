@@ -194,6 +194,7 @@ func TestEngineSync_MultiGroupTargetFilterTouchesOneRepo(t *testing.T) {
 
 	ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 	ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
+	expectTargetTreeUnavailable(ghClient)
 	ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
 	ghClient.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "test-user"}, nil).Maybe()
 

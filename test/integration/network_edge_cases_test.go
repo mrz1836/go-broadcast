@@ -162,6 +162,7 @@ func testGitHubAPIRateLimiting(t *testing.T, generator *fixtures.TestRepoGenerat
 	// Setup mocks with rate limiting
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -323,6 +324,7 @@ func testNetworkInterruptionHandling(t *testing.T, generator *fixtures.TestRepoG
 	// Setup mocks with network simulation
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -434,6 +436,7 @@ func testAuthenticationFailureScenarios(t *testing.T, generator *fixtures.TestRe
 	// Setup mocks with auth failures
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -530,6 +533,7 @@ func testAPITimeoutAndRetry(t *testing.T, generator *fixtures.TestRepoGenerator)
 	// Setup mocks with timeouts
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -629,6 +633,7 @@ func testConcurrentAPIOperations(t *testing.T, generator *fixtures.TestRepoGener
 	// Setup mocks for concurrent operations
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -798,6 +803,7 @@ func testGitHubAPIDegradation(t *testing.T, generator *fixtures.TestRepoGenerato
 	// Setup mocks simulating API degradation
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -891,6 +897,7 @@ func testNetworkPartitionRecovery(t *testing.T, generator *fixtures.TestRepoGene
 	// Setup mocks simulating network partition
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -992,6 +999,7 @@ func testDNSResolutionFailures(t *testing.T, generator *fixtures.TestRepoGenerat
 	// Setup mocks simulating DNS failures
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1093,6 +1101,7 @@ func testSSLCertificateErrors(t *testing.T, generator *fixtures.TestRepoGenerato
 	// Setup mocks simulating SSL certificate errors
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1184,6 +1193,7 @@ func testProxyConnectionIssues(t *testing.T, generator *fixtures.TestRepoGenerat
 	// Setup mocks simulating proxy issues
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
@@ -1278,6 +1288,7 @@ func testGitHubWebhookSimulation(t *testing.T, generator *fixtures.TestRepoGener
 	// Setup mocks simulating rapid state changes like webhooks would trigger
 	mockGH := &gh.MockClient{}
 	expectRateLimitProbe(mockGH)
+	expectTargetTreeUnavailable(mockGH)
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()

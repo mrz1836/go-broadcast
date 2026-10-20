@@ -332,6 +332,10 @@ actionable message and the reset time — no partial writes, no raw 403 dump —
 exits non-zero. If the `GET /rate_limit` probe itself is unavailable, the gate
 **fails open** with a loud warning by default (configurable to fail-closed).
 
+The estimate is a worst case. At run time each target's files are compared against
+one Git tree listing of its target branch, so unchanged files cost no requests and
+only files whose content differs are downloaded.
+
 ```bash
 # Default: preflight runs automatically
 go-broadcast sync --config sync.yaml

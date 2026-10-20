@@ -104,6 +104,7 @@ func TestRepositorySync_Execute(t *testing.T) {
 		gitClient.On("Checkout", mock.Anything, mock.Anything, "abc123").Return(nil)
 
 		// Mock file operations
+		expectTargetTreeUnavailable(ghClient)
 		ghClient.On("GetFile", mock.Anything, "org/target", "file1.txt", "").
 			Return(&gh.FileContent{Content: []byte("old content 1")}, nil)
 		ghClient.On("GetFile", mock.Anything, "org/target", "file2.txt", "").
@@ -303,6 +304,7 @@ func TestRepositorySync_Execute(t *testing.T) {
 		}), true).Return("", nil).Maybe()
 
 		// Mock file operations
+		expectTargetTreeUnavailable(ghClient)
 		ghClient.On("GetFile", mock.Anything, "org/target", "file1.txt", "").
 			Return(&gh.FileContent{Content: []byte("old content 1")}, nil)
 		ghClient.On("GetFile", mock.Anything, "org/target", "file2.txt", "").
@@ -2123,6 +2125,7 @@ func TestRepositorySync_Execute_ExistingBranch(t *testing.T) {
 		ghClient.On("ListBranches", mock.Anything, "target/repo").Return([]gh.Branch{{Name: "master"}}, nil)
 
 		// Mock file existence check to simulate file changes
+		expectTargetTreeUnavailable(ghClient)
 		ghClient.On("GetFile", mock.Anything, "target/repo", "test.txt", "").Return(nil, gh.ErrFileNotFound)
 
 		ghClient.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser"}, nil)
@@ -2215,6 +2218,7 @@ func TestRepositorySync_Execute_ExistingBranch(t *testing.T) {
 
 		// Mock GitHub operations
 		ghClient.On("ListBranches", mock.Anything, "target/repo").Return([]gh.Branch{{Name: "master"}}, nil)
+		expectTargetTreeUnavailable(ghClient)
 		ghClient.On("GetFile", mock.Anything, "target/repo", "test.txt", "").Return(nil, gh.ErrFileNotFound)
 		ghClient.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser"}, nil)
 		ghClient.On("CreatePR", mock.Anything, "target/repo", mock.AnythingOfType("gh.PRRequest")).Return(&gh.PR{Number: 123}, nil)
@@ -2304,6 +2308,7 @@ func TestRepositorySync_Execute_ExistingBranch(t *testing.T) {
 
 		// Mock GitHub operations
 		ghClient.On("ListBranches", mock.Anything, "target/repo").Return([]gh.Branch{{Name: "master"}}, nil)
+		expectTargetTreeUnavailable(ghClient)
 		ghClient.On("GetFile", mock.Anything, "target/repo", "test.txt", "").Return(nil, gh.ErrFileNotFound)
 
 		// Mock transform operations
@@ -2413,6 +2418,7 @@ func TestRepositorySync_NoChangesToSync(t *testing.T) {
 
 		// Setup default expectations
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+		expectTargetTreeUnavailable(ghClient)
 		ghClient.On("GetFile", mock.Anything, "org/target", "file1.txt", "").Return(&gh.FileContent{
 			Content: []byte("identical content"),
 		}, nil)
@@ -2509,6 +2515,7 @@ func TestRepositorySync_NoChangesToSync(t *testing.T) {
 
 		// Setup basic expectations
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+		expectTargetTreeUnavailable(ghClient)
 		ghClient.On("GetFile", mock.Anything, "org/target", "file1.txt", "").Return(&gh.FileContent{
 			Content: []byte("different content"),
 		}, nil)
@@ -2736,11 +2743,33 @@ func TestRepositorySync_GetExistingFileContentUsesTargetBranch(t *testing.T) {
 		Return(&gh.FileContent{Content: []byte("existing content")}, nil).Once()
 
 	// Call getExistingFileContent directly
-	content, err := rs.getExistingFileContent(ctx, "test.txt")
+	content, err := rs.getExistingFileContent(ctx, "test.txt", nil)
 
 	require.NoError(t, err)
 	assert.Equal(t, []byte("existing content"), content)
 
 	// Verify the mock expectation was met - this is the key assertion
 	ghClient.AssertExpectations(t)
+
+	t.Run("target tree reads the configured branch", func(t *testing.T) {
+		treeClient := &gh.MockClient{}
+		treeRS := &RepositorySync{
+			engine:     &Engine{gh: treeClient},
+			target:     target,
+			logger:     logger,
+			targetTree: newTargetTree(treeClient, target.Repo, target.Branch, logger),
+		}
+
+		// Both the tree and the changed file must come from "development", not the default branch.
+		treeClient.On("GetGitTree", mock.Anything, "org/target", "development", true).
+			Return(&gh.GitTree{Tree: []gh.GitTreeNode{blobNode("test.txt", []byte("existing content"))}}, nil).Once()
+		treeClient.On("GetFile", mock.Anything, "org/target", "test.txt", "development").
+			Return(&gh.FileContent{Content: []byte("existing content")}, nil).Once()
+
+		treeContent, treeErr := treeRS.getExistingFileContent(ctx, "test.txt", []byte("new content"))
+
+		require.NoError(t, treeErr)
+		assert.Equal(t, []byte("existing content"), treeContent)
+		treeClient.AssertExpectations(t)
+	})
 }

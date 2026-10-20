@@ -119,6 +119,7 @@ func TestEngineSync(t *testing.T) {
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
+		expectTargetTreeUnavailable(ghClient)
 
 		// Mock GitHub GetFile calls for file existence checks
 		ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
@@ -179,6 +180,7 @@ func TestEngineSync(t *testing.T) {
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
+		expectTargetTreeUnavailable(ghClient)
 
 		// Mock GitHub GetFile calls for file existence checks
 		ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
@@ -214,6 +216,7 @@ func TestEngineSync(t *testing.T) {
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
+		expectTargetTreeUnavailable(ghClient)
 
 		// Mock GitHub GetFile calls for file existence checks
 		ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
@@ -267,6 +270,7 @@ func TestEngineSync(t *testing.T) {
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
+		expectTargetTreeUnavailable(ghClient)
 
 		// Mock GitHub GetFile calls for file existence checks
 		ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
@@ -315,6 +319,7 @@ func TestEngineSync(t *testing.T) {
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
+		expectTargetTreeUnavailable(ghClient)
 
 		// Mock GitHub GetFile calls for file existence checks
 		ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
@@ -581,6 +586,7 @@ func TestEngineWithDryRun(t *testing.T) {
 	// Setup default expectations for pre-sync validation
 	ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 	ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
+	expectTargetTreeUnavailable(ghClient)
 
 	currentState := &state.State{
 		Source: state.SourceState{
@@ -669,6 +675,7 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
+		expectTargetTreeUnavailable(ghClient)
 
 		// Mock GitHub GetFile calls for file existence checks
 		ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
@@ -741,6 +748,7 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
+		expectTargetTreeUnavailable(ghClient)
 
 		// Mock GitHub GetFile calls for file existence checks
 		ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
@@ -813,6 +821,7 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
+		expectTargetTreeUnavailable(ghClient)
 
 		// Mock GitHub GetFile calls for file existence checks
 		ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
@@ -896,6 +905,7 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
+		expectTargetTreeUnavailable(ghClient)
 
 		// Mock GitHub GetFile calls for file existence checks
 		ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
@@ -1004,6 +1014,7 @@ func TestEngine_ErrorCollection(t *testing.T) {
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
+		expectTargetTreeUnavailable(ghClient)
 
 		// Mock GitHub GetFile calls - return existing content for files that exist in target repos
 		// This ensures file changes are detected and the sync progresses to the intended failure points
@@ -1203,6 +1214,7 @@ func TestEngine_ErrorCollection(t *testing.T) {
 		// Setup default expectations
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
+		expectTargetTreeUnavailable(ghClient)
 
 		// Mock GitHub GetFile calls for file existence checks
 		ghClient.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, gh.ErrFileNotFound).Maybe()
@@ -1420,6 +1432,7 @@ func TestEngine_ErrorCollection(t *testing.T) {
 		// Setup default expectations
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 		ghClient.On("GetRateLimit", mock.Anything).Return(healthyRateLimit(), nil).Maybe()
+		expectTargetTreeUnavailable(ghClient)
 		ghClient.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, gh.ErrFileNotFound).Maybe()
 		ghClient.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser"}, nil).Maybe()
 

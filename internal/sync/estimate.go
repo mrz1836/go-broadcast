@@ -22,17 +22,16 @@ const (
 	// estimateTargetReads helper.
 	baseReadsPerTarget = 4
 
-	// treeReadsPerTargetWithDirectories is the git-tree fetch a target performs
-	// when it syncs one or more directories. GetTree is cached per repo:ref and
-	// shared across all of a target's directory mappings, so it is counted once
-	// per target that has any directories (not once per directory).
-	treeReadsPerTargetWithDirectories = 1
+	// treeReadsPerTarget is the recursive git-tree fetch a target performs before
+	// comparing any mapped file. One tree is shared across all of a target's file
+	// and directory mappings, so it is counted once per target that has any
+	// mappings (not once per mapping).
+	treeReadsPerTarget = 1
 
 	// estimatedFilesPerDirectory is a conservative over-estimate of how many
 	// files a single directory mapping expands to. The real count is only known
 	// after the repo tree is fetched at runtime, so the preflight assumes this
-	// many Contents-API reads (one GetFile per file, for content diffing and
-	// deletion tracking) per directory mapping. Deliberately high so the gate
+	// many Contents-API reads per directory mapping. Deliberately high so the gate
 	// over-estimates and halts safely rather than under-counting and tripping the
 	// live rate limit mid-run.
 	estimatedFilesPerDirectory = 20
@@ -109,22 +108,24 @@ func EstimateRun(cfg *config.Config, options *Options) RunEstimate {
 }
 
 // estimateTargetReads returns the conservative primary-bucket read count for a
-// single target sync. It combines the fixed discovery reads with the per-file
-// and per-directory Contents-API reads the sync performs to diff each mapped
-// file against the source — the traffic that dominates a many-file sync and was
-// previously invisible to the preflight estimate.
+// single target sync. It combines the fixed discovery reads with the git-tree
+// fetch and the per-file Contents-API reads the sync may perform to diff mapped
+// files against the target.
 //
-// Files map 1:1 to a GetFile (Contents API GET). Directories share one cached
-// git-tree fetch per target and then read each discovered file individually;
-// since the real file count is unknown until runtime, each directory mapping is
-// charged a conservative estimatedFilesPerDirectory reads.
+// The target tree settles unchanged and missing files without a read, so only
+// files whose content differs are fetched. Which files differ is unknown before
+// the run, so the estimate charges the worst case: every mapped file differs and
+// costs one GetFile (Contents API GET). Since the real directory file count is
+// also unknown until runtime, each directory mapping is charged a conservative
+// estimatedFilesPerDirectory reads.
 func estimateTargetReads(t *config.TargetConfig) int {
-	reads := baseReadsPerTarget + len(t.Files)
+	reads := baseReadsPerTarget
 
-	if len(t.Directories) > 0 {
-		reads += treeReadsPerTargetWithDirectories
-		reads += len(t.Directories) * estimatedFilesPerDirectory
+	if len(t.Files) > 0 || len(t.Directories) > 0 {
+		reads += treeReadsPerTarget
 	}
+	reads += len(t.Files)
+	reads += len(t.Directories) * estimatedFilesPerDirectory
 
 	return reads
 }

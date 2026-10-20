@@ -26,6 +26,9 @@ type BatchProcessor struct {
 	sourceState *state.SourceState
 	logger      *logrus.Entry
 	workerCount int
+	// targetTree, when set, settles unchanged and missing target files without a
+	// Contents API request. It must describe this processor's target.
+	targetTree *targetTree
 }
 
 // FileJob represents a file processing job
@@ -278,7 +281,7 @@ func (bp *BatchProcessor) processFileJobWithReporter(ctx context.Context, source
 		}).Info("Binary file detected, skipping transformations")
 
 		// Check if content actually changed (for existing files)
-		existingContent, existingErr := bp.getExistingFileContent(ctx, job.DestPath)
+		existingContent, existingErr := bp.getExistingFileContent(ctx, job.DestPath, srcContent)
 		if existingErr == nil && string(existingContent) == string(srcContent) {
 			logger.Debug("Binary file content unchanged, skipping")
 			return fileProcessResult{
@@ -471,7 +474,7 @@ func (bp *BatchProcessor) processFileJobWithReporter(ctx context.Context, source
 	}
 
 	// Check if content actually changed (for existing files)
-	existingContent, err := bp.getExistingFileContent(ctx, job.DestPath)
+	existingContent, err := bp.getExistingFileContent(ctx, job.DestPath, transformedContent)
 	if err == nil {
 		// Enhanced logging for content comparison
 		existingStr := string(existingContent)
@@ -585,8 +588,14 @@ func (bp *BatchProcessor) collectResults(resultChan <-chan fileProcessResult) []
 	return changes
 }
 
-// getExistingFileContent retrieves the current content of a file from the target repo
-func (bp *BatchProcessor) getExistingFileContent(ctx context.Context, filePath string) ([]byte, error) {
+// getExistingFileContent retrieves the current content of a file from the target repo.
+// candidate is the content the sync intends to write; when the target tree proves the
+// file already holds exactly that content, candidate is returned without a request.
+func (bp *BatchProcessor) getExistingFileContent(ctx context.Context, filePath string, candidate []byte) ([]byte, error) {
+	if bp.targetTree != nil {
+		return bp.targetTree.existingContent(ctx, filePath, candidate)
+	}
+
 	// Try to get file from the target repository's configured branch
 	fileContent, err := bp.engine.gh.GetFile(ctx, bp.target.Repo, filePath, bp.target.Branch)
 	if err != nil {

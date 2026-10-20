@@ -303,14 +303,6 @@ func (suite *DirectoryDeleteTestSuite) TestProcessDirectoryDeletion_GetFileError
 
 // setupTreeAPIMock sets up mock calls for GitHub Tree API
 func (suite *DirectoryDeleteTestSuite) setupTreeAPIMock(treeMap *TreeMap) {
-	// Mock commit lookup
-	commit := &gh.Commit{
-		SHA: "commit123",
-	}
-
-	suite.mockGH.On("GetCommit", mock.Anything, "org/target-repo", "").
-		Return(commit, nil)
-
 	// Convert TreeMap to GitHub Tree structure for mock
 	treeNodes := make([]gh.GitTreeNode, 0, len(treeMap.files))
 	for path, node := range treeMap.files {
@@ -326,9 +318,73 @@ func (suite *DirectoryDeleteTestSuite) setupTreeAPIMock(treeMap *TreeMap) {
 		Tree: treeNodes,
 	}
 
-	// GetGitTree is called with the commit SHA, not the tree SHA
-	suite.mockGH.On("GetGitTree", mock.Anything, "org/target-repo", "commit123", true).
-		Return(gitTree, nil)
+	// The target has no configured branch, so its default branch is requested as HEAD
+	// in a single recursive tree request.
+	suite.mockGH.On("GetGitTree", mock.Anything, "org/target-repo", defaultBranchRef, true).
+		Return(gitTree, nil).Once()
+}
+
+// TestProcessDirectoryDeletion_TreeUnavailable tests that deletion fails rather than
+// deleting part of a directory when the target tree cannot be listed in full
+func (suite *DirectoryDeleteTestSuite) TestProcessDirectoryDeletion_TreeUnavailable() {
+	ctx := context.Background()
+
+	dirMapping := config.DirectoryMapping{
+		Dest:   "docs",
+		Delete: true,
+	}
+
+	suite.mockGH.On("GetGitTree", mock.Anything, "org/target-repo", defaultBranchRef, true).
+		Return(&gh.GitTree{Truncated: true, Tree: []gh.GitTreeNode{{Path: "docs/README.md", Type: "blob"}}}, nil).Once()
+
+	changes, err := suite.processor.processDirectoryDeletion(ctx, dirMapping, suite.target, suite.mockEngine, suite.logger)
+
+	suite.Require().Error(err)
+	suite.Require().ErrorIs(err, ErrTargetTreeUnavailable)
+	suite.Nil(changes)
+}
+
+// TestProcessDirectoryDeletion_RepositoryRoot tests that a root destination is never
+// expanded into a deletion of every file in the repository
+func (suite *DirectoryDeleteTestSuite) TestProcessDirectoryDeletion_RepositoryRoot() {
+	ctx := context.Background()
+
+	dirMapping := config.DirectoryMapping{
+		Dest:   "/",
+		Delete: true,
+	}
+
+	changes, err := suite.processor.processDirectoryDeletion(ctx, dirMapping, suite.target, suite.mockEngine, suite.logger)
+
+	suite.Require().Error(err)
+	suite.Require().ErrorIs(err, ErrDirectoryDeletionRoot)
+	suite.Nil(changes)
+}
+
+// TestProcessDirectoryDeletion_ReusesTargetTree tests that a processor holding the
+// target sync's tree lists files from it instead of requesting another tree
+func (suite *DirectoryDeleteTestSuite) TestProcessDirectoryDeletion_ReusesTargetTree() {
+	ctx := context.Background()
+
+	dirMapping := config.DirectoryMapping{
+		Dest:   "docs",
+		Delete: true,
+	}
+
+	suite.mockGH.On("GetGitTree", mock.Anything, "org/target-repo", defaultBranchRef, true).
+		Return(&gh.GitTree{Tree: []gh.GitTreeNode{{Path: "docs/README.md", Type: "blob", SHA: "readmesha"}}}, nil).Once()
+	suite.mockGH.On("GetFile", mock.Anything, "org/target-repo", "docs/README.md", "").
+		Return(&gh.FileContent{Content: []byte("# README")}, nil).Once()
+
+	shared := newTargetTree(suite.mockGH, suite.target.Repo, suite.target.Branch, suite.logger)
+	processor := NewDirectoryProcessor(suite.logger, 1, &DirectoryProcessorOptions{targetTree: shared})
+	defer processor.Close()
+
+	changes, err := processor.processDirectoryDeletion(ctx, dirMapping, suite.target, suite.mockEngine, suite.logger)
+
+	suite.Require().NoError(err)
+	suite.Require().Len(changes, 1)
+	suite.Equal(1, shared.stats().TreeRequests, "the shared tree should serve the deletion")
 }
 
 // TestSuite runs the directory deletion test suite
@@ -369,13 +425,6 @@ func TestDirectoryDeletion_Integration(t *testing.T) {
 	// We don't need the TreeMap here since we're mocking the GitHub API calls directly
 
 	// Setup mocks
-	commit := &gh.Commit{
-		SHA: "commit456",
-	}
-
-	mockGH.On("GetCommit", mock.Anything, "org/test-repo", "").
-		Return(commit, nil)
-
 	gitTree := &gh.GitTree{
 		SHA: "tree456",
 		Tree: []gh.GitTreeNode{
@@ -387,8 +436,9 @@ func TestDirectoryDeletion_Integration(t *testing.T) {
 		},
 	}
 
-	mockGH.On("GetGitTree", mock.Anything, "org/test-repo", "commit456", true).
-		Return(gitTree, nil)
+	// No branch is configured, so the default branch is listed as HEAD
+	mockGH.On("GetGitTree", mock.Anything, "org/test-repo", defaultBranchRef, true).
+		Return(gitTree, nil).Once()
 
 	mockGH.On("GetFile", mock.Anything, "org/test-repo", "old-docs/index.md", "").
 		Return(&gh.FileContent{Content: []byte("# Old Documentation")}, nil)
