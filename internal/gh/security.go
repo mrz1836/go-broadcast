@@ -109,42 +109,56 @@ func (g *githubClient) GetSecretScanningAlerts(ctx context.Context, repo string)
 
 	// Fetch AI-detected generic secrets (password, generic_api_key, etc.)
 	// These are excluded from the default list and require explicit secret_type filtering.
-	// GitHub's "Generic" category in the UI uses these types.
+	// GitHub's "Generic" category in the UI uses these types. secret_type accepts a
+	// comma-separated list, so one paginated request normally covers every generic type.
 	genericSecretTypes := []string{"password", "generic_api_key", "generic_high_entropy_secret"}
+	genericAlerts, genericErr := g.listSecretScanningAlerts(ctx, repo, strings.Join(genericSecretTypes, ","))
+	if genericErr != nil && !isNotFoundError(genericErr) {
+		// Fall back to one request per type, so a type GitHub rejects cannot hide the
+		// others. A 404 means generic alerts are unavailable, so it is not retried.
+		genericAlerts = nil
+		for _, secretType := range genericSecretTypes {
+			typeAlerts, typeErr := g.listSecretScanningAlerts(ctx, repo, secretType)
+			if typeErr != nil {
+				// Non-fatal: log and continue with what we have
+				if g.logger != nil && !isNotFoundError(typeErr) {
+					g.logger.Debugf("Failed to fetch %s secret scanning alerts for %s: %v", secretType, repo, typeErr)
+				}
+				continue
+			}
+			genericAlerts = append(genericAlerts, typeAlerts...)
+		}
+	}
+
+	// Deduplicate (in case any overlap with the default list)
 	seen := make(map[int]bool, len(alerts))
 	for _, a := range alerts {
 		seen[a.Number] = true
 	}
-
-	for _, secretType := range genericSecretTypes {
-		genericOutput, genericErr := g.runner.Run(ctx, "gh", "api",
-			fmt.Sprintf("repos/%s/secret-scanning/alerts?per_page=100&secret_type=%s", repo, secretType),
-			"--paginate")
-		if genericErr != nil {
-			// Non-fatal: log and continue with what we have
-			if g.logger != nil && !isNotFoundError(genericErr) {
-				g.logger.Debugf("Failed to fetch %s secret scanning alerts for %s: %v", secretType, repo, genericErr)
-			}
-			continue
-		}
-
-		genericAlerts, parseErr := jsonutil.UnmarshalJSON[[]SecretScanningAlert](genericOutput)
-		if parseErr != nil {
-			if g.logger != nil {
-				g.logger.Debugf("Failed to parse %s secret scanning alerts for %s: %v", secretType, repo, parseErr)
-			}
-			continue
-		}
-
-		// Deduplicate (in case any overlap with the default list)
-		for i := range genericAlerts {
-			if !seen[genericAlerts[i].Number] {
-				alerts = append(alerts, genericAlerts[i])
-				seen[genericAlerts[i].Number] = true
-			}
+	for i := range genericAlerts {
+		if !seen[genericAlerts[i].Number] {
+			alerts = append(alerts, genericAlerts[i])
+			seen[genericAlerts[i].Number] = true
 		}
 	}
 
+	return alerts, nil
+}
+
+// listSecretScanningAlerts returns the secret scanning alerts of the given
+// secret_type value, which may be a comma-separated list of types.
+func (g *githubClient) listSecretScanningAlerts(ctx context.Context, repo, secretTypes string) ([]SecretScanningAlert, error) {
+	output, err := g.runner.Run(ctx, "gh", "api",
+		fmt.Sprintf("repos/%s/secret-scanning/alerts?per_page=100&secret_type=%s", repo, secretTypes),
+		"--paginate")
+	if err != nil {
+		return nil, err
+	}
+
+	alerts, err := jsonutil.UnmarshalJSON[[]SecretScanningAlert](output)
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "parse secret scanning alerts")
+	}
 	return alerts, nil
 }
 
