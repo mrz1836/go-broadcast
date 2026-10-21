@@ -23,50 +23,104 @@ func rateLimitSnapshot(coreUsed, graphQLUsed int, graphQLReset int64) *RateLimit
 	return resp
 }
 
+// atCoreReset returns the time offset from testCoreReset, the end of the core window.
+func atCoreReset(offset time.Duration) time.Time {
+	return time.Unix(testCoreReset, 0).Add(offset)
+}
+
 func TestConsumedBetween(t *testing.T) {
+	midWindow := atCoreReset(-30 * time.Minute)
+
 	tests := []struct {
 		name           string
 		before         RateLimitResource
 		after          RateLimitResource
+		measuredAt     time.Time
 		wantUsed       int
 		wantLowerBound bool
 	}{
 		{
-			name:     "same window reports the exact difference",
-			before:   RateLimitResource{Used: 100, Reset: 1_700_000_000},
-			after:    RateLimitResource{Used: 512, Reset: 1_700_000_000},
-			wantUsed: 412,
+			name:       "same window reports the exact difference",
+			before:     RateLimitResource{Used: 100, Reset: testCoreReset},
+			after:      RateLimitResource{Used: 512, Reset: testCoreReset},
+			measuredAt: midWindow,
+			wantUsed:   412,
 		},
 		{
-			name:     "same window with no usage reports zero",
-			before:   RateLimitResource{Used: 42, Reset: 1_700_000_000},
-			after:    RateLimitResource{Used: 42, Reset: 1_700_000_000},
-			wantUsed: 0,
+			name:       "same window with no usage reports zero",
+			before:     RateLimitResource{Used: 42, Reset: testCoreReset},
+			after:      RateLimitResource{Used: 42, Reset: testCoreReset},
+			measuredAt: midWindow,
+			wantUsed:   0,
 		},
 		{
-			name:     "same window never reports negative usage",
-			before:   RateLimitResource{Used: 50, Reset: 1_700_000_000},
-			after:    RateLimitResource{Used: 40, Reset: 1_700_000_000},
-			wantUsed: 0,
+			name:       "same window never reports negative usage",
+			before:     RateLimitResource{Used: 50, Reset: testCoreReset},
+			after:      RateLimitResource{Used: 40, Reset: testCoreReset},
+			measuredAt: midWindow,
+			wantUsed:   0,
 		},
 		{
-			name:     "window opened during the measurement is exact",
-			before:   RateLimitResource{Used: 0, Reset: 1_700_000_000},
-			after:    RateLimitResource{Used: 87, Reset: 1_700_000_120},
-			wantUsed: 87,
+			// Before any request, GitHub reports a reset a full window from "now".
+			// A request two minutes later opened the window.
+			name:       "window opened during the measurement is exact",
+			before:     RateLimitResource{Used: 0, Reset: testCoreReset},
+			after:      RateLimitResource{Used: 87, Reset: testCoreReset + 120},
+			measuredAt: atCoreReset(-58 * time.Minute),
+			wantUsed:   87,
 		},
 		{
+			// The old window ended, and a request five minutes later opened the next.
 			name:           "window reset during the measurement is a lower bound",
-			before:         RateLimitResource{Used: 4200, Reset: 1_700_000_000},
-			after:          RateLimitResource{Used: 30, Reset: 1_700_003_600},
+			before:         RateLimitResource{Used: 4200, Reset: testCoreReset},
+			after:          RateLimitResource{Used: 30, Reset: testCoreReset + 300 + 3600},
+			measuredAt:     atCoreReset(10 * time.Minute),
 			wantUsed:       30,
 			wantLowerBound: true,
+		},
+		{
+			name:           "window reset within the clock tolerance is a lower bound",
+			before:         RateLimitResource{Used: 4200, Reset: testCoreReset},
+			after:          RateLimitResource{Used: 30, Reset: testCoreReset + 3600 - 30},
+			measuredAt:     atCoreReset(-30 * time.Second),
+			wantUsed:       30,
+			wantLowerBound: true,
+		},
+		{
+			// A 28-second sync in the middle of a window was once reported as "at
+			// least" the whole window's usage because its reset time moved a second.
+			name:       "reset time that moved mid-window is the same window",
+			before:     RateLimitResource{Used: 598, Reset: testCoreReset - 1},
+			after:      RateLimitResource{Used: 657, Reset: testCoreReset},
+			measuredAt: atCoreReset(-27 * time.Minute),
+			wantUsed:   59,
+		},
+		{
+			name:       "reset time reported by another region is the same window",
+			before:     RateLimitResource{Used: 598, Reset: testCoreReset},
+			after:      RateLimitResource{Used: 657, Reset: testCoreReset + 2700},
+			measuredAt: atCoreReset(-27 * time.Minute),
+			wantUsed:   59,
+		},
+		{
+			name:       "reset a full window later is the same window until the old one ends",
+			before:     RateLimitResource{Used: 598, Reset: testCoreReset},
+			after:      RateLimitResource{Used: 657, Reset: testCoreReset + 3600},
+			measuredAt: atCoreReset(-27 * time.Minute),
+			wantUsed:   59,
+		},
+		{
+			name:       "reset too soon to follow the ended window is the same window",
+			before:     RateLimitResource{Used: 598, Reset: testCoreReset},
+			after:      RateLimitResource{Used: 657, Reset: testCoreReset + 600},
+			measuredAt: atCoreReset(time.Minute),
+			wantUsed:   59,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			used, lowerBound := consumedBetween(tc.before, tc.after)
+			used, lowerBound := consumedBetween(tc.before, tc.after, tc.measuredAt)
 			assert.Equal(t, tc.wantUsed, used)
 			assert.Equal(t, tc.wantLowerBound, lowerBound)
 		})
@@ -77,7 +131,7 @@ func TestUsageBetweenCombinesBuckets(t *testing.T) {
 	before := rateLimitSnapshot(1000, 10, 1_700_000_500)
 	after := rateLimitSnapshot(1250, 13, 1_700_000_500)
 
-	usage := usageBetween(before, after)
+	usage := usageBetween(before, after, atCoreReset(-30*time.Minute))
 
 	assert.Equal(t, 250, usage.CoreRequests)
 	assert.Equal(t, 3, usage.GraphQLPoints)
@@ -89,12 +143,14 @@ func TestUsageBetweenCombinesBuckets(t *testing.T) {
 }
 
 func TestUsageBetweenFlagsLowerBoundPerBucket(t *testing.T) {
-	// The core window is stable but the GraphQL window rolled over mid-measurement,
-	// so only the GraphQL count is a minimum; the REST count stays exact.
-	before := rateLimitSnapshot(1000, 400, 1_700_000_500)
-	after := rateLimitSnapshot(1010, 2, 1_700_004_100)
+	// The GraphQL window ended 25 minutes before the core window, and a request a
+	// minute later opened the next one, so only the GraphQL count is a minimum; the
+	// core window is unchanged and the REST count stays exact.
+	graphQLReset := int64(testCoreReset - 1500)
+	before := rateLimitSnapshot(1000, 400, graphQLReset)
+	after := rateLimitSnapshot(1010, 2, graphQLReset+60+3600)
 
-	usage := usageBetween(before, after)
+	usage := usageBetween(before, after, atCoreReset(-20*time.Minute))
 
 	assert.Equal(t, 10, usage.CoreRequests)
 	assert.False(t, usage.CoreLowerBound)
@@ -154,6 +210,30 @@ func TestUsageMeterMeasuresFromBaseline(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 75, second.CoreRequests)
 
+	client.AssertExpectations(t)
+}
+
+// TestUsageMeterJudgesWindowsAtMeasurementTime verifies Measure decides whether a
+// new window began as of the time it takes the second snapshot.
+func TestUsageMeterJudgesWindowsAtMeasurementTime(t *testing.T) {
+	ctx := context.Background()
+	after := rateLimitSnapshot(657, 0, testCoreReset)
+	after.Resources.Core.Reset = testCoreReset + 3600 // A region reporting a later window
+
+	client := &MockClient{}
+	client.On("GetRateLimit", mock.Anything).Return(rateLimitSnapshot(598, 0, testCoreReset), nil).Once()
+	client.On("GetRateLimit", mock.Anything).Return(after, nil).Once()
+
+	meter, err := StartUsageMeter(ctx, client)
+	require.NoError(t, err)
+	meter.clock = func() time.Time { return atCoreReset(-27 * time.Minute) }
+
+	usage, err := meter.Measure(ctx)
+	require.NoError(t, err)
+
+	// The baseline's window had 27 minutes left, so no new window can have begun.
+	assert.Equal(t, 59, usage.CoreRequests)
+	assert.False(t, usage.CoreLowerBound)
 	client.AssertExpectations(t)
 }
 
