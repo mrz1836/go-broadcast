@@ -86,7 +86,9 @@ name: Dependabot Auto-merge
 # from the PR, so a PR cannot change what runs here or what the `auto-merge`
 # environment exposes to it. It runs with this workflow's own token and secrets
 # even though the trigger's Dependabot run had neither. No job checks out or runs
-# PR code: the only checkout is the default branch's `.github/env` + load-env.
+# PR code: the only checkout is the default branch's `.github/env` + load-env, in
+# the read-only `verify` job. No job that can write (`analyze`, `apply`) has a
+# checkout or a workspace at all: `analyze` gets the configuration from `verify`.
 #
 # The trigger's run is untrusted: its jobs run the PR's copy of
 # auto-merge-trigger.yml, so anyone who can push to the PR controls whether it
@@ -130,6 +132,10 @@ jobs:
   # ----------------------------------------------------------------------------------
   # Verify the PR and derive the Dependabot metadata (read-only GITHUB_TOKEN)
   #
+  # When `analyze` will run, this job also loads the default branch's
+  # .github/env configuration and hands it down as `env-json`, so the job that
+  # writes labels and comments never checks anything out.
+  #
   # Ends with one `result`:
   #   analyze             → a genuine Dependabot PR on the triggering commit;
   #                         `analyze` decides what to do with it
@@ -155,7 +161,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       actions: read # Required: Confirm the trigger's Dependabot job ran (wake-up filter)
-      contents: read # Required: Read commits (author, signature, message)
+      contents: read # Required: Read commits (author, signature, message) + sparse checkout of the default branch's env files
       pull-requests: read # Required: Re-read the PR and list its commits
     outputs:
       # The step's `decision`, not its `result`: actions/github-script sets its
@@ -175,11 +181,15 @@ jobs:
       package-ecosystem: ${{ steps.verify.outputs.package-ecosystem }}
       previous-version: ${{ steps.verify.outputs.previous-version }}
       new-version: ${{ steps.verify.outputs.new-version }}
+      # The default branch's .github/env configuration, for `analyze` (empty
+      # unless `analyze` will run)
+      env-json: ${{ steps.load-env.outputs.env-json }}
 
     steps:
       # --------------------------------------------------------------------
       # Resolve and verify the PR, then read the Dependabot metadata from
-      # its verified head commit. No checkout: API reads only.
+      # its verified head commit. API reads only: the checkout below is the
+      # default branch's config, never the PR.
       # --------------------------------------------------------------------
       - name: 🔐 Verify PR and derive Dependabot metadata
         id: verify
@@ -524,6 +534,35 @@ jobs:
             return finish('analyze', `Verified Dependabot PR #${pr.number} at ${pr.head.sha}`, outputs);
 
       # --------------------------------------------------------------------
+      # Load the configuration for `analyze`, here in the read-only job: the
+      # job that writes labels and comments gets it as an output and never
+      # checks anything out. Same condition as `analyze` itself, so it runs
+      # exactly when `analyze` needs it. A failure here doesn't stop this job
+      # (its result still reaches `analyze` and `apply`): `analyze` then finds
+      # no configuration and fails, and `apply` revokes. Fail closed, as when
+      # loading failed inside `analyze`.
+      # --------------------------------------------------------------------
+      - name: 📥 Checkout code (sparse)
+        if: contains(fromJSON('["analyze", "revoke-foreign-push"]'), steps.verify.outputs.decision)
+        continue-on-error: true
+        # SECURITY: on workflow_run, github.sha is the latest commit on the DEFAULT
+        # branch, the same commit this workflow file came from, so the local
+        # ./.github/actions/load-env action is never a PR-controlled version.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            .github/env
+            .github/actions/load-env
+
+      - name: 🌍 Load environment variables
+        id: load-env
+        if: contains(fromJSON('["analyze", "revoke-foreign-push"]'), steps.verify.outputs.decision)
+        continue-on-error: true
+        uses: ./.github/actions/load-env
+
+      # --------------------------------------------------------------------
       # Summary (always)
       # --------------------------------------------------------------------
       - name: 📊 Generate verification summary
@@ -550,9 +589,12 @@ jobs:
   # ----------------------------------------------------------------------------------
   # Analyze the Dependabot PR (GITHUB_TOKEN only — never sees the App key)
   #
+  # No checkout and no workspace: this job can write labels and comments, so
+  # the .github/env configuration comes from `verify` (read-only) as an output.
+  #
   # Workflow phases (each preserved as a step):
-  #   🌍 Load environment       → reads .github/env/*
-  #   🔧 Extract configuration  → exports all DEPENDABOT_* vars to env
+  #   🔧 Extract configuration  → exports all DEPENDABOT_* vars to env (from
+  #                               the .github/env/* that `verify` loaded)
   #   📋 Log dependency details → trace logging (metadata from `verify`)
   #   🔒 Check for security     → classify security vs non-security
   #   🏢 Check same owner       → are all deps owned by this repo's owner?
@@ -576,7 +618,7 @@ jobs:
       group: ${{ github.workflow }}-analyze-${{ needs.verify.outputs.pr-number }}
       cancel-in-progress: true
     permissions:
-      contents: read # Required: Sparse checkout of the default branch for env files + read branch rules
+      contents: read # Required: Read the base branch and its rules (merge guards)
       pull-requests: write # Required: Comment on and label Dependabot PRs
       issues: write # Required: Add labels and alert comments via the issues API
     env:
@@ -589,37 +631,23 @@ jobs:
 
     steps:
       # --------------------------------------------------------------------
-      # Check out code to access env file
-      # --------------------------------------------------------------------
-      - name: 📥 Checkout code (sparse)
-        # SECURITY: on workflow_run, github.sha is the latest commit on the DEFAULT
-        # branch, the same commit this workflow file came from, so the local
-        # ./.github/actions/load-env action is never a PR-controlled version.
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-          sparse-checkout: |
-            .github/env
-            .github/actions/load-env
-
-      # --------------------------------------------------------------------
-      # Load and parse environment file
-      # --------------------------------------------------------------------
-      - name: 🌍 Load environment variables
-        id: load-env
-        uses: ./.github/actions/load-env
-
-      # --------------------------------------------------------------------
-      # Extract Dependabot configuration up-front
+      # Extract Dependabot configuration up-front (loaded by `verify` from
+      # the default branch's .github/env)
       # --------------------------------------------------------------------
       - name: 🔧 Extract configuration
         id: config
         env:
-          ENV_JSON: ${{ steps.load-env.outputs.env-json }}
+          ENV_JSON: ${{ needs.verify.outputs.env-json }}
           APP_CLIENT_ID: ${{ vars.AUTO_MERGE_APP_CLIENT_ID }}
         run: |
           echo "📋 Extracting Dependabot configuration from environment..."
+
+          # Fail closed without a configuration: the analysis then fails, and
+          # `apply` revokes instead of approving
+          if [[ -z "$ENV_JSON" ]] || ! jq -e 'type == "object" and length > 0' <<< "$ENV_JSON" > /dev/null 2>&1; then
+            echo "❌ ERROR: no configuration from the verify job (env-json is empty or not a JSON object)" >&2
+            exit 1
+          fi
 
           # Validate required configuration
           MAINTAINER=$(echo "$ENV_JSON" | jq -r '.DEPENDABOT_MAINTAINER_USERNAME')
