@@ -15,11 +15,20 @@ var ErrRateLimitUnavailable = errors.New("rate limit status unavailable")
 // detachedMeasureTimeout bounds the rate-limit request made by MeasureDetached.
 const detachedMeasureTimeout = 10 * time.Second
 
+// rateLimitWindow is the length of a GitHub primary rate-limit window.
+const rateLimitWindow = time.Hour
+
+// resetTolerance absorbs disagreement about when a rate-limit window resets, both
+// between this machine's clock and GitHub's and between GitHub regions.
+const resetTolerance = time.Minute
+
 // APIUsage is the GitHub API quota consumed between two rate-limit snapshots.
 //
-// The counts are GitHub's own accounting for the authenticated identity, which
-// makes them exact for pagination and multi-request gh commands, but also means
-// requests made at the same time by other tools sharing the token are included.
+// The counts are GitHub's own accounting for the authenticated identity: they
+// include every page of a paginated request and every request a gh command makes,
+// but also requests made at the same time by other tools sharing the token. GitHub
+// serves requests from several regions, so its counts can vary slightly from one
+// response to the next.
 type APIUsage struct {
 	// CoreRequests is the number of REST requests charged to the primary rate limit.
 	CoreRequests int
@@ -68,6 +77,7 @@ func writeCount(sb *strings.Builder, n int, lowerBound bool, singular, plural st
 type UsageMeter struct {
 	client   Client
 	baseline *RateLimitResponse
+	clock    func() time.Time
 }
 
 // StartUsageMeter records the current rate-limit status as the baseline for
@@ -88,7 +98,7 @@ func StartUsageMeter(ctx context.Context, client Client) (*UsageMeter, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &UsageMeter{client: client, baseline: baseline}, nil
+	return &UsageMeter{client: client, baseline: baseline, clock: time.Now}, nil
 }
 
 // Baseline returns the rate-limit status captured when the meter started.
@@ -113,7 +123,7 @@ func (m *UsageMeter) Measure(ctx context.Context) (APIUsage, error) {
 	if err != nil {
 		return APIUsage{}, err
 	}
-	return usageBetween(m.baseline, current), nil
+	return usageBetween(m.baseline, current, m.clock()), nil
 }
 
 // MeasureDetached measures like Measure, but ignores the cancellation of ctx and
@@ -138,10 +148,11 @@ func readRateLimit(ctx context.Context, client Client) (*RateLimitResponse, erro
 	return resp, nil
 }
 
-// usageBetween returns the quota consumed between the before and after snapshots.
-func usageBetween(before, after *RateLimitResponse) APIUsage {
-	core, coreLowerBound := consumedBetween(before.Resources.Core, after.Resources.Core)
-	graphQL, graphQLLowerBound := consumedBetween(before.Resources.GraphQL, after.Resources.GraphQL)
+// usageBetween returns the quota consumed between the before and after snapshots,
+// where measuredAt is when the after snapshot was taken.
+func usageBetween(before, after *RateLimitResponse, measuredAt time.Time) APIUsage {
+	core, coreLowerBound := consumedBetween(before.Resources.Core, after.Resources.Core, measuredAt)
+	graphQL, graphQLLowerBound := consumedBetween(before.Resources.GraphQL, after.Resources.GraphQL, measuredAt)
 
 	return APIUsage{
 		CoreRequests:      core,
@@ -155,20 +166,38 @@ func usageBetween(before, after *RateLimitResponse) APIUsage {
 }
 
 // consumedBetween returns how much of one rate-limit bucket was used between two
-// snapshots, and whether that count is only a lower bound.
+// snapshots, and whether that count is only a lower bound. measuredAt is when the
+// after snapshot was taken.
 //
-// GitHub reports a fixed reset time for the lifetime of a window, so an unchanged
-// reset time means both snapshots belong to the same window and the difference in
-// "used" is exact. A changed reset time means a new window began in between. If
-// nothing had been used at the first snapshot, no window was open yet (GitHub
-// then reports a reset time relative to "now"), so the new window's count is still
-// exact. Otherwise requests made in the old window after the first snapshot are
-// lost and the new window's count is a lower bound.
-func consumedBetween(before, after RateLimitResource) (used int, lowerBound bool) {
-	if after.Reset == before.Reset {
-		return max(after.Used-before.Used, 0), false
+// Within one window, the difference in "used" is the usage between the snapshots.
+// When a new window began in between, requests made in the old window after the
+// first snapshot are lost, so the new window's count is a lower bound. It is still
+// exact if nothing had been used at the first snapshot.
+func consumedBetween(before, after RateLimitResource, measuredAt time.Time) (used int, lowerBound bool) {
+	if windowRolledOver(before, after, measuredAt) {
+		return after.Used, before.Used > 0
 	}
-	return after.Used, before.Used > 0
+	return max(after.Used-before.Used, 0), false
+}
+
+// windowRolledOver reports whether a new rate-limit window began between two
+// snapshots of a bucket, where measuredAt is when the second one was taken.
+//
+// A different reset time alone is not proof: GitHub serves requests from several
+// regions, and the rate-limit values they report can differ from one response to
+// the next. A new window can only open after the old one ends, so the old reset
+// time must have passed by the second snapshot, and the new window then resets at
+// least a full window after the old one.
+//
+// Before any request in a window, GitHub reports a reset time a full window from
+// "now". A window that opens during the measurement then resets shortly after that
+// time, not a full window later, so it is not counted as a rollover.
+func windowRolledOver(before, after RateLimitResource, measuredAt time.Time) bool {
+	oldReset := time.Unix(before.Reset, 0)
+	newReset := time.Unix(after.Reset, 0)
+	oldWindowEnded := !measuredAt.Before(oldReset.Add(-resetTolerance))
+	newWindowFollows := !newReset.Before(oldReset.Add(rateLimitWindow - resetTolerance))
+	return oldWindowEnded && newWindowFollows
 }
 
 // pluralize returns singular when n is 1 and plural otherwise.
