@@ -138,13 +138,11 @@ func TestAppRun_PanicRecovery(t *testing.T) {
 	assert.Contains(t, err.Error(), "panic recovered: test panic")
 
 	assert.True(t, mockOutputHandler.InitCalled)
-	// Should have 2 error messages: env file warning + panic recovery (with stack trace)
-	assert.Len(t, mockOutputHandler.ErrorMessages, 2)
-	// First message should be about env files
-	assert.Contains(t, mockOutputHandler.ErrorMessages[0], "Warning: Failed to load environment files")
-	// Second message should contain panic value AND stack trace
-	assert.Contains(t, mockOutputHandler.ErrorMessages[1], "Fatal error: test panic")
-	assert.Contains(t, mockOutputHandler.ErrorMessages[1], "goroutine") // Stack trace marker
+	// Should have only the panic recovery message: a missing .github/env/ is not a warning
+	assert.Len(t, mockOutputHandler.ErrorMessages, 1)
+	// Message should contain panic value AND stack trace
+	assert.Contains(t, mockOutputHandler.ErrorMessages[0], "Fatal error: test panic")
+	assert.Contains(t, mockOutputHandler.ErrorMessages[0], "goroutine") // Stack trace marker
 }
 
 // PanicCLIExecutor is a mock that panics during execution

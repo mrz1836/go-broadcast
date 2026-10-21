@@ -347,11 +347,11 @@ func TestParseEnvLine(t *testing.T) {
 	}
 }
 
-// TestParseEnvFileGoFortressCompatibility tests parsing of GoFortress .env.base format
+// TestParseEnvFileGoFortressCompatibility tests parsing of GoFortress .github/env/*.env format
 func TestParseEnvFileGoFortressCompatibility(t *testing.T) {
 	tempDir := t.TempDir()
 
-	// Simulate a realistic GoFortress .env.base structure with inline comments
+	// Simulate a realistic GoFortress .github/env/00-core.env structure with inline comments
 	content := `# ================================================================================================
 #  GoFortress Configuration
 # ================================================================================================
@@ -375,7 +375,7 @@ GO_BROADCAST_AI_COMMIT_ENABLED=    # Enable AI for commit message generation
 # Automerge Labels
 GO_BROADCAST_AUTOMERGE_LABELS=automerge`
 
-	file := filepath.Join(tempDir, ".env.base")
+	file := filepath.Join(tempDir, "00-core.env")
 	require.NoError(t, os.WriteFile(file, []byte(content), 0o600))
 
 	vars, err := parseEnvFile(file)

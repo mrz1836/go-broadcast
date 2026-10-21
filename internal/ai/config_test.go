@@ -739,7 +739,7 @@ func TestSetConfigLogger(t *testing.T) {
 
 // TestConfigWithEmptyFeatureFlags tests the scenario where PR_ENABLED and
 // COMMIT_ENABLED are empty strings (as they would be after stripping inline
-// comments from .env.base like "GO_BROADCAST_AI_PR_ENABLED=  # comment")
+// comments from .github/env/*.env like "GO_BROADCAST_AI_PR_ENABLED=  # comment")
 func TestConfigWithEmptyFeatureFlags(t *testing.T) {
 	t.Run("empty PR_ENABLED defaults to false", func(t *testing.T) {
 		t.Setenv("GO_BROADCAST_AI_ENABLED", "true")
@@ -777,12 +777,12 @@ func TestConfigWithEmptyFeatureFlags(t *testing.T) {
 // from environment variables as they would be set after loading .env files
 func TestConfigEnvFilesScenario(t *testing.T) {
 	t.Run("user enables AI via custom override", func(t *testing.T) {
-		// Simulate .env.base values (after inline comments stripped)
+		// Simulate 00-core.env values (after inline comments stripped)
 		t.Setenv("GO_BROADCAST_AI_PROVIDER", "anthropic")
 		t.Setenv("GO_BROADCAST_AI_PR_ENABLED", "")     // Was "# comment"
 		t.Setenv("GO_BROADCAST_AI_COMMIT_ENABLED", "") // Was "# comment"
 
-		// Simulate .env.custom override
+		// Simulate 90-project.env override
 		t.Setenv("GO_BROADCAST_AI_ENABLED", "true")
 
 		// Simulate user having API key in shell (from ~/.zshrc)
@@ -796,15 +796,15 @@ func TestConfigEnvFilesScenario(t *testing.T) {
 		assert.Equal(t, "sk-ant-user-key", cfg.APIKey)
 
 		// PR and Commit generation require explicit opt-in
-		assert.False(t, cfg.IsPREnabled(), "PR needs explicit enable in .env.custom")
-		assert.False(t, cfg.IsCommitEnabled(), "Commit needs explicit enable in .env.custom")
+		assert.False(t, cfg.IsPREnabled(), "PR needs explicit enable in 90-project.env")
+		assert.False(t, cfg.IsCommitEnabled(), "Commit needs explicit enable in 90-project.env")
 	})
 
 	t.Run("user enables all AI features via custom", func(t *testing.T) {
-		// Simulate .env.base values
+		// Simulate 00-core.env values
 		t.Setenv("GO_BROADCAST_AI_PROVIDER", "anthropic")
 
-		// Simulate .env.custom with full AI enablement
+		// Simulate 90-project.env with full AI enablement
 		t.Setenv("GO_BROADCAST_AI_ENABLED", "true")
 		t.Setenv("GO_BROADCAST_AI_PR_ENABLED", "true")
 		t.Setenv("GO_BROADCAST_AI_COMMIT_ENABLED", "true")

@@ -46,12 +46,6 @@ func (m *MockCLIExecutorAdvanced) Execute() error {
 	return args.Error(0)
 }
 
-// containsEnvWarning checks if a string contains the env file warning message.
-// This is a specialized helper for test assertions.
-func containsEnvWarning(s string) bool {
-	return strings.Contains(s, "Warning: Failed to load environment files")
-}
-
 func TestApp_Run(t *testing.T) {
 	t.Run("successful execution", func(t *testing.T) {
 		// Setup mocks
@@ -60,10 +54,6 @@ func TestApp_Run(t *testing.T) {
 
 		// Setup expectations
 		mockOutputHandler.On("Init").Return()
-		// Expect warning about missing env files (this is expected in test environment)
-		mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
-			return containsEnvWarning(msg)
-		})).Return()
 		mockCLIExecutor.On("Execute").Return(nil)
 
 		// Create app with mocked dependencies
@@ -89,10 +79,6 @@ func TestApp_Run(t *testing.T) {
 
 		// Setup expectations
 		mockOutputHandler.On("Init").Return()
-		// Expect warning about missing env files (this is expected in test environment)
-		mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
-			return containsEnvWarning(msg)
-		})).Return()
 		// Expect error from CLI execution
 		mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
 			return strings.Contains(msg, "CLI execution failed")
@@ -119,10 +105,6 @@ func TestApp_Run(t *testing.T) {
 
 		// Setup expectations
 		mockOutputHandler.On("Init").Return()
-		// Expect warning about missing env files first
-		mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
-			return containsEnvWarning(msg)
-		})).Return()
 		// Then expect panic recovery error (now includes stack trace)
 		mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
 			return strings.Contains(msg, "Fatal error: CLI execution panic")
@@ -146,11 +128,11 @@ func TestApp_Run(t *testing.T) {
 		mockOutputHandler.AssertExpectations(t)
 		mockCLIExecutor.AssertExpectations(t)
 
-		// Verify that error messages were captured (env warning + panic recovery with stack trace)
-		assert.Len(t, mockOutputHandler.errorMessages, 2)
-		assert.Contains(t, mockOutputHandler.errorMessages[0], "Warning: Failed to load environment files")
-		assert.Contains(t, mockOutputHandler.errorMessages[1], "Fatal error: CLI execution panic")
-		assert.Contains(t, mockOutputHandler.errorMessages[1], "goroutine") // Stack trace marker
+		// Verify that only the panic recovery error (with stack trace) was captured;
+		// no env warning is expected because the test directory has no .github/env/
+		assert.Len(t, mockOutputHandler.errorMessages, 1)
+		assert.Contains(t, mockOutputHandler.errorMessages[0], "Fatal error: CLI execution panic")
+		assert.Contains(t, mockOutputHandler.errorMessages[0], "goroutine") // Stack trace marker
 	})
 
 	t.Run("panic recovery with complex panic value", func(t *testing.T) {
@@ -162,10 +144,6 @@ func TestApp_Run(t *testing.T) {
 
 		// Setup expectations
 		mockOutputHandler.On("Init").Return()
-		// Expect warning about missing env files first
-		mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
-			return containsEnvWarning(msg)
-		})).Return()
 		// Then expect panic recovery error (now includes stack trace)
 		mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
 			return strings.Contains(msg, fmt.Sprintf("Fatal error: %v", panicValue))
@@ -197,10 +175,6 @@ func TestApp_Run(t *testing.T) {
 
 		// Setup expectations with detailed verification
 		mockOutputHandler.On("Init").Once()
-		// Expect warning about missing env files
-		mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
-			return containsEnvWarning(msg)
-		})).Return()
 		mockCLIExecutor.On("Execute").Return(nil).Once()
 
 		// Create app with mocked dependencies
@@ -250,10 +224,6 @@ func TestApp_ErrorPathsCoverage(t *testing.T) {
 				mockCLIExecutor := &MockCLIExecutorAdvanced{}
 
 				mockOutputHandler.On("Init").Return()
-				// Expect warning about missing env files
-				mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
-					return containsEnvWarning(msg)
-				})).Return()
 				// Expect error from CLI execution
 				mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
 					return strings.Contains(msg, tc.expectError)
@@ -286,10 +256,6 @@ func TestApp_ErrorPathsCoverage(t *testing.T) {
 				mockCLIExecutor := &MockCLIExecutorAdvanced{}
 
 				mockOutputHandler.On("Init").Return()
-				// Expect warning about missing env files first
-				mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
-					return containsEnvWarning(msg)
-				})).Return()
 				// Then expect panic recovery error (now includes stack trace)
 				mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
 					return strings.Contains(msg, fmt.Sprintf("Fatal error: %v", panicValue))
@@ -321,10 +287,6 @@ func TestApp_MockValidation(t *testing.T) {
 
 		// Set up strict expectations
 		mockOutputHandler.On("Init").Once()
-		// Expect warning about missing env files (this is expected in test environment)
-		mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
-			return containsEnvWarning(msg)
-		})).Return()
 		mockCLIExecutor.On("Execute").Return(nil).Once()
 
 		app := NewAppWithDependencies(mockOutputHandler, mockCLIExecutor)
@@ -340,10 +302,6 @@ func TestApp_MockValidation(t *testing.T) {
 		mockCLIExecutor := &MockCLIExecutorAdvanced{}
 
 		mockOutputHandler.On("Init").Return()
-		// Expect warning about missing env files (this is expected in test environment)
-		mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
-			return containsEnvWarning(msg)
-		})).Return()
 		mockCLIExecutor.On("Execute").Return(nil)
 
 		app := NewAppWithDependencies(mockOutputHandler, mockCLIExecutor)
@@ -364,12 +322,8 @@ func TestApp_MockValidation(t *testing.T) {
 		mockOutputHandler := &MockOutputHandlerAdvanced{}
 		mockCLIExecutor := &MockCLIExecutorAdvanced{}
 
-		// Set up expected calls (including env file warning which always happens)
+		// Set up expected calls
 		mockOutputHandler.On("Init").Return()
-		// Expect warning about missing env files (this is expected in test environment)
-		mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
-			return containsEnvWarning(msg)
-		})).Return()
 		// Expect error from CLI execution
 		mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
 			return strings.Contains(msg, "CLI execution failed")
@@ -379,7 +333,7 @@ func TestApp_MockValidation(t *testing.T) {
 		app := NewAppWithDependencies(mockOutputHandler, mockCLIExecutor)
 		_ = app.Run([]string{})
 
-		// Should call Error twice: once for env warning, once for CLI error
+		// Should call Error once for the CLI error
 		mockOutputHandler.AssertExpectations(t)
 		mockCLIExecutor.AssertExpectations(t)
 	})
@@ -420,10 +374,6 @@ func TestEdgeCasesAndBoundariesAdvanced(t *testing.T) {
 		mockCLIExecutor := &MockCLIExecutorAdvanced{}
 
 		mockOutputHandler.On("Init").Return()
-		// Expect warning about missing env files (this is expected in test environment)
-		mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
-			return containsEnvWarning(msg)
-		})).Return()
 		mockCLIExecutor.On("Execute").Return(nil)
 
 		app := NewAppWithDependencies(mockOutputHandler, mockCLIExecutor)
@@ -457,10 +407,6 @@ func TestEdgeCasesAndBoundariesAdvanced(t *testing.T) {
 			mockExecutors[i] = &MockCLIExecutorAdvanced{}
 
 			mockHandlers[i].On("Init").Return()
-			// Expect warning about missing env files (this is expected in test environment)
-			mockHandlers[i].On("Error", mock.MatchedBy(func(msg string) bool {
-				return containsEnvWarning(msg)
-			})).Return()
 			mockExecutors[i].On("Execute").Return(nil)
 
 			apps[i] = NewAppWithDependencies(mockHandlers[i], mockExecutors[i])

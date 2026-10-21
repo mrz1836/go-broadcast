@@ -12,45 +12,39 @@ import (
 
 // Static errors for consistent error handling
 var (
-	ErrEnvBaseFileNotFound = errors.New("required .env.base file not found")
-	ErrNotDirectory        = errors.New("path is not a directory")
-	ErrNoEnvFiles          = errors.New("no .env files found in directory")
+	ErrNotDirectory = errors.New("path is not a directory")
+	ErrNoEnvFiles   = errors.New("no .env files found in directory")
 )
 
-// LoadEnvFiles loads environment variables with proper precedence:
+// LoadEnvFiles loads environment variables from the modular .github/env/*.env
+// files in the current working directory, with proper precedence:
 //  1. OS environment variables (HIGHEST - never overwritten)
-//  2. Modular .github/env/*.env files (preferred, last-wins ordering)
-//  3. Legacy .env.custom (project overrides) + .env.base (defaults)
+//  2. .github/env/*.env files (last-wins ordering)
 //
 // Variables already set in the OS environment are NEVER overwritten.
 // This allows users to override via shell exports or CI/CD secrets.
 //
-// If a modular .github/env/ directory with .env files exists, it is used.
-// Otherwise, falls back to the legacy .env.base + .env.custom pattern.
+// The env files are optional: when the working directory has no .github/env/
+// directory with .env files (e.g. running "go-broadcast update" from $HOME),
+// nothing is loaded and no error is returned.
 //
 // This ensures go-broadcast follows the same configuration pattern as
 // go-coverage, go-pre-commit, mage-x, and other GoFortress tools.
 func LoadEnvFiles() error {
-	// Try modular mode first (preferred)
 	if envDir := findEnvDir(); envDir != "" {
 		return LoadEnvDir(envDir, isCI())
 	}
-	// Fall back to legacy mode
-	return loadEnvFilesInternal(".github/.env.base", ".github/.env.custom")
+	return nil
 }
 
-// LoadEnvFilesFromDir loads environment files from a specific directory.
+// LoadEnvFilesFromDir loads environment files from .github/env/ under a specific directory.
 // This is useful for testing or when running from a different working directory.
-// Prefers modular .github/env/ if available, falls back to legacy files.
+// Like LoadEnvFiles, it is a no-op when the directory has no .github/env/*.env files.
 func LoadEnvFilesFromDir(dir string) error {
-	// Try modular mode first (preferred)
 	if envDir := findEnvDirFromBase(dir); envDir != "" {
 		return LoadEnvDir(envDir, isCI())
 	}
-	// Fall back to legacy mode
-	baseFile := filepath.Join(dir, ".github", ".env.base")
-	customFile := filepath.Join(dir, ".github", ".env.custom")
-	return loadEnvFilesInternal(baseFile, customFile)
+	return nil
 }
 
 // LoadEnvDir loads all .env files from a directory in lexicographic order.
@@ -139,55 +133,6 @@ func hasEnvFiles(dirPath string) bool {
 		return false
 	}
 	return len(matches) > 0
-}
-
-// loadEnvFilesInternal is the shared implementation for loading env files.
-func loadEnvFilesInternal(baseFile, customFile string) error {
-	// Parse base configuration (required file)
-	// We open the file directly instead of checking with Stat first to avoid
-	// a TOCTOU (time-of-check-to-time-of-use) race condition.
-	baseVars, err := parseEnvFile(baseFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("%w at %s", ErrEnvBaseFileNotFound, baseFile)
-		}
-		return fmt.Errorf("failed to parse %s: %w", baseFile, err)
-	}
-
-	// Parse custom overrides (optional file)
-	// We try to parse directly and ignore NotExist errors to avoid TOCTOU races.
-	customVars, err := parseEnvFile(customFile)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return fmt.Errorf("failed to parse %s: %w", customFile, err)
-		}
-		// Custom file doesn't exist - that's fine, it's optional
-		customVars = make(map[string]string)
-	}
-
-	// Merge: custom overrides base
-	merged := make(map[string]string)
-	for k, v := range baseVars {
-		merged[k] = v
-	}
-	for k, v := range customVars {
-		merged[k] = v // custom wins over base
-	}
-
-	// Apply: ONLY set if not already in OS environment
-	// This ensures OS env vars (from shell, CI/CD secrets, etc.) take precedence
-	// We use LookupEnv to distinguish between "not set" and "set to empty string".
-	// An explicitly set empty string (e.g., FOO="") is preserved and NOT overwritten.
-	for key, value := range merged {
-		if _, exists := os.LookupEnv(key); !exists {
-			if err := os.Setenv(key, value); err != nil {
-				return fmt.Errorf("failed to set %s: %w", key, err)
-			}
-		}
-		// If OS env is already set (even to empty), we respect it (don't overwrite)
-	}
-
-	return nil
 }
 
 // GetEnvWithFallback gets an environment variable with a fallback value.

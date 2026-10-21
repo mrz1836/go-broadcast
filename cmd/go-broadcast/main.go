@@ -119,11 +119,11 @@ func (a *App) Run(_ []string) (err error) {
 	// Initialize colored output
 	a.outputHandler.Init()
 
-	// Load environment configuration files (.env.base and .env.custom)
+	// Load environment configuration files (.github/env/*.env), if present in the working directory
 	// This follows the GoFortress pattern used by other tools in the ecosystem
 	if envErr := env.LoadEnvFiles(); envErr != nil {
-		// Don't fail hard on env file loading errors, but warn the user
-		// This allows go-broadcast to work without env files if needed
+		// Missing env files are not an error; this only fires when existing files can't be loaded.
+		// Don't fail hard, but warn the user
 		a.outputHandler.Error(fmt.Sprintf("Warning: Failed to load environment files: %v", envErr))
 	}
 
