@@ -10,8 +10,9 @@
 #
 #  Triggers: Completion of "Auto-merge Trigger" (auto-merge-trigger.yml), whose
 #  permission-less `pull_request` run queues this workflow when a Dependabot PR is
-#  opened, updated (synchronize) or reopened. No `pull_request_target`: GitHub
-#  disables it by default on public repositories (workflow execution protections).
+#  opened, updated (synchronize), reopened or retargeted (base branch edited).
+#  No `pull_request_target`: GitHub disables it by default on public repositories
+#  (workflow execution protections).
 #
 #  Event flow (privilege grows only on the default branch's copy):
 #    pull_request (Dependabot PR) → auto-merge-trigger.yml: no permissions, no secrets,
@@ -69,7 +70,8 @@
 #    push (dismiss stale approvals, or require approval of the most recent
 #    push): GitHub then drops the bot approval whatever the workflows do (see
 #    .github/docs/auto-merge-github-app.md)
-#  - The approval and auto-merge are pinned to the verified head commit
+#  - The approval and auto-merge are pinned to the verified head commit and base
+#    branch. Retargeting the PR re-evaluates it against the new base's rules
 #
 #  Maintainer: @mrz1836
 #
@@ -1247,19 +1249,23 @@ jobs:
       #      the PR's commits before this job starts, so the revocation holds
       #      whoever triggered the run and even if a step here fails. This step
       #      never runs for it.
-      #   2. Only runs Dependabot itself triggered may approve: the trigger
-      #      run's actor (GitHub's workflow_run payload) is dependabot[bot].
-      #   3. Every commit must be authored by dependabot[bot], committed by
+      #   2. Every commit must be authored by dependabot[bot], committed by
       #      GitHub (web-flow) and carry a verified signature. Author emails
       #      can be spoofed; GitHub's signature on the commit cannot. `verify`
       #      checked this; it is re-checked here in case of a push since then.
-      #   4. The base branch must require status checks (ruleset or classic
+      #   3. The base branch must require status checks (ruleset or classic
       #      branch protection). Otherwise "auto-merge" would merge before CI.
-      #   5. The base branch's rulesets must require an approval AND drop it on
+      #   4. The base branch's rulesets must require an approval AND drop it on
       #      a new push (dismiss stale approvals, or require approval of the
       #      most recent push). Revoking after someone else pushes needs the
       #      PR-side trigger to run, and the pusher controls that file, so
       #      GitHub itself must make an approval of older content worthless.
+      #   5. Only runs Dependabot itself triggered may approve: the trigger
+      #      run's actor (GitHub's workflow_run payload) is dependabot[bot].
+      #      Checked last: `apply` keeps an App approval of the current head
+      #      when only this guard fails, so a run someone else triggered (a
+      #      retarget, a reopen) must first find the commits and the CURRENT
+      #      base's rules sound. A base that fails revokes it.
       # Any action other than auto-merge-* also makes `apply` revoke a bot
       # approval and auto-merge left by an earlier evaluation, so a later push
       # (by Dependabot or anyone else) never rides an approval of older content.
@@ -1299,12 +1305,7 @@ jobs:
             finish "$ACTION" "⏭️ Planned action '$ACTION' does not approve or merge — guards not needed"
           fi
 
-          # Guard 2: only Dependabot-triggered runs may approve
-          if [[ "$ACTOR" != "dependabot[bot]" ]]; then
-            finish skip-untrusted-actor "🚫 Run triggered by '$ACTOR', not dependabot[bot] — leaving for manual review"
-          fi
-
-          # Guard 3: commit provenance (re-check)
+          # Guard 2: commit provenance (re-check)
           if ! FOREIGN=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/commits" \
               --jq '.[] | select((.author.login // "") != "dependabot[bot]" or (.committer.login // "") != "web-flow" or (.commit.verification.verified | not)) | .sha'); then
             finish skip-foreign-commits "❌ Could not list PR commits — failing closed"
@@ -1318,7 +1319,7 @@ jobs:
           fi
           echo "  ✅ All commits authored by dependabot[bot] and signed by GitHub"
 
-          # Guard 4: the base branch must require status checks
+          # Guard 3: the base branch must require status checks
           # All pages of the rules (a rule on a later page would otherwise be missed).
           # pipefail (in this subshell only): a failed read becomes [], not gh's error body.
           if ! RULES_JSON=$(set -o pipefail; gh api --paginate "repos/$REPO/rules/branches/$BASE_REF?per_page=100" 2>/dev/null | jq -s 'add // []'); then
@@ -1332,7 +1333,7 @@ jobs:
             finish skip-no-required-checks "🚫 '$BASE_REF' requires no status checks — auto-merge would merge before CI"
           fi
 
-          # Guard 5: a new push must void the bot approval. A pusher who also edits
+          # Guard 4: a new push must void the bot approval. A pusher who also edits
           # the PR-side trigger stops the revocation, so the base branch has to
           # require an approval (else an armed auto-merge merges whatever is pushed)
           # and drop it on push. Classic branch protection's review settings
@@ -1346,6 +1347,12 @@ jobs:
           if [[ "$APPROVALS_VOIDED_ON_PUSH" != "true" ]]; then
             echo "::warning title=Approvals survive new pushes on $BASE_REF::Dependabot auto-merge is off until a ruleset on $BASE_REF requires at least one approval and turns on \"Dismiss stale pull request approvals when new commits are pushed\" (or \"Require approval of the most recent reviewable push\"). Otherwise someone who pushes to the PR and edits the PR-side trigger could ride the bot approval. See .github/docs/auto-merge-github-app.md"
             finish skip-stale-approvals-kept "🚫 '$BASE_REF' keeps approvals after new pushes (or requires none) — a bot approval could cover code pushed later"
+          fi
+
+          # Guard 5: only Dependabot-triggered runs may approve. Last, so it only
+          # decides once the commits and the current base passed (see above).
+          if [[ "$ACTOR" != "dependabot[bot]" ]]; then
+            finish skip-untrusted-actor "🚫 Run triggered by '$ACTOR', not dependabot[bot] — leaving for manual review"
           fi
 
           finish "$ACTION" "✅ All merge guards passed"
@@ -1813,6 +1820,8 @@ jobs:
       # Verified by the `verify` job from GitHub's payload and the API
       PR_NUMBER: ${{ needs.verify.outputs.pr-number }}
       VERIFIED_SHA: ${{ needs.verify.outputs.head-sha }}
+      # The base whose rules the merge guards checked
+      VERIFIED_BASE: ${{ needs.verify.outputs.base-ref }}
       # Exactly one of the two steps below runs
       DECISION: ${{ (needs.verify.outputs.result == 'analyze' && needs.analyze.result == 'success' && startsWith(needs.analyze.outputs.action, 'auto-merge-')) && 'approve' || 'revoke' }}
 
@@ -1855,10 +1864,12 @@ jobs:
           outcome() { echo "outcome=$1" >> "$GITHUB_OUTPUT"; }
 
           # Re-read the PR right before acting: it must still be an open, same-repo
-          # Dependabot PR on the exact commit the verify job checked.
+          # Dependabot PR on the exact commit the verify job checked, targeting the
+          # base whose rules the merge guards checked.
           PR_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
           STATE=$(jq -r '.state' <<< "$PR_JSON")
           CURRENT_SHA=$(jq -r '.head.sha' <<< "$PR_JSON")
+          CURRENT_BASE=$(jq -r '.base.ref // ""' <<< "$PR_JSON")
           ARMED=$(jq -r '.auto_merge != null' <<< "$PR_JSON")
           AUTHOR=$(jq -r '.user.login // ""' <<< "$PR_JSON")
           HEAD_REPO=$(jq -r '.head.repo.full_name // ""' <<< "$PR_JSON")
@@ -1875,6 +1886,13 @@ jobs:
           if [[ "$CURRENT_SHA" != "$VERIFIED_SHA" ]]; then
             echo "⏭️ Head moved from $VERIFIED_SHA to $CURRENT_SHA — the run for the new commit decides"
             outcome skipped-head-moved
+            exit 0
+          fi
+          # A retarget keeps the head (so --match-head-commit still passes) but can
+          # change the rules that apply and the commits the PR merges
+          if [[ -z "$VERIFIED_BASE" || "$CURRENT_BASE" != "$VERIFIED_BASE" ]]; then
+            echo "⏭️ Base changed from ${VERIFIED_BASE:-<unknown>} to ${CURRENT_BASE:-<unknown>} — the run for the retarget decides"
+            outcome skipped-base-changed
             exit 0
           fi
 
@@ -2037,8 +2055,10 @@ jobs:
           # An App approval of the current head was made by an evaluation that
           # Dependabot triggered and that verified that exact commit. It stands when
           # this run judged other content (the head has moved since), or when only
-          # who triggered this run is in question (skip-untrusted-actor). Unreadable
-          # reviews can't show one, so the arming is revoked below (fail closed).
+          # who triggered this run is in question (skip-untrusted-actor: the actor
+          # guard runs last, so the commits and the current base's rules passed).
+          # Unreadable reviews can't show one, so the arming is revoked below
+          # (fail closed).
           if [[ "$CURRENT_SHA" != "$VERIFIED_SHA" || "$ACTION" == "skip-untrusted-actor" ]]; then
             if grep -q " $CURRENT_SHA\$" <<< "$APPROVALS"; then
               echo "✅ $APP_BOT approved the current head $CURRENT_SHA in an evaluation Dependabot triggered — nothing to revoke"
@@ -2179,6 +2199,7 @@ jobs:
             skipped-not-open)         DESC="⏭️ Skipped (PR no longer open)" ;;
             skipped-not-dependabot)   DESC="⏭️ Skipped (no longer a same-repo Dependabot PR)" ;;
             skipped-head-moved)       DESC="⏭️ Skipped (head moved — the newer run decides)" ;;
+            skipped-base-changed)     DESC="⏭️ Skipped (PR retargeted — the run for the new base decides)" ;;
             revoked)                  DESC="🚫 Bot approval dismissed and/or auto-merge disabled: $REVOKE_REASON" ;;
             revoke-incomplete)        DESC="❌ Revocation incomplete: could not ${REVOKE_FAILED:-finish}. A bot approval or auto-merge may still be in place — check the PR" ;;
             kept-current)             DESC="✅ Nothing revoked: the App's approval of the current head (from an evaluation Dependabot triggered) stands" ;;
