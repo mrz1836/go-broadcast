@@ -140,7 +140,8 @@ jobs:
   #   analyze             → a genuine Dependabot PR on the triggering commit;
   #                         `analyze` decides what to do with it
   #   revoke-foreign-push → the PR has a commit Dependabot didn't produce
-  #   manual-no-metadata  → Dependabot's metadata can't be read: manual review
+  #   manual-no-metadata  → Dependabot's metadata can't be read, or the PR isn't
+  #                         exactly the one commit it describes: manual review
   #   revoke-unverified   → the PR is known, but a GitHub API read failed before
   #                         it was verified: revoke (fail closed, re-run to retry)
   #   skip-*              → not a PR this workflow acts on, or no longer at the
@@ -481,9 +482,6 @@ jobs:
             } catch (error) {
               return unverified('list the PR commits', error);
             }
-            if (commits.length === 0) {
-              return finish('manual-no-metadata', `PR #${pr.number} has no commits`, verified);
-            }
             const foreign = commits.filter(c => !isDependabotCommit(c));
             if (foreign.length > 0) {
               console.log('🚫 Commits not authored by Dependabot and signed by GitHub:');
@@ -495,18 +493,22 @@ jobs:
             console.log(`✅ All ${commits.length} commit(s) authored by ${DEPENDABOT} and signed by GitHub`);
 
             // ——————————————————————————————————————————————————————————————————
-            // 5. Dependabot metadata from the verified head commit's message.
+            // 5. Dependabot metadata from the verified head commit's message. It
+            //    only describes that commit, so the PR must be exactly that one
+            //    commit: Dependabot always force-pushes a single fresh commit.
+            //    More can still pass step 4 (a retarget to an older base pulls in
+            //    squash-merged Dependabot commits, each signed by GitHub), and
+            //    the head's metadata would then classify changes it doesn't
+            //    describe (e.g. an earlier major update as this patch).
             // ——————————————————————————————————————————————————————————————————
-            let headCommit = commits.find(c => c.sha === pr.head.sha);
-            if (!headCommit) {
-              try {
-                ({ data: headCommit } = await github.rest.repos.getCommit({ owner, repo, ref: pr.head.sha }));
-              } catch (error) {
-                return unverified('read the head commit', error);
-              }
+            if (commits.length !== 1) {
+              return finish('manual-no-metadata', `PR #${pr.number} has ${commits.length} commits; the head commit's metadata only describes itself, so it needs a manual review`, verified);
             }
-            if (!isDependabotCommit(headCommit)) {
-              return finish('revoke-foreign-push', `Head commit ${pr.head.sha} wasn't produced by Dependabot`, verified);
+            const [headCommit] = commits;
+            if (headCommit.sha !== pr.head.sha) {
+              // The PR read matched this run's head, so the commit list is stale
+              // or out of sync with it: fail closed, as for a failed read.
+              return unverified('match the PR commits to the head', new Error(`the PR's only commit is ${headCommit.sha}, not ${pr.head.sha}`));
             }
             const metadata = parseDependabotCommit(headCommit.commit?.message ?? '', pr.head.ref, pr.title ?? '');
             if (!metadata) {
@@ -2038,7 +2040,7 @@ jobs:
               WHY="This Dependabot PR has commits that Dependabot didn't produce"
             fi
           elif [[ "$VERIFY_RESULT" == "manual-no-metadata" ]]; then
-            WHY="Dependabot's update metadata couldn't be read from commit $SHORT_SHA"
+            WHY="Dependabot's update metadata couldn't be read from commit $SHORT_SHA, or doesn't cover every commit in this PR"
           elif [[ "$VERIFY_RESULT" == "revoke-unverified" ]]; then
             WHY="Commit $SHORT_SHA couldn't be verified (a GitHub API read failed)"
           elif [[ "$ANALYZE_RESULT" != "success" ]]; then
