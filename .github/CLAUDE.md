@@ -87,7 +87,7 @@ Enable via environment variables:
 GO_BROADCAST_AI_ENABLED=true
 ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
 ```
-See [`.github/.env.base`](.env.base) for all options. Disabled by default; failures fall back to static templates.
+See [`.github/env/90-project.env`](env/90-project.env) for all options. Disabled by default; failures fall back to static templates.
 
 ---
 
