@@ -1008,7 +1008,8 @@ go-broadcast db validate --json                   # Validation results in JSON
 # Database export
 go-broadcast db export --output backup.yaml       # Export entire config to YAML
 go-broadcast db export --group core --output core-group.yaml  # Export specific group
-go-broadcast db export --stdout                   # Export to stdout
+go-broadcast db export --stdout                   # Export to stdout (the document only)
+go-broadcast db export --stdout --format json     # Export to stdout as JSON
 
 # Granular CLI management (full reference: docs/database.md)
 go-broadcast db group list                        # List all groups
@@ -1445,13 +1446,16 @@ go-broadcast db query --repo company/service-name
 go-broadcast db query --file-list ai-files
 ```
 
-**Export back to YAML:**
+**Export back to YAML (or JSON):**
 ```bash
 # Export entire configuration
 go-broadcast db export --output backup.yaml
 
 # Export specific group
 go-broadcast db export --group core --output core-group.yaml
+
+# Export as JSON
+go-broadcast db export --format json --output backup.json
 ```
 
 **Benefits:**
