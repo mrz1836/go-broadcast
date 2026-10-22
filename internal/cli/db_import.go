@@ -24,12 +24,13 @@ var (
 	dbImportForce bool
 	dbImportCmd   = &cobra.Command{
 		Use:   "import",
-		Short: "Import YAML configuration into database",
-		Long: `Import configuration from a YAML file into the database.
+		Short: "Import YAML or JSON configuration into database",
+		Long: `Import configuration from a YAML or JSON file into the database.
 
-This command loads a YAML configuration file and imports it into the
-SQLite database, converting all groups, targets, file lists, and directory
-lists into database records.
+This command loads a configuration file and imports it into the SQLite
+database, converting all groups, targets, file lists, and directory lists
+into database records. JSON is read as YAML (JSON is a subset of YAML), so
+a file written by 'db export --format json' imports like a YAML one.
 
 The import process is transactional - if any error occurs during import,
 all changes are rolled back and the database remains unchanged.
@@ -40,6 +41,9 @@ Examples:
 
   # Import from specific YAML file
   go-broadcast db import --yaml my-config.yaml
+
+  # Import a JSON export
+  go-broadcast db import --yaml backup.json
 
   # Force import (replace existing config with same ID)
   go-broadcast db import --force
@@ -52,7 +56,7 @@ Examples:
 
 //nolint:gochecknoinits // Cobra commands require init() for flag registration
 func init() {
-	dbImportCmd.Flags().StringVar(&dbImportYAML, "yaml", "sync.yaml", "Path to YAML configuration file")
+	dbImportCmd.Flags().StringVar(&dbImportYAML, "yaml", "sync.yaml", "Path to YAML (or JSON) configuration file")
 	dbImportCmd.Flags().BoolVar(&dbImportForce, "force", false, "Force import (replace existing config)")
 }
 

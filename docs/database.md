@@ -94,7 +94,7 @@ go-broadcast db query --repo owner/my-repo
 go-broadcast db query --file-list ai-files
 ```
 
-### Export to YAML
+### Export to YAML or JSON
 
 ```bash
 # Export entire configuration
@@ -103,8 +103,11 @@ go-broadcast db export --output sync-exported.yaml
 # Export single group
 go-broadcast db export --group my-tools --output group.yaml
 
-# Export to stdout
+# Export to stdout (only the document goes to stdout; progress goes to stderr)
 go-broadcast db export --stdout
+
+# Export as JSON (same keys, same order as the YAML)
+go-broadcast db export --stdout --format json
 ```
 
 ### Use Database Configuration
@@ -1069,7 +1072,15 @@ go-broadcast db export --group my-tools --output review.yaml
 
 # Export to stdout (pipe to other tools)
 go-broadcast db export --stdout | yq eval '.groups[0].name'
+
+# Export as JSON for tools that read JSON
+go-broadcast db export --stdout --format json | jq '.groups[0].name'
 ```
+
+With `--stdout`, stdout carries the exported document alone: progress
+messages go to stderr, so the output can be piped or parsed as is.
+`--format json` writes the same document as JSON, with the same keys in the
+same order as the YAML; `db import` reads it back (JSON is a subset of YAML).
 
 ### Round-Trip Guarantee
 
@@ -1133,7 +1144,7 @@ go-broadcast db status
 </details>
 
 <details>
-<summary><code>db import</code> — Import YAML configuration</summary>
+<summary><code>db import</code> — Import YAML or JSON configuration</summary>
 
 ```bash
 # Basic import (replaces all data)
@@ -1151,7 +1162,7 @@ go-broadcast db import sync.yaml --db-path /tmp/test.db
 </details>
 
 <details>
-<summary><code>db export</code> — Export to YAML</summary>
+<summary><code>db export</code> — Export to YAML or JSON</summary>
 
 ```bash
 # Export to file
@@ -1160,8 +1171,12 @@ go-broadcast db export --output sync.yaml
 # Export single group
 go-broadcast db export --group my-tools --output group.yaml
 
-# Export to stdout
+# Export to stdout (only the document; progress goes to stderr)
 go-broadcast db export --stdout
+
+# Export as JSON (to stdout, or to a file with --output)
+go-broadcast db export --stdout --format json
+go-broadcast db export --format json --output sync.json
 ```
 
 </details>

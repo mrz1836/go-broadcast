@@ -47,4 +47,10 @@ var (
 
 	// ErrDatabaseFileNotFound indicates the database file was not found
 	ErrDatabaseFileNotFound = errors.New("database file not found")
+
+	// ErrUnsupportedExportFormat indicates an export format other than yaml or json
+	ErrUnsupportedExportFormat = errors.New("unsupported export format")
+
+	// ErrUnsupportedYAMLNode indicates a YAML node the JSON export cannot represent
+	ErrUnsupportedYAMLNode = errors.New("YAML value has no JSON form")
 )

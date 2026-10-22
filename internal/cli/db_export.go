@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -19,17 +20,23 @@ var (
 	dbExportOutput string
 	dbExportGroup  string
 	dbExportStdout bool
+	dbExportFormat = exportFormatYAML
 	dbExportCmd    = &cobra.Command{
 		Use:   "export",
-		Short: "Export database configuration to YAML",
-		Long: `Export configuration from the database to a YAML file.
+		Short: "Export database configuration to YAML or JSON",
+		Long: `Export configuration from the database to a YAML or JSON file.
 
 This command reads the configuration from the SQLite database and exports
-it to YAML format, preserving all groups, targets, file lists, directory
-lists, and their relationships.
+it in the configuration file format, preserving all groups, targets, file
+lists, directory lists, and their relationships.
 
-The exported YAML can be re-imported using 'db import' for backup/restore
-or migration purposes.
+The format is YAML by default; --format json writes the same document as
+JSON, with the same keys in the same order, for programs that read JSON.
+Either can be re-imported using 'db import' for backup/restore or
+migration purposes.
+
+With --stdout, the document is the only thing written to stdout: progress
+messages go to stderr, so the output can be piped or parsed as is.
 
 Examples:
   # Export to file
@@ -37,6 +44,9 @@ Examples:
 
   # Export to stdout
   go-broadcast db export --stdout
+
+  # Export to stdout as JSON
+  go-broadcast db export --stdout --format json
 
   # Export single group
   go-broadcast db export --group my-tools --output group.yaml
@@ -47,11 +57,18 @@ Examples:
 	}
 )
 
+// Export formats accepted by --format.
+const (
+	exportFormatYAML = "yaml"
+	exportFormatJSON = "json"
+)
+
 //nolint:gochecknoinits // Cobra commands require init() for flag registration
 func init() {
-	dbExportCmd.Flags().StringVar(&dbExportOutput, "output", "", "Output YAML file path")
+	dbExportCmd.Flags().StringVar(&dbExportOutput, "output", "", "Output file path")
 	dbExportCmd.Flags().StringVar(&dbExportGroup, "group", "", "Export single group by external ID")
-	dbExportCmd.Flags().BoolVar(&dbExportStdout, "stdout", false, "Write to stdout instead of file")
+	dbExportCmd.Flags().BoolVar(&dbExportStdout, "stdout", false, "Write to stdout instead of file (only the document goes to stdout)")
+	dbExportCmd.Flags().StringVar(&dbExportFormat, "format", exportFormatYAML, "Output format: yaml or json")
 }
 
 // runDBExport executes the database export command
@@ -70,10 +87,16 @@ func runDBExport(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("cannot specify both --output and --stdout") //nolint:err113 // user-facing CLI validation error
 	}
 
+	format := strings.ToLower(strings.TrimSpace(dbExportFormat))
+	if format != exportFormatYAML && format != exportFormatJSON {
+		return fmt.Errorf("%w: %q (use %s or %s)", ErrUnsupportedExportFormat, dbExportFormat, exportFormatYAML, exportFormatJSON)
+	}
+
+	progress := exportLog()
 	path := getDBPath()
 
 	// Open database
-	output.Info(fmt.Sprintf("Opening database: %s", path))
+	progress.Info(fmt.Sprintf("Opening database: %s", path))
 	database, err := db.Open(db.OpenOptions{
 		Path:     path,
 		LogLevel: logger.Silent,
@@ -112,7 +135,7 @@ func runDBExport(cmd *cobra.Command, _ []string) error {
 	var cfg *config.Config
 	if dbExportGroup != "" {
 		// Export single group
-		output.Info(fmt.Sprintf("Exporting group: %s", dbExportGroup))
+		progress.Info(fmt.Sprintf("Exporting group: %s", dbExportGroup))
 
 		var dbCfg db.Config
 		if dbErr := database.DB().Where("external_id = ?", configExternalID).First(&dbCfg).Error; dbErr != nil {
@@ -130,7 +153,7 @@ func runDBExport(cmd *cobra.Command, _ []string) error {
 		}
 	} else {
 		// Export full config
-		output.Info(fmt.Sprintf("Exporting configuration: %s", configExternalID))
+		progress.Info(fmt.Sprintf("Exporting configuration: %s", configExternalID))
 		var eErr error
 		cfg, eErr = converter.ExportConfig(ctx, configExternalID)
 		if eErr != nil {
@@ -138,34 +161,62 @@ func runDBExport(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	// Marshal to YAML
-	yamlData, err := yaml.Marshal(cfg)
+	// Encode the document
+	data, err := encodeExport(cfg, format)
 	if err != nil {
-		return fmt.Errorf("failed to marshal YAML: %w", err)
+		return err
 	}
 
 	// Write output
 	if dbExportStdout {
-		fmt.Print(string(yamlData)) //nolint:forbidigo // intentional stdout output for --stdout flag
+		if _, err := output.Stdout().Write(data); err != nil {
+			return fmt.Errorf("failed to write to stdout: %w", err)
+		}
 	} else {
-		output.Info(fmt.Sprintf("Writing to: %s", dbExportOutput))
-		if err := os.WriteFile(dbExportOutput, yamlData, 0o600); err != nil {
+		progress.Info(fmt.Sprintf("Writing to: %s", dbExportOutput))
+		if err := os.WriteFile(dbExportOutput, data, 0o600); err != nil {
 			return fmt.Errorf("failed to write file: %w", err)
 		}
-		output.Success(fmt.Sprintf("✓ Exported to: %s", dbExportOutput))
+		progress.Success(fmt.Sprintf("✓ Exported to: %s", dbExportOutput))
 	}
 
 	// Report counts
 	if !dbExportStdout {
-		output.Info(fmt.Sprintf("  Groups:           %d", len(cfg.Groups)))
+		progress.Info(fmt.Sprintf("  Groups:           %d", len(cfg.Groups)))
 		totalTargets := 0
 		for _, group := range cfg.Groups {
 			totalTargets += len(group.Targets)
 		}
-		output.Info(fmt.Sprintf("  Targets:          %d", totalTargets))
-		output.Info(fmt.Sprintf("  File Lists:       %d", len(cfg.FileLists)))
-		output.Info(fmt.Sprintf("  Directory Lists:  %d", len(cfg.DirectoryLists)))
+		progress.Info(fmt.Sprintf("  Targets:          %d", totalTargets))
+		progress.Info(fmt.Sprintf("  File Lists:       %d", len(cfg.FileLists)))
+		progress.Info(fmt.Sprintf("  Directory Lists:  %d", len(cfg.DirectoryLists)))
 	}
 
 	return nil
+}
+
+// exportLog is where export's progress messages go: stdout, unless the
+// document itself goes to stdout (--stdout), in which case they go to stderr
+// so that stdout carries the document alone.
+func exportLog() output.Writer {
+	if dbExportStdout {
+		return output.NewColoredWriter(output.Stderr(), output.Stderr())
+	}
+	return output.NewColoredWriter(output.Stdout(), output.Stderr())
+}
+
+// encodeExport encodes the exported configuration in the requested format.
+func encodeExport(cfg *config.Config, format string) ([]byte, error) {
+	if format == exportFormatJSON {
+		data, err := configToJSON(cfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal JSON: %w", err)
+		}
+		return data, nil
+	}
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal YAML: %w", err)
+	}
+	return data, nil
 }
