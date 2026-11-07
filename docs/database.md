@@ -1828,6 +1828,10 @@ go-broadcast analytics sync --dry-run
 - **Only syncs repos configured in your go-broadcast database** (from the `repos` table)
 - Does NOT discover new repos from GitHub - only updates analytics for repos you've already imported
 - Collects repository metadata using batched GraphQL queries (25 repos per query)
+- Queries a repo again on its own when its batch does not return it (the response left it
+  out, or the query failed), in every mode including `--org`; only a repo that the retry
+  also misses is recorded as failed, and the error in `sync_runs` keeps the reason
+  (rate-limited repos are recorded without a retry)
 - Fetches security alerts (Dependabot, code scanning, secret scanning) concurrently
 - Collects CI metrics from GoFortress workflow artifacts (test counts, LOC, coverage, benchmarks)
 - Creates point-in-time snapshots and upserts security alerts

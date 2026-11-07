@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -13,8 +14,15 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/gh"
 )
 
-// ErrMetadataNotReturned is returned when metadata is not found for a repository
+// ErrMetadataNotReturned is returned when metadata could not be collected for a
+// repository, even after the repository was queried again on its own. It wraps
+// the last attempt's error, so errors.Is and errors.As also see the cause.
 var ErrMetadataNotReturned = errors.New("metadata not returned for repository")
+
+// ErrRepoOmittedFromResponse is the cause recorded when a GraphQL query succeeded
+// but its response left the repository out (alias absent or null), as opposed to
+// the query itself failing.
+var ErrRepoOmittedFromResponse = errors.New("repository omitted from GraphQL response")
 
 // errOrgNotFound is returned when an organization is not found in the database
 var errOrgNotFound = errors.New("organization not found in database")
@@ -57,13 +65,18 @@ func (p *Pipeline) GetThrottle() *Throttle {
 	return p.throttle
 }
 
-// SyncOrganization syncs metadata for configured repos in an organization
-// Only syncs repos that are already in the go-broadcast database, not all repos owned by the org
-func (p *Pipeline) SyncOrganization(ctx context.Context, org string) (map[string]*RepoMetadata, error) {
+// SyncOrganization syncs metadata for configured repos in an organization.
+// Only syncs repos that are already in the go-broadcast database, not all repos owned by the org.
+//
+// Each configured repo is keyed by its full name in exactly one of the two maps:
+// metadata for the repos that were collected, failures for the ones that were not
+// (each failure wraps ErrMetadataNotReturned and the cause). The maps are only
+// incomplete when err is non-nil.
+func (p *Pipeline) SyncOrganization(ctx context.Context, org string) (map[string]*RepoMetadata, map[string]error, error) {
 	// Step 1: Query configured repos from database for this org
 	configuredRepos, err := p.getConfiguredReposForOrg(ctx, org)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get configured repos for owner %s: %w", org, err)
+		return nil, nil, fmt.Errorf("failed to get configured repos for owner %s: %w", org, err)
 	}
 
 	if p.logger != nil {
@@ -74,7 +87,7 @@ func (p *Pipeline) SyncOrganization(ctx context.Context, org string) (map[string
 	}
 
 	if len(configuredRepos) == 0 {
-		return make(map[string]*RepoMetadata), nil
+		return make(map[string]*RepoMetadata), nil, nil
 	}
 
 	// Step 2: Batch repos and collect metadata
@@ -122,21 +135,30 @@ func (p *Pipeline) SyncRepository(ctx context.Context, owner, name string) (*Rep
 	}
 
 	// Use batch query with single repo
-	metadata, err := p.collectMetadata(ctx, []gh.RepoInfo{repo})
+	metadata, failures, err := p.collectMetadata(ctx, []gh.RepoInfo{repo})
 	if err != nil {
 		return nil, err
 	}
 
-	result, ok := metadata[repo.FullName]
-	if !ok {
-		return nil, fmt.Errorf("%w: %s", ErrMetadataNotReturned, repo.FullName)
+	if result, ok := metadata[repo.FullName]; ok {
+		return result, nil
+	}
+	if failure, ok := failures[repo.FullName]; ok {
+		return nil, failure
 	}
 
-	return result, nil
+	// Defensive: collectMetadata places every repo in one of the two maps
+	return nil, fmt.Errorf("%w: %s", ErrMetadataNotReturned, repo.FullName)
 }
 
-// collectMetadata executes batched GraphQL queries to collect repo metadata
-func (p *Pipeline) collectMetadata(ctx context.Context, repos []gh.RepoInfo) (map[string]*RepoMetadata, error) {
+// collectMetadata executes batched GraphQL queries to collect repo metadata.
+//
+// A repo its batch did not return (left out of a successful response, or covered
+// by a failed query) is queried once more on its own before it counts as failed.
+// Every requested repo lands, keyed by full name, in exactly one of metadata or
+// failures; each failure wraps ErrMetadataNotReturned and the last attempt's
+// error. err is non-nil only when ctx is done, and the maps are then incomplete.
+func (p *Pipeline) collectMetadata(ctx context.Context, repos []gh.RepoInfo) (map[string]*RepoMetadata, map[string]error, error) {
 	// Split repos into batches
 	batches := ChunkRepos(repos, DefaultBatchSize)
 
@@ -149,113 +171,206 @@ func (p *Pipeline) collectMetadata(ctx context.Context, repos []gh.RepoInfo) (ma
 	}
 
 	allMetadata := make(map[string]*RepoMetadata)
+	failures := make(map[string]error)
 
 	// Process each batch
 	for i, batch := range batches {
+		batchNum := i + 1
+
+		// Inter-batch delay to avoid rate-limit pressure (also after a failed batch)
+		if i > 0 && p.throttle != nil {
+			if err := p.throttle.WaitInterRepo(ctx); err != nil {
+				return allMetadata, failures, err
+			}
+		}
+
 		// Check for context cancellation between batches
-		select {
-		case <-ctx.Done():
-			return allMetadata, ctx.Err()
-		default:
+		if err := ctx.Err(); err != nil {
+			return allMetadata, failures, err
 		}
 
 		if p.logger != nil {
 			p.logger.WithFields(logrus.Fields{
-				"batch":      i + 1,
+				"batch":      batchNum,
 				"batch_size": len(batch),
 			}).Debug("Processing batch")
 		}
 
-		// Build GraphQL query for this batch
-		query := BuildBatchQuery(batch)
-		if query == "" {
-			continue
-		}
-
-		// Execute GraphQL query
-		data, err := p.ghClient.ExecuteGraphQL(ctx, query)
-		if err != nil {
-			// Log error and continue with next batch (or fall back to smaller batches)
-			if p.logger != nil {
-				p.logger.WithError(err).WithField("batch", i+1).Warn("Failed to execute batch query")
-			}
-
-			// Try fallback with smaller batch size if this is a complexity error
-			if isComplexityError(err) {
-				if p.logger != nil {
-					p.logger.WithField("batch", i+1).Info("Retrying with smaller batch size")
-				}
-
-				// Retry with smaller batches
-				smallerBatches := ChunkRepos(batch, FallbackBatchSize)
-				for j, smallBatch := range smallerBatches {
-					smallQuery := BuildBatchQuery(smallBatch)
-					smallData, smallErr := p.ghClient.ExecuteGraphQL(ctx, smallQuery)
-					if smallErr != nil {
-						if p.logger != nil {
-							p.logger.WithError(smallErr).WithFields(logrus.Fields{
-								"batch":     i + 1,
-								"sub_batch": j + 1,
-							}).Error("Failed to execute fallback batch query")
-						}
-						continue
-					}
-
-					// Parse and merge results
-					metadata, parseErr := ParseBatchResponse(smallData, smallBatch)
-					if parseErr != nil {
-						if p.logger != nil {
-							p.logger.WithError(parseErr).Warn("Failed to parse fallback batch response")
-						}
-						continue
-					}
-
-					for k, v := range metadata {
-						allMetadata[k] = v
-					}
-				}
-			}
-
-			continue
-		}
-
-		// Parse response
-		metadata, err := ParseBatchResponse(data, batch)
-		if err != nil {
-			if p.logger != nil {
-				p.logger.WithError(err).WithField("batch", i+1).Warn("Failed to parse batch response")
-			}
-			continue
-		}
-
-		// Merge into results
-		for k, v := range metadata {
-			allMetadata[k] = v
-		}
-
-		if p.logger != nil {
-			p.logger.WithFields(logrus.Fields{
-				"batch":        i + 1,
-				"repos_parsed": len(metadata),
-			}).Debug("Batch processed successfully")
-		}
-
-		// Inter-batch delay to avoid rate-limit pressure
-		if p.throttle != nil && i < len(batches)-1 {
-			if err := p.throttle.WaitInterRepo(ctx); err != nil {
-				return allMetadata, err
-			}
+		queryErrs := p.fetchBatch(ctx, batchNum, batch, allMetadata)
+		if err := p.retryMissing(ctx, batchNum, batch, queryErrs, allMetadata, failures); err != nil {
+			return allMetadata, failures, err
 		}
 	}
 
 	if p.logger != nil {
 		p.logger.WithFields(logrus.Fields{
 			"total_metadata": len(allMetadata),
+			"failed":         len(failures),
 			"expected":       len(repos),
 		}).Info("Metadata collection complete")
 	}
 
-	return allMetadata, nil
+	return allMetadata, failures, nil
+}
+
+// queryBatch runs one aliased GraphQL query for batch and merges the repos its
+// response returned into into. It returns how many repos were merged, and the
+// query or parse error if the query failed.
+func (p *Pipeline) queryBatch(ctx context.Context, batch []gh.RepoInfo, into map[string]*RepoMetadata) (int, error) {
+	data, err := p.ghClient.ExecuteGraphQL(ctx, BuildBatchQuery(batch))
+	if err != nil {
+		return 0, err
+	}
+
+	metadata, err := ParseBatchResponse(data, batch)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse batch response: %w", err)
+	}
+
+	maps.Copy(into, metadata)
+	return len(metadata), nil
+}
+
+// fetchBatch queries one batch and merges the repos it returned into into. When
+// the query is too complex for a batch larger than FallbackBatchSize, it retries
+// the batch as sub-batches of that size. The returned map holds, for each repo
+// covered by a query that failed, that query's error.
+func (p *Pipeline) fetchBatch(ctx context.Context, batchNum int, batch []gh.RepoInfo, into map[string]*RepoMetadata) map[string]error {
+	parsed, err := p.queryBatch(ctx, batch, into)
+	if err == nil {
+		if p.logger != nil {
+			p.logger.WithFields(logrus.Fields{
+				"batch":        batchNum,
+				"repos_parsed": parsed,
+			}).Debug("Batch processed successfully")
+		}
+		return nil
+	}
+
+	if p.logger != nil {
+		p.logger.WithError(err).WithField("batch", batchNum).Warn("Failed to execute batch query")
+	}
+
+	// A batch already at the fallback size would only re-run the same query;
+	// its repos get queries of their own in retryMissing instead.
+	if !isComplexityError(err) || len(batch) <= FallbackBatchSize {
+		return queryErrorsFor(batch, err)
+	}
+
+	if p.logger != nil {
+		p.logger.WithField("batch", batchNum).Info("Retrying with smaller batch size")
+	}
+
+	queryErrs := make(map[string]error)
+	for j, subBatch := range ChunkRepos(batch, FallbackBatchSize) {
+		if _, subErr := p.queryBatch(ctx, subBatch, into); subErr != nil {
+			if p.logger != nil {
+				p.logger.WithError(subErr).WithFields(logrus.Fields{
+					"batch":     batchNum,
+					"sub_batch": j + 1,
+				}).Error("Failed to execute fallback batch query")
+			}
+			maps.Copy(queryErrs, queryErrorsFor(subBatch, subErr))
+		}
+	}
+
+	return queryErrs
+}
+
+// queryErrorsFor maps the full name of each repo in repos to err
+func queryErrorsFor(repos []gh.RepoInfo, err error) map[string]error {
+	errs := make(map[string]error, len(repos))
+	for _, repo := range repos {
+		errs[repo.FullName] = err
+	}
+	return errs
+}
+
+// retryMissing gives each repo of batch that is not in into one query of its own,
+// and records the ones still missing in failures. A repo's first cause is its
+// query error from queryErrs, or ErrRepoOmittedFromResponse when the batch
+// succeeded without it. A rate-limited repo is recorded without a retry: another
+// request would only fail the same way and spend more of the budget.
+// It returns an error only when ctx is done.
+func (p *Pipeline) retryMissing(
+	ctx context.Context,
+	batchNum int,
+	batch []gh.RepoInfo,
+	queryErrs map[string]error,
+	into map[string]*RepoMetadata,
+	failures map[string]error,
+) error {
+	for _, repo := range batch {
+		if _, ok := into[repo.FullName]; ok {
+			continue
+		}
+
+		cause := queryErrs[repo.FullName]
+		if cause == nil {
+			cause = ErrRepoOmittedFromResponse
+		}
+
+		if isAPIRateLimitError(cause) {
+			if p.logger != nil {
+				p.logger.WithError(cause).WithFields(logrus.Fields{
+					"repo":  repo.FullName,
+					"batch": batchNum,
+				}).Warn("Not retrying rate-limited repository")
+			}
+		} else {
+			cause = p.retryRepo(ctx, batchNum, repo, cause, into)
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if cause == nil {
+				continue
+			}
+		}
+
+		failures[repo.FullName] = fmt.Errorf("%w: %s: %w", ErrMetadataNotReturned, repo.FullName, cause)
+	}
+
+	return nil
+}
+
+// retryRepo queries repo on its own, after the inter-repo delay, and merges it
+// into into when the response returns it. It returns nil once repo is recovered,
+// otherwise the reason it is still missing: the retry's error, or
+// ErrRepoOmittedFromResponse when the retry succeeded without it. cause is why
+// the batch did not return repo; it is only logged.
+func (p *Pipeline) retryRepo(ctx context.Context, batchNum int, repo gh.RepoInfo, cause error, into map[string]*RepoMetadata) error {
+	if p.throttle != nil {
+		if err := p.throttle.WaitInterRepo(ctx); err != nil {
+			return err
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	if p.logger != nil {
+		p.logger.WithError(cause).WithFields(logrus.Fields{
+			"repo":  repo.FullName,
+			"batch": batchNum,
+		}).Info("Retrying repository missing from batch")
+	}
+
+	_, err := p.queryBatch(ctx, []gh.RepoInfo{repo}, into)
+	if err == nil {
+		if _, ok := into[repo.FullName]; ok {
+			return nil
+		}
+		err = ErrRepoOmittedFromResponse
+	}
+
+	if p.logger != nil {
+		p.logger.WithError(err).WithFields(logrus.Fields{
+			"repo":  repo.FullName,
+			"batch": batchNum,
+		}).Warn("Repository metadata still missing after retry")
+	}
+
+	return err
 }
 
 // isComplexityError checks if the error is due to GraphQL complexity limits
