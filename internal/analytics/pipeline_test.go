@@ -3,6 +3,11 @@ package analytics
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
+	"maps"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,6 +30,8 @@ var (
 	errUpdateSyncRun          = errors.New("update sync run failed")
 	errOrgNotFoundDB          = errors.New("org not found in db")
 	errRepoQueryFailed        = errors.New("repo query failed")
+	errRepoNotFound           = errors.New("could not resolve to a repository with that name")
+	errAPIRateLimited         = errors.New("API rate limit exceeded for user")
 )
 
 // --- Mock implementations for db interfaces ---
@@ -354,9 +361,61 @@ func TestSyncRepository(t *testing.T) {
 			Return(nil, errGraphQLError)
 
 		result, err := pipeline.SyncRepository(ctx, "owner", "error-repo")
-		require.Error(t, err)
+		require.ErrorIs(t, err, ErrMetadataNotReturned)
+		require.ErrorIs(t, err, errGraphQLError)
+		require.NotErrorIs(t, err, ErrRepoOmittedFromResponse)
+		assert.Contains(t, err.Error(), "owner/error-repo")
 		assert.Nil(t, result)
 
+		// The failed query is retried once before the repo counts as failed
+		mockClient.AssertNumberOfCalls(t, "ExecuteGraphQL", 2)
+		mockClient.AssertExpectations(t)
+	})
+
+	t.Run("command error stays reachable with errors.As", func(t *testing.T) {
+		mockClient := gh.NewMockClient()
+		pipeline := NewPipeline(mockClient, nil, nil, nil, nil, nil)
+
+		cmdErr := &gh.CommandError{Command: "gh", Stderr: "HTTP 502: Bad Gateway"}
+		mockClient.On("ExecuteGraphQL", ctx, mock.Anything).Return(nil, cmdErr)
+
+		_, err := pipeline.SyncRepository(ctx, "owner", "repo")
+		var gotCmdErr *gh.CommandError
+		require.ErrorAs(t, err, &gotCmdErr)
+		assert.Equal(t, "HTTP 502: Bad Gateway", gotCmdErr.Stderr)
+	})
+
+	t.Run("recovers when the first response omits the repo", func(t *testing.T) {
+		mockClient := gh.NewMockClient()
+		pipeline := NewPipeline(mockClient, nil, nil, nil, nil, nil)
+
+		mockClient.On("ExecuteGraphQL", ctx, mock.Anything).
+			Return(map[string]any{}, nil).Once()
+		mockClient.On("ExecuteGraphQL", ctx, mock.Anything).
+			Return(batchResponse("owner/repo"), nil).Once()
+
+		result, err := pipeline.SyncRepository(ctx, "owner", "repo")
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		assert.Equal(t, "owner/repo", result.FullName)
+
+		mockClient.AssertNumberOfCalls(t, "ExecuteGraphQL", 2)
+		mockClient.AssertExpectations(t)
+	})
+
+	t.Run("omitted twice reports ErrRepoOmittedFromResponse", func(t *testing.T) {
+		mockClient := gh.NewMockClient()
+		pipeline := NewPipeline(mockClient, nil, nil, nil, nil, nil)
+
+		mockClient.On("ExecuteGraphQL", ctx, mock.Anything).
+			Return(map[string]any{"repo0": nil}, nil).Twice()
+
+		result, err := pipeline.SyncRepository(ctx, "owner", "repo")
+		require.ErrorIs(t, err, ErrMetadataNotReturned)
+		require.ErrorIs(t, err, ErrRepoOmittedFromResponse)
+		assert.Nil(t, result)
+
+		mockClient.AssertNumberOfCalls(t, "ExecuteGraphQL", 2)
 		mockClient.AssertExpectations(t)
 	})
 }
@@ -537,9 +596,10 @@ func TestSyncOrganization(t *testing.T) {
 
 		pipeline := NewPipeline(nil, nil, nil, mockOrgRepo, nil, nil)
 
-		result, err := pipeline.SyncOrganization(ctx, "unknown-org")
+		result, failures, err := pipeline.SyncOrganization(ctx, "unknown-org")
 		require.Error(t, err)
 		assert.Nil(t, result)
+		assert.Nil(t, failures)
 		assert.Contains(t, err.Error(), "organization not found")
 		mockOrgRepo.AssertExpectations(t)
 	})
@@ -559,9 +619,11 @@ func TestSyncOrganization(t *testing.T) {
 		logger := logrus.New()
 		pipeline := NewPipeline(nil, nil, mockRepoRepo, mockOrgRepo, logger, nil)
 
-		result, err := pipeline.SyncOrganization(ctx, "test-org")
+		result, failures, err := pipeline.SyncOrganization(ctx, "test-org")
 		require.NoError(t, err)
+		assert.NotNil(t, result)
 		assert.Empty(t, result)
+		assert.Empty(t, failures)
 		mockOrgRepo.AssertExpectations(t)
 		mockRepoRepo.AssertExpectations(t)
 	})
@@ -580,9 +642,10 @@ func TestSyncOrganization(t *testing.T) {
 
 		pipeline := NewPipeline(nil, nil, mockRepoRepo, mockOrgRepo, nil, nil)
 
-		result, err := pipeline.SyncOrganization(ctx, "test-org")
+		result, failures, err := pipeline.SyncOrganization(ctx, "test-org")
 		require.Error(t, err)
 		assert.Nil(t, result)
+		assert.Nil(t, failures)
 		assert.Contains(t, err.Error(), "failed to query repos")
 		mockOrgRepo.AssertExpectations(t)
 		mockRepoRepo.AssertExpectations(t)
@@ -623,15 +686,331 @@ func TestSyncOrganization(t *testing.T) {
 		logger := logrus.New()
 		pipeline := NewPipeline(mockClient, nil, mockRepoRepo, mockOrgRepo, logger, nil)
 
-		result, err := pipeline.SyncOrganization(ctx, "test-org")
+		result, failures, err := pipeline.SyncOrganization(ctx, "test-org")
 		require.NoError(t, err)
 		assert.Len(t, result, 2)
 		assert.Contains(t, result, "test-org/repo1")
 		assert.Contains(t, result, "test-org/repo2")
+		assert.Empty(t, failures)
 		mockOrgRepo.AssertExpectations(t)
 		mockRepoRepo.AssertExpectations(t)
 		mockClient.AssertExpectations(t)
+		// Every repo came back, so nothing is retried
+		mockClient.AssertNumberOfCalls(t, "ExecuteGraphQL", 1)
 	})
+}
+
+// newOrgPipeline builds a pipeline whose org "owner" has repoNames configured
+func newOrgPipeline(client gh.Client, repoNames ...string) *Pipeline {
+	org := &db.Organization{Name: "owner"}
+	org.ID = 1
+
+	repos := make([]*db.Repo, len(repoNames))
+	for i, name := range repoNames {
+		repos[i] = &db.Repo{Name: name}
+	}
+
+	orgRepo := new(mockOrgRepository)
+	orgRepo.On("GetByName", mock.Anything, "owner").Return(org, nil)
+	repoRepo := new(mockRepoRepository)
+	repoRepo.On("List", mock.Anything, uint(1)).Return(repos, nil)
+
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+
+	return NewPipeline(client, nil, repoRepo, orgRepo, logger, nil)
+}
+
+// queryFor matches a batch query that requests exactly the named repos of "owner"
+func queryFor(names ...string) any {
+	return mock.MatchedBy(func(query string) bool {
+		if strings.Count(query, "repository(") != len(names) {
+			return false
+		}
+		for _, name := range names {
+			if !strings.Contains(query, `name: "`+name+`"`) {
+				return false
+			}
+		}
+		return true
+	})
+}
+
+// batchResponse builds a GraphQL response that returns fullNames under the
+// positional aliases repo0, repo1, ... of a batch query
+func batchResponse(fullNames ...string) map[string]any {
+	data := make(map[string]any, len(fullNames))
+	for i, fullName := range fullNames {
+		data[fmt.Sprintf("repo%d", i)] = map[string]any{
+			"nameWithOwner":  fullName,
+			"stargazerCount": float64(1),
+		}
+	}
+	return data
+}
+
+// numberedRepos returns repo-01 ... repo-<n>
+func numberedRepos(n int) []string {
+	names := make([]string, n)
+	for i := range names {
+		names[i] = fmt.Sprintf("repo-%02d", i+1)
+	}
+	return names
+}
+
+// ownerNames prefixes each repo name with "owner/"
+func ownerNames(names ...string) []string {
+	fullNames := make([]string, len(names))
+	for i, name := range names {
+		fullNames[i] = "owner/" + name
+	}
+	return fullNames
+}
+
+func TestSyncOrganizationRetriesMissingRepos(t *testing.T) {
+	twelve := numberedRepos(12)
+
+	tests := []struct {
+		name  string
+		repos []string
+		setup func(m *gh.MockClient)
+		// wantMetadata lists the full names that must be collected
+		wantMetadata []string
+		// wantFailures maps each failed full name to the cause its error must wrap
+		wantFailures map[string]error
+		wantCalls    int
+	}{
+		{
+			name:  "absent alias is retried and merged",
+			repos: []string{"repo-one", "repo-two"},
+			setup: func(m *gh.MockClient) {
+				m.On("ExecuteGraphQL", mock.Anything, queryFor("repo-one", "repo-two")).
+					Return(batchResponse("owner/repo-one"), nil).Once()
+				m.On("ExecuteGraphQL", mock.Anything, queryFor("repo-two")).
+					Return(batchResponse("owner/repo-two"), nil).Once()
+			},
+			wantMetadata: []string{"owner/repo-one", "owner/repo-two"},
+			wantCalls:    2,
+		},
+		{
+			name:  "null alias is retried and merged",
+			repos: []string{"repo-one", "repo-two"},
+			setup: func(m *gh.MockClient) {
+				response := batchResponse("owner/repo-one")
+				response["repo1"] = nil
+				m.On("ExecuteGraphQL", mock.Anything, queryFor("repo-one", "repo-two")).
+					Return(response, nil).Once()
+				m.On("ExecuteGraphQL", mock.Anything, queryFor("repo-two")).
+					Return(batchResponse("owner/repo-two"), nil).Once()
+			},
+			wantMetadata: []string{"owner/repo-one", "owner/repo-two"},
+			wantCalls:    2,
+		},
+		{
+			name:  "retry that omits the repo again records ErrRepoOmittedFromResponse",
+			repos: []string{"repo-one", "repo-two"},
+			setup: func(m *gh.MockClient) {
+				m.On("ExecuteGraphQL", mock.Anything, queryFor("repo-one", "repo-two")).
+					Return(batchResponse("owner/repo-one"), nil).Once()
+				m.On("ExecuteGraphQL", mock.Anything, queryFor("repo-two")).
+					Return(map[string]any{"repo0": nil}, nil).Once()
+			},
+			wantMetadata: []string{"owner/repo-one"},
+			wantFailures: map[string]error{"owner/repo-two": ErrRepoOmittedFromResponse},
+			wantCalls:    2,
+		},
+		{
+			name:  "retry error is the recorded cause",
+			repos: []string{"repo-one", "repo-two"},
+			setup: func(m *gh.MockClient) {
+				m.On("ExecuteGraphQL", mock.Anything, queryFor("repo-one", "repo-two")).
+					Return(batchResponse("owner/repo-one"), nil).Once()
+				m.On("ExecuteGraphQL", mock.Anything, queryFor("repo-two")).
+					Return(nil, errRepoNotFound).Once()
+			},
+			wantMetadata: []string{"owner/repo-one"},
+			wantFailures: map[string]error{"owner/repo-two": errRepoNotFound},
+			wantCalls:    2,
+		},
+		{
+			name:  "failed batch query retries each repo",
+			repos: []string{"repo-one", "repo-two", "repo-three"},
+			setup: func(m *gh.MockClient) {
+				m.On("ExecuteGraphQL", mock.Anything, queryFor("repo-one", "repo-two", "repo-three")).
+					Return(nil, errNetworkTimeout).Once()
+				m.On("ExecuteGraphQL", mock.Anything, queryFor("repo-one")).
+					Return(batchResponse("owner/repo-one"), nil).Once()
+				m.On("ExecuteGraphQL", mock.Anything, queryFor("repo-two")).
+					Return(batchResponse("owner/repo-two"), nil).Once()
+				m.On("ExecuteGraphQL", mock.Anything, queryFor("repo-three")).
+					Return(nil, errRepoNotFound).Once()
+			},
+			wantMetadata: []string{"owner/repo-one", "owner/repo-two"},
+			wantFailures: map[string]error{"owner/repo-three": errRepoNotFound},
+			wantCalls:    4,
+		},
+		{
+			name:  "rate-limited batch is not retried",
+			repos: []string{"repo-one", "repo-two"},
+			setup: func(m *gh.MockClient) {
+				m.On("ExecuteGraphQL", mock.Anything, queryFor("repo-one", "repo-two")).
+					Return(nil, errAPIRateLimited).Once()
+			},
+			wantFailures: map[string]error{
+				"owner/repo-one": errAPIRateLimited,
+				"owner/repo-two": errAPIRateLimited,
+			},
+			wantCalls: 1,
+		},
+		{
+			name:  "complexity error falls back to sub-batches, then retries the omitted repo",
+			repos: twelve,
+			setup: func(m *gh.MockClient) {
+				m.On("ExecuteGraphQL", mock.Anything, queryFor(twelve...)).
+					Return(nil, errQueryTooComplex).Once()
+				m.On("ExecuteGraphQL", mock.Anything, queryFor(twelve[:10]...)).
+					Return(batchResponse(ownerNames(twelve[:10]...)...), nil).Once()
+				m.On("ExecuteGraphQL", mock.Anything, queryFor(twelve[10:]...)).
+					Return(batchResponse("owner/repo-11"), nil).Once()
+				m.On("ExecuteGraphQL", mock.Anything, queryFor("repo-12")).
+					Return(batchResponse("owner/repo-12"), nil).Once()
+			},
+			wantMetadata: ownerNames(twelve...),
+			wantCalls:    4,
+		},
+		{
+			name:  "failed sub-batch after the complexity fallback retries its repos",
+			repos: twelve,
+			setup: func(m *gh.MockClient) {
+				m.On("ExecuteGraphQL", mock.Anything, queryFor(twelve...)).
+					Return(nil, errQueryTooComplex).Once()
+				m.On("ExecuteGraphQL", mock.Anything, queryFor(twelve[:10]...)).
+					Return(batchResponse(ownerNames(twelve[:10]...)...), nil).Once()
+				m.On("ExecuteGraphQL", mock.Anything, queryFor(twelve[10:]...)).
+					Return(nil, errNetworkTimeout).Once()
+				m.On("ExecuteGraphQL", mock.Anything, queryFor("repo-11")).
+					Return(batchResponse("owner/repo-11"), nil).Once()
+				m.On("ExecuteGraphQL", mock.Anything, queryFor("repo-12")).
+					Return(nil, errRepoNotFound).Once()
+			},
+			wantMetadata: ownerNames(twelve[:11]...),
+			wantFailures: map[string]error{"owner/repo-12": errRepoNotFound},
+			wantCalls:    5,
+		},
+		{
+			name:  "complexity error on a one-repo batch skips the fallback",
+			repos: []string{"repo-one"},
+			setup: func(m *gh.MockClient) {
+				// The batch query and the single retry; a fallback would be a third call
+				m.On("ExecuteGraphQL", mock.Anything, queryFor("repo-one")).
+					Return(nil, errQueryTooComplex).Twice()
+			},
+			wantFailures: map[string]error{"owner/repo-one": errQueryTooComplex},
+			wantCalls:    2,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mockClient := gh.NewMockClient()
+			tc.setup(mockClient)
+			pipeline := newOrgPipeline(mockClient, tc.repos...)
+
+			metadata, failures, err := pipeline.SyncOrganization(t.Context(), "owner")
+			require.NoError(t, err)
+
+			assert.ElementsMatch(t, tc.wantMetadata, slices.Collect(maps.Keys(metadata)))
+			assert.Len(t, failures, len(tc.wantFailures))
+			for fullName, cause := range tc.wantFailures {
+				failure := failures[fullName]
+				require.ErrorIs(t, failure, ErrMetadataNotReturned, fullName)
+				require.ErrorIs(t, failure, cause, fullName)
+				if !errors.Is(cause, ErrRepoOmittedFromResponse) {
+					require.NotErrorIs(t, failure, ErrRepoOmittedFromResponse, fullName)
+				}
+				assert.Contains(t, failure.Error(), fullName)
+				assert.NotContains(t, metadata, fullName)
+			}
+
+			mockClient.AssertNumberOfCalls(t, "ExecuteGraphQL", tc.wantCalls)
+			mockClient.AssertExpectations(t)
+		})
+	}
+}
+
+func TestSyncOrganizationStopsWhenContextCanceled(t *testing.T) {
+	tests := []struct {
+		name      string
+		setup     func(m *gh.MockClient, cancel context.CancelFunc)
+		wantCalls int
+	}{
+		{
+			name: "canceled before the retry",
+			setup: func(m *gh.MockClient, cancel context.CancelFunc) {
+				m.On("ExecuteGraphQL", mock.Anything, queryFor("repo-one", "repo-two")).
+					Run(func(mock.Arguments) { cancel() }).
+					Return(batchResponse("owner/repo-one"), nil).Once()
+			},
+			wantCalls: 1,
+		},
+		{
+			name: "canceled during the retry",
+			setup: func(m *gh.MockClient, cancel context.CancelFunc) {
+				m.On("ExecuteGraphQL", mock.Anything, queryFor("repo-one", "repo-two")).
+					Return(batchResponse("owner/repo-one"), nil).Once()
+				m.On("ExecuteGraphQL", mock.Anything, queryFor("repo-two")).
+					Run(func(mock.Arguments) { cancel() }).
+					Return(nil, errNetworkTimeout).Once()
+			},
+			wantCalls: 2,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+
+			mockClient := gh.NewMockClient()
+			tc.setup(mockClient, cancel)
+			pipeline := newOrgPipeline(mockClient, "repo-one", "repo-two")
+
+			metadata, failures, err := pipeline.SyncOrganization(ctx, "owner")
+			require.ErrorIs(t, err, context.Canceled)
+			assert.Contains(t, metadata, "owner/repo-one")
+			// A repo the canceled run never finished is not reported as failed
+			assert.Empty(t, failures)
+
+			mockClient.AssertNumberOfCalls(t, "ExecuteGraphQL", tc.wantCalls)
+			mockClient.AssertExpectations(t)
+		})
+	}
+}
+
+func TestCollectMetadataWaitsBetweenBatchesAfterFailure(t *testing.T) {
+	// 26 repos make two batches; the first fails with a rate-limit error (so no
+	// retries), and the inter-batch wait must still run before the second
+	names := numberedRepos(DefaultBatchSize + 1)
+
+	mockClient := gh.NewMockClient()
+	mockClient.On("ExecuteGraphQL", mock.Anything, queryFor(names[:DefaultBatchSize]...)).
+		Return(nil, errAPIRateLimited).Once()
+	mockClient.On("ExecuteGraphQL", mock.Anything, queryFor(names[DefaultBatchSize:]...)).
+		Return(batchResponse("owner/"+names[DefaultBatchSize]), nil).Once()
+
+	pipeline := newOrgPipeline(mockClient, names...)
+	cfg := DefaultThrottleConfig()
+	cfg.InterRepoDelay = 50 * time.Millisecond
+	pipeline.throttle = NewThrottle(cfg, nil)
+
+	start := time.Now()
+	metadata, failures, err := pipeline.SyncOrganization(t.Context(), "owner")
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, time.Since(start), cfg.InterRepoDelay)
+
+	assert.Len(t, metadata, 1)
+	assert.Len(t, failures, DefaultBatchSize)
+	mockClient.AssertNumberOfCalls(t, "ExecuteGraphQL", 2)
 }
 
 func TestCollectMetadata_ContextCancellation(t *testing.T) {
@@ -652,10 +1031,11 @@ func TestCollectMetadata_ContextCancellation(t *testing.T) {
 		}{Login: "org"}},
 	}
 
-	result, err := pipeline.collectMetadata(ctx, repos)
+	result, failures, err := pipeline.collectMetadata(ctx, repos)
 	require.Error(t, err)
 	assert.Equal(t, context.Canceled, err)
 	assert.Empty(t, result)
+	assert.Empty(t, failures)
 }
 
 func TestIsComplexityError(t *testing.T) {

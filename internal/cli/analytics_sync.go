@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -718,9 +720,16 @@ func syncOrganization(
 	}
 
 	// Discover repos via Pipeline
-	metadata, err := pipeline.SyncOrganization(ctx, org)
+	metadata, failures, err := pipeline.SyncOrganization(ctx, org)
 	if err != nil {
 		return fmt.Errorf("failed to sync owner %s: %w", org, err)
+	}
+
+	// Record repos whose metadata could not be collected, even on retry. The
+	// metadata reads happened in dry-run mode too, so record them in both modes.
+	for _, fullName := range slices.Sorted(maps.Keys(failures)) {
+		output.Warn(fmt.Sprintf("Failed to collect metadata for %s: %v", fullName, failures[fullName]))
+		pipeline.RecordSyncRunError(ctx, syncRun, fullName, failures[fullName])
 	}
 
 	if showProgress {

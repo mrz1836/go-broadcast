@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -960,4 +961,111 @@ func TestSyncManagedRepos(t *testing.T) {
 		require.NoError(t, err)
 		assert.Positive(t, run.ReposFailed)
 	})
+}
+
+// TestSyncSingleRepositoryRecoversOmittedRepo covers #258: a repo the first
+// response leaves out is queried again and synced, so the run does not end partial.
+func TestSyncSingleRepositoryRecoversOmittedRepo(t *testing.T) {
+	ghMock := gh.NewMockClient()
+	ghMock.On("ExecuteGraphQL", mock.Anything, mock.Anything).
+		Return(map[string]any{}, nil).Once()
+	ghMock.On("ExecuteGraphQL", mock.Anything, mock.Anything).Return(map[string]any{
+		"repo0": map[string]any{"nameWithOwner": "org/repo", "stargazerCount": float64(5)},
+	}, nil).Once()
+	ghMock.On("GetRepository", mock.Anything, "org/repo").Return(&gh.Repository{}, nil)
+	setupNoSecurityOrCI(ghMock, "org/repo")
+
+	mockRepo := new(mockAnalyticsRepo)
+	mockRepo.On("UpsertOrganization", mock.Anything, mock.Anything).Return(nil)
+	mockRepo.On("UpsertRepository", mock.Anything, mock.Anything).Return(nil)
+	mockRepo.On("CreateSnapshot", mock.Anything, mock.Anything).Return(nil)
+	mockRepo.On("GetAlertCountsByType", mock.Anything, mock.Anything).Return(map[string]int{}, nil)
+	mockRepo.On("UpdateRepoSyncTimestamp", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	pipe := newTestPipeline(ghMock, mockRepo)
+	run := &db.SyncRun{}
+	err := syncSingleRepository(t.Context(), pipe, mockRepo, run, "org", "repo", false, false, true)
+	require.NoError(t, err)
+	assert.Equal(t, 0, run.ReposFailed)
+	assert.Equal(t, 1, run.ReposProcessed)
+	ghMock.AssertNumberOfCalls(t, "ExecuteGraphQL", 2)
+}
+
+// newOwnerOrgPipeline seeds an in-memory DB with org "owner" and its repos
+// repo-one and repo-two, and returns a pipeline over that DB
+func newOwnerOrgPipeline(t *testing.T, ghMock *gh.MockClient) (*analytics.Pipeline, db.AnalyticsRepo) {
+	t.Helper()
+
+	gormDB := db.TestDB(t)
+	client := &db.Client{Name: "owner"}
+	require.NoError(t, gormDB.Create(client).Error)
+	org := &db.Organization{ClientID: client.ID, Name: "owner"}
+	require.NoError(t, gormDB.Create(org).Error)
+	for _, name := range []string{"repo-one", "repo-two"} {
+		require.NoError(t, gormDB.Create(&db.Repo{OrganizationID: org.ID, Name: name}).Error)
+	}
+
+	analyticsRepo := db.NewAnalyticsRepo(gormDB)
+	logger := logrus.New()
+	logger.SetLevel(logrus.PanicLevel)
+	pipe := analytics.NewPipeline(
+		ghMock, analyticsRepo,
+		db.NewRepoRepository(gormDB), db.NewOrganizationRepository(gormDB),
+		logger, nil,
+	)
+	return pipe, analyticsRepo
+}
+
+// TestSyncOrganizationRecordsReposMissingAfterRetry checks that org mode records
+// a repo that is still missing after its retry in the sync run (so the run ends
+// partial instead of completed), while the rest of the org is still synced.
+func TestSyncOrganizationRecordsReposMissingAfterRetry(t *testing.T) {
+	tests := []struct {
+		name          string
+		dryRun        bool
+		wantSnapshots int
+	}{
+		{name: "dry run", dryRun: true, wantSnapshots: 0},
+		{name: "full run", dryRun: false, wantSnapshots: 1},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ghMock := gh.NewMockClient()
+			// The batch query for both repos returns only repo-one (alias repo0)...
+			ghMock.On("ExecuteGraphQL", mock.Anything, mock.MatchedBy(func(query string) bool {
+				return strings.Contains(query, "repo1:")
+			})).Return(map[string]any{
+				"repo0": map[string]any{"nameWithOwner": "owner/repo-one", "stargazerCount": float64(3)},
+			}, nil).Once()
+			// ...and the retry for repo-two on its own fails
+			ghMock.On("ExecuteGraphQL", mock.Anything, mock.MatchedBy(func(query string) bool {
+				return strings.Contains(query, `name: "repo-two"`) && !strings.Contains(query, "repo1:")
+			})).Return(nil, errMockGH).Once()
+			if !tc.dryRun {
+				ghMock.On("GetRepository", mock.Anything, "owner/repo-one").Return(&gh.Repository{}, nil)
+				setupNoSecurityOrCI(ghMock, "owner/repo-one")
+			}
+
+			pipe, analyticsRepo := newOwnerOrgPipeline(t, ghMock)
+			run := &db.SyncRun{}
+			require.NoError(t, syncOrganization(t.Context(), pipe, analyticsRepo, run, "owner", false, tc.dryRun, true))
+
+			assert.Equal(t, 1, run.ReposFailed)
+			assert.Equal(t, 1, run.ReposProcessed)
+			assert.Equal(t, tc.wantSnapshots, run.SnapshotsCreated)
+
+			recorded, ok := run.Errors["errors"].([]any)
+			require.True(t, ok)
+			require.Len(t, recorded, 1)
+			entry, ok := recorded[0].(map[string]any)
+			require.True(t, ok)
+			assert.Equal(t, "owner/repo-two", entry["repo"])
+			assert.Contains(t, entry["error"], analytics.ErrMetadataNotReturned.Error())
+			assert.Contains(t, entry["error"], errMockGH.Error())
+
+			ghMock.AssertNumberOfCalls(t, "ExecuteGraphQL", 2)
+			ghMock.AssertExpectations(t)
+		})
+	}
 }
