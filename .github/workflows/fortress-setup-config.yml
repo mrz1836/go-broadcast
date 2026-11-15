@@ -949,7 +949,15 @@ jobs:
           echo "| **Static Analysis** | $([ "${{ env.ENABLE_STATIC_ANALYSIS }}" == "true" ] && echo "✅" || echo "❌") | $([ "${{ env.ENABLE_STATIC_ANALYSIS }}" == "true" ] && echo "go vet" || echo "Skipped") |" >> $GITHUB_STEP_SUMMARY
           echo "| **YAML Linting** | $([ "${{ env.ENABLE_YAML_LINT }}" == "true" ] && echo "✅" || echo "❌") | $([ "${{ env.ENABLE_YAML_LINT }}" == "true" ] && echo "yamlfmt" || echo "Skipped") |" >> $GITHUB_STEP_SUMMARY
           echo "| **Redis Service** | $([ "${{ steps.redis-config.outputs.redis-enabled }}" == "true" ] && echo "✅" || echo "❌") | $([ "${{ steps.redis-config.outputs.redis-enabled }}" == "true" ] && echo "Redis ${{ env.REDIS_VERSION }}" || echo "Not available") |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Go Docs** | $([ "${{ env.ENABLE_GODOCS_PUBLISHING }}" == "true" ] && echo "✅" || echo "❌") | $([ "${{ env.ENABLE_GODOCS_PUBLISHING }}" == "true" ] && echo "Publish to pkg.go.dev" || echo "Skipped") |" >> $GITHUB_STEP_SUMMARY
+          # Go docs are published by the release job, so ENABLE_RELEASE=false skips them too
+          if [[ "${{ env.ENABLE_GODOCS_PUBLISHING }}" != "true" ]]; then
+            GODOCS_STATUS="❌"; GODOCS_IMPACT="Skipped"
+          elif [[ "${{ steps.config.outputs.release-enabled }}" == "false" ]]; then
+            GODOCS_STATUS="❌"; GODOCS_IMPACT="Skipped (release publishing off)"
+          else
+            GODOCS_STATUS="✅"; GODOCS_IMPACT="Publish to pkg.go.dev"
+          fi
+          echo "| **Go Docs** | $GODOCS_STATUS | $GODOCS_IMPACT |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "</details>" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
