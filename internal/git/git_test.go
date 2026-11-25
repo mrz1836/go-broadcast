@@ -106,6 +106,10 @@ func TestGetCurrentCommitSHA(t *testing.T) {
 
 // TestGetRepositoryInfo tests the GetRepositoryInfo function
 func TestGetRepositoryInfo(t *testing.T) {
+	// The asserted remote URLs must not be rewritten by a developer's
+	// url.<base>.insteadOf settings (e.g. SSH -> HTTPS).
+	isolateGitConfig(t)
+
 	client, err := NewClient(logrus.New(), &logging.LogConfig{})
 	require.NoError(t, err)
 
